@@ -1,0 +1,38 @@
+# Matriz de riscos
+
+> Versão 2026-11-11. Origem: [revisão técnica](etapa-0-revisao-tecnica.md), seção 12, atualizada com as decisões do [registro](registro-de-decisoes.md).
+> **P** = probabilidade e **I** = impacto (A alta, M média, B baixa), avaliados **após** as mitigações já decididas, salvo indicação.
+> "Etapa" é onde a mitigação é implementada e verificada.
+
+| ID | Risco | Categoria | P | I | Mitigação (decisão / documento) | Etapa | Risco residual |
+|---|---|---|---|---|---|---|---|
+| R-01 | Mensagem de possível emergência recebida em `WAITING_HUMAN` sem orientação adequada | Segurança do animal | B | A | Modo restrito com sinal de emergência + orientação inserida pelo backend + fail-safe em falha (DA-11, ADR-0007) | E4 | O indício depende do modelo; política de emergência ainda pendente (P-01) |
+| R-02 | Pedido explícito de humano não reconhecido | Requisito / UX | B | A | Detector determinístico antes do modelo e da validação (DA-11) | E4 | Expressões fora da lista (PT-10) dependem do modelo |
+| R-03 | Conversa encaminhada sem ninguém para atender | UX / operação | A | A | Semântica explícita de `WAITING_HUMAN`; indicador de atraso; orientação de prazo vencido (ADR-0007) | E4 | **Alto enquanto P-02 e P-14 não forem definidas**; sem notificação no MVP |
+| R-04 | Informação institucional inventada não detectada | Confiabilidade | M | A | Fontes declaradas + V1–V6 + perguntas-armadilha + limites documentados (DA-12, ADR-0008) | E3, E6 | Limites do ADR-0008 (por extenso, afirmações sem valor, assunto errado) |
+| R-05 | Resposta correta reprovada pelo validador (falso positivo) | UX | M | M | Autorização por eco do tutor (V2-b); taxa de reprovação medida | E3, E6 | Formatos ambíguos |
+| R-06 | Texto e metadados contraditórios ("vou passar para a equipe" sem encaminhar) | UX / confiança | B | A | Reconciliação; inconsistência = falha; falha envolvendo encaminhamento → resposta de encaminhamento (DA-01) | E4 | Paráfrases não detectadas |
+| R-07 | Dados pessoais enviados ao provedor de IA sem definição de base legal e transparência | LGPD | B (só dados fictícios até E7) | A | Barreira G1–G4 (DA-16, DA-17) | E7 | Depende de definições da clínica e de validação jurídica |
+| R-08 | Vazamento da API Key dá acesso a todos os dados | Segurança | M | M (só dados fictícios) | Chave só em testes; autenticação individual na E7 (DA-06) | E2, E7 | Até a E7 não há auditoria por pessoa |
+| R-09 | Conversas misturando atendimentos diferentes | Correção | B | M | Ciclo de vida e expiração (DA-13) | E2 | Prazo P-05 provisório até ser definido |
+| R-10 | Solicitação duplicada quando o tutor volta após a expiração | Operação | M | B | Equipe vê as duas; aceito no MVP (ADR-0009) | — | Aceito |
+| R-11 | Dado extraído errado tratado como confirmado | Correção | M | M | Proveniência em quatro níveis; confirmação só com critério P-08 (DA-14) | E5 | Detecção de confirmação depende do modelo |
+| R-12 | Testes com IA real instáveis (não determinísticos) | Qualidade | A | M | Asserções sobre metadados e regras; repetição com limite de aprovação; temperatura em P-09 | E2–E6 | Variação entre versões do modelo |
+| R-13 | Mudanças de API no Spring AI *milestone* (2.0.0-M4) | Manutenção | M | M | Versão fixada; Spring AI isolado no módulo `ai`; verificação de APIs no início da E2 (DM-02) | E2 | Atualização para GA exigirá revisão do adaptador |
+| R-14 | Custo e latência por turno (prompt com base inteira, chamada extra em `WAITING_HUMAN`, falhas) | Operação | M | M | Orçamento de tokens; limite de tamanho de mensagem; métricas por turno; timeout (P-09) | E2, E6 | Sem *rate limiting* até PT-07 |
+| R-15 | Erro no YAML institucional derruba a aplicação | Operação | M | B | Validação fail-fast com mensagem clara (DA-03) | E3 | Exige quem saiba editar YAML |
+| R-16 | *Prompt injection* via mensagem do tutor | Segurança | M | B | Sem tools; conteúdo delimitado como dado; validação do texto; cenários na E6 | E2–E6 | Texto manipulado que passe pela validação |
+| R-17 | Questionários preenchidos ou dados reais versionados no Git | Privacidade | B | A | Repositório próprio; `.gitignore` antes do primeiro commit (DA-09) | E1 | Arquivos com nomes inesperados; revisar o `git status` |
+| R-18 | Respostas longas, robóticas ou com menus repetidos | UX | M | M | Regras no `system-message.st`; avaliação qualitativa (P-10) | E2, E6 | Subjetivo |
+| R-19 | *Placeholders* de política (emergência, prazo) chegando a uso real | Segurança / operação | B | A | Verificação automática na inicialização do ambiente real; barreira E7 | E7 | — |
+| R-20 | Perda de informação livre fora da janela de 20 mensagens | UX | M | M | Dados estruturados preservados pelas camadas 3 e 5; medição na E6 (DA-10) | E6 | Informação livre antiga se perde |
+| R-21 | Decisões pendentes de entrada não tomadas a tempo, travando etapas | Prazo | M | M | Pendências por etapa explícitas no roadmap; checklist de entrada | Todas | — |
+| R-22 | Repositório Git na pasta do usuário versionar dados pessoais por acidente | Privacidade | M | A | Fora do escopo do projeto; recomendado tratar (ADR-0013) | — | Depende de ação fora do projeto |
+| R-23 | Encaminhamento em excesso por falso positivo do detector | Operação | M | B | Expressões em vez de palavras soltas; frases de controle nos testes (PT-10) | E4 | Aceito (falha em direção ao humano) |
+| R-24 | Mensagens simultâneas na mesma conversa gerando conflito ou respostas duplicadas | UX | B (API de teste) / A (WhatsApp) | M | Conflito → `409` sem reenvio (DA-21); tratamento completo no futuro adaptador WhatsApp | E2 | Relevante só com o canal real |
+
+| R-25 | **Sub-triagem**: possível emergência descrita de forma vaga ou coloquial não reconhecida | Segurança do animal | M | A | Pisos de incerteza (H7), prioridade nunca rebaixada automaticamente, fail-safe, lista determinística de expressões de alerta (DA-27, ADR-0018, 0019) | E4, E6 | Depende de P-20 e da qualidade do modelo |
+| R-26 | **Super-triagem**: muitas conversas em P1/P2, cansando a equipe e reduzindo a atenção às reais emergências | Operação | M | M | Medição da distribuição por nível e da frequência de rebaixamento pela equipe (E6); ajuste de critérios com a equipe veterinária | E6 | Aceito como preferível à sub-triagem |
+| R-27 | Critérios clínicos ilustrativos usados como se fossem aprovados | Segurança / responsabilidade | B | A | Lista ilustrativa só com dados fictícios; ambiente real recusa iniciar sem P-20 (ADR-0014, 0018) | E7 | — |
+| R-28 | Tom inadequado em situação delicada (luto, desespero, dificuldade financeira): frio, comercial ou emotivo demais | UX / reputação | M | A | Diretrizes no prompt; sinais com tratamento específico; RN-D08 e RN-D14; avaliação qualitativa com a clínica (E6) | E4, E6 | Subjetivo; depende de avaliação humana |
+| R-29 | Conversa em acompanhamento (P3) sem contexto do atendimento anterior, por causa do ADR-0009 | UX | M | M | O assistente pergunta sem presumir continuidade e encaminha; PT-15 | E5 | Até decisão de PT-15 |

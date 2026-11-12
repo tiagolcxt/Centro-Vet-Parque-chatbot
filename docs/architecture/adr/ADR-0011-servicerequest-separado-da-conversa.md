@@ -1,0 +1,49 @@
+# ADR-0011 — ServiceRequest separado da conversa; solicitação ≠ agendamento
+
+- **Status:** Aceito, com pendências (PT-08, P-15)
+- **Data:** 2026-11-11
+- **Decisão:** DA-07
+
+## Contexto
+
+A proposta original tinha um único `PATCH /api/service-requests/{id}` que também mudava o estado da conversa (D6), acoplando dois agregados. O MVP não tem integração com agenda: o assistente só organiza pedidos. Nunca pode afirmar que uma consulta está marcada.
+
+## Decisão
+
+1. **`ServiceRequest` e `Conversation` são agregados independentes**, cada um com suas operações:
+
+   | Operação | Endpoint | Efeito | Não faz |
+   |---|---|---|---|
+   | Atualizar solicitação | `PATCH /api/service-requests/{id}` | Transição de status pela equipe: `IN_PROGRESS`, `RESOLVED`, `CANCELLED` | Não altera a conversa |
+   | Encerrar conversa | `POST /api/conversations/{id}/close` | `CLOSED`, `closeReason = CLOSED_BY_STAFF` | Não resolve solicitações |
+   | Devolver ao assistente | `POST /api/conversations/{id}/return-to-assistant` | `WAITING_HUMAN` → `OPEN` | Não resolve solicitações |
+
+2. **Ciclo de vida da solicitação:**
+   ```
+   COLLECTING ──submit()──► PENDING ──► IN_PROGRESS ──► RESOLVED
+       └──────────────────────┴─────────────┴──────────► CANCELLED
+   ```
+   - `COLLECTING`: dados ainda em coleta pelo assistente.
+   - `submit()` só é aceito com os dados obrigatórios completos (P-13).
+   - Tipos: `APPOINTMENT`, `INFORMATION`, `FOLLOW_UP`, `HUMAN_CONTACT`.
+3. **Solicitação de agendamento não é agendamento.**
+   - O modelo de dados **não tem** data/hora confirmada: só `preferredPeriod` em texto livre, como informado pelo tutor.
+   - Nomes na API e no código: `appointmentRequest`, nunca `appointment` sozinho.
+   - O assistente **nunca** afirma que uma consulta foi marcada ou confirmada. A validação bloqueia essas expressões (ADR-0008, V5).
+   - Se o tutor perguntar se está confirmado, o assistente diz que o pedido foi registrado para a equipe e que a confirmação de dia e horário é feita pela equipe. Ele não tem como saber o desfecho.
+4. Encerrar uma conversa com solicitações abertas é permitido. Elas continuam na listagem `GET /api/service-requests?status=...`.
+
+## Pendências ligadas
+
+- **PT-08:** registrar o **desfecho** da solicitação (ex.: `resolutionNote` ou enum), já que `RESOLVED` não diferencia "agendado pela equipe" de "sem horário" ou "desistiu".
+- **P-15:** o que o assistente deve dizer quando a equipe resolveu por fora (telefone) e o tutor volta a perguntar.
+
+## Alternativas consideradas
+
+- **Um endpoint que altera os dois agregados** (proposta original): combinações ambíguas; rejeitada.
+- **Estado de agendamento confirmado no MVP:** exigiria integração com agenda (fora do escopo) ou registro manual que o assistente poderia repetir; rejeitada.
+
+## Consequências
+
+- A equipe faz duas ações quando quer resolver a solicitação e encerrar a conversa. É mais explícito e um pouco mais trabalhoso sem um painel.
+- A separação conceitual fica garantida pelo próprio modelo de dados, não só por instrução ao modelo de IA.

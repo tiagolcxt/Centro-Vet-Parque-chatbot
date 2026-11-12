@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------
+# Política de versionamento: docs/architecture/adr/ADR-0013
+# NUNCA versionar: dados reais da clínica, questionários
+# preenchidos, credenciais, dumps, exportações de conversas, logs.
+# ---------------------------------------------------------------
+
+# Credenciais e configuração local
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml
+*.local.properties
+application-local.*
+secrets/
+
+# Conhecimento institucional real (só o *.example é versionado; ADR-0003)
+config/clinic-knowledge.yml
+config/*.real.yml
+
+# Material da clínica (deve ficar fora do repositório; por garantia)
+levantamento/
+*.docx
+*.xlsx
+Questionario_*
+
+# Dados, dumps, exportações e logs
+/data/
+/exports/
+*.dump
+*.sql.gz
+*.bak
+logs/
+*.log
+
+# Build e Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+bin/
+
+# IDEs e sistema
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+desktop.ini
