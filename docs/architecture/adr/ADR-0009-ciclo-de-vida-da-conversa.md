@@ -11,7 +11,7 @@ A proposta original só criava conversas por `POST` explícito e não definia qu
 ## Decisão
 
 1. **Uma conversa representa um atendimento contínuo** de um contato (`channel` + `externalContactId`).
-2. **No máximo uma conversa ativa** (`OPEN` ou `WAITING_HUMAN`) por contato. A regra é garantida pela aplicação dentro de transação. O mecanismo no banco (constraint com coluna gerada ou lock) será verificado na Etapa 2.
+2. **No máximo uma conversa ativa** (`OPEN` ou `WAITING_HUMAN`) por contato. A regra é garantida pela aplicação dentro de transação **e pelo banco** (Etapa 2, migration `V2`): uma coluna gerada `active_marker` vale 1 para conversa ativa e `NULL` para encerrada, e o índice único `(channel, external_contact_id, active_marker)` impede uma segunda ativa. Os `NULL` não colidem, então as encerradas não contam. Na aplicação, a conversa ativa é lida com lock pessimista e, se duas transações tentarem abrir conversa ao mesmo tempo, a perdedora falha no índice e é repetida, relendo a vencedora. Testado com 8 aberturas simultâneas do mesmo contato.
 3. **Uma conversa nova começa quando**, ao chegar uma mensagem (ou um `POST /api/conversations`) de um contato:
    - não há conversa ativa; **ou**
    - a conversa ativa está **expirada por inatividade**: `now > lastActivityAt + prazo(status)`. Nesse caso, ela é encerrada (`CLOSED`, `closeReason = EXPIRED`) antes de abrir a nova.

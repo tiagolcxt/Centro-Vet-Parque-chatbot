@@ -11,4 +11,9 @@ public interface MessageRepository {
      * para a mais nova). Base da janela de histórico (ADR-0004).
      */
     List<Message> findLatest(ConversationId conversationId, int limit);
+
+    /** Uma página do histórico completo, em ordem cronológica. {@code page} começa em 0. */
+    List<Message> findPage(ConversationId conversationId, int page, int size);
+
+    long countByConversation(ConversationId conversationId);
 }

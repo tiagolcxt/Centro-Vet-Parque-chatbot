@@ -2,18 +2,24 @@ package com.clinicavet.assistant.shared.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Tradução centralizada de erros para ProblemDetail (RFC 9457). Erros de validação de entrada do
- * Spring MVC são tratados pela classe base.
+ * Tradução centralizada de erros para ProblemDetail (RFC 9457). Corpo inválido (Bean Validation) vira
+ * {@code 422} (DM-11); JSON malformado e demais erros do Spring MVC seguem a classe base ({@code 400}).
  * <p>
  * Os logs nunca incluem conteúdo de mensagens nem dados pessoais (DM-12).
  */
@@ -48,6 +54,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(ConcurrentTurnException.class)
+    ProblemDetail handleConcurrentTurn(ConcurrentTurnException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Mensagens simultâneas na mesma conversa");
+        problem.setProperty("messageRecorded", true);
+        return problem;
+    }
+
     @ExceptionHandler(MissingRequiredFieldsException.class)
     ProblemDetail handleMissingFields(MissingRequiredFieldsException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT,
@@ -76,5 +90,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setTitle("Erro interno");
         problem.setProperty("errorId", errorId);
         return problem;
+    }
+
+    /** Corpo da requisição violou Bean Validation: {@code 422}, com os campos e sem os valores. */
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+                                                                  HttpHeaders headers, HttpStatusCode status,
+                                                                  WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT,
+                "Requisição com campos inválidos.");
+        problem.setTitle("Valor inválido");
+        List<String> fields = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .toList();
+        problem.setProperty("fields", fields);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(problem);
     }
 }

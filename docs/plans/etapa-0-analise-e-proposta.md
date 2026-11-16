@@ -287,7 +287,7 @@ Todos em UTF-8 explícito **[DM-05]**.
 3. **Falha:**
    - o estado não muda e o tutor recebe a resposta segura padrão;
    - se a falha envolve encaminhamento, a resposta segura é a de encaminhamento;
-   - novas tentativas e timeout: **P-09**.
+   - novas tentativas e timeout: no máximo 1 nova tentativa, 30 s (DA-28, ADR-0016).
 
 ### 4.5 Proteção contra informação inventada (ADR-0008)
 
@@ -345,12 +345,12 @@ sequenceDiagram
 
 1. **Conversa e entrada (tx1):**
    - resolve a conversa ativa do contato e aplica a expiração (ADR-0009);
-   - valida a entrada (tamanho máximo: **P-09**; conversa não encerrada);
+   - valida a entrada (tamanho máximo: 2.000 caracteres, DA-28; conversa não encerrada);
    - persiste a mensagem do tutor **antes** de qualquer chamada ao modelo **[DM-15]**.
 2. **Detecção determinística** de pedido explícito de humano (E4). Quando detectado, o encaminhamento está decidido, independentemente do que ocorrer depois.
 3. **Conversa em `WAITING_HUMAN`:** fluxo restrito (5.3).
 4. **Contexto:** camadas 1–5, conforme a etapa.
-5. **Chamada principal** fora de transação, com timeout (**P-09**).
+5. **Chamada principal** fora de transação, com timeout de 30 s (DA-28).
 6. **Classificação, validação e reconciliação** (4.4, 4.5).
 7. **Regras (tx2, lock otimista):**
    - `HandoffPolicy`;
@@ -441,7 +441,7 @@ Todas as rotas `/api/**` exigem `X-Api-Key` desde a Etapa 2 (ADR-0012). Entrada 
 
 - **Docker é pré-requisito** a partir da Etapa 1.
 - **Métricas por turno, sem conteúdo** (Etapa 6): intenção, encaminhamento e motivo, reprovação do validador, falha e tipo, tokens, latência. Elas medem os critérios de reavaliação dos ADR-0002, 0004 e 0008.
-- Testes com IA real verificam **metadados e regras** (intenção, encaminhamento, lacuna, validação) e rodam cenários repetidos com limite de aprovação. Os parâmetros de repetição são definidos junto com P-09.
+- Testes com IA real verificam **metadados e regras** (intenção, encaminhamento, lacuna, validação) e rodam cenários repetidos com limite de aprovação. Cada cenário roda 10 vezes, com aprovação ≥ 9/10 (DA-28).
 
 ---
 
@@ -473,4 +473,4 @@ Os limites abaixo são complementados pelas [Diretrizes de Atendimento e Conduta
 
 ## 11. Decisões e pendências
 
-O estado completo das decisões aprovadas (DA-01 a DA-27), mantidas (DM-01 a DM-16) e pendentes (P-01 a P-20, PT-02, PT-06 a PT-12, PT-14 e PT-15) está no [registro de decisões](registro-de-decisoes.md), com responsável, etapa e o que cada pendência bloqueia. O mapeamento das antigas D1–D9, C1–C16 e I1–I14 está na seção 5 do registro.
+O estado completo das decisões aprovadas (DA-01 a DA-28), mantidas (DM-01 a DM-16) e pendentes (P-01 a P-08, P-10 a P-20, PT-02, PT-06 a PT-12, PT-14 e PT-15) está no [registro de decisões](registro-de-decisoes.md), com responsável, etapa e o que cada pendência bloqueia. O mapeamento das antigas D1–D9, C1–C16 e I1–I14 está na seção 5 do registro.

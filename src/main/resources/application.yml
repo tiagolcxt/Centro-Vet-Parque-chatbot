@@ -4,6 +4,41 @@
 spring:
   application:
     name: assistant-backend
+  config:
+    # Desenvolvimento: lê OPENAI_API_KEY (e as variáveis do banco) do .env não versionado.
+    # Opcional: fora do desenvolvimento, use variáveis de ambiente de verdade.
+    import: optional:file:.env[.properties]
+  ai:
+    openai:
+      # Nunca no código ou no repositório (DM-12). Sem chave, a aplicação sobe, mas toda chamada
+      # ao modelo falha com 401 e cai no tratamento de falha (ADR-0002).
+      api-key: ${OPENAI_API_KEY:not-configured}
+      chat:
+        options:
+          model: ${assistant.ai.model}
+          reasoning-effort: low            # ADR-0016 / DA-28
+          max-completion-tokens: 2000      # inclui tokens de raciocínio
+          # temperature: NÃO definir. O gpt-6-luna pode não aceitar valor diferente do padrão.
+    retry:
+      # Desliga o retry do Spring AI. Na M4, este valor vira RetryPolicy.maxRetries (novas tentativas,
+      # sem contar a primeira): 0 = uma chamada só. Com 1 havia 2 chamadas (SpringAiAssistantModelIT).
+      # A única nova tentativa por turno é feita pela aplicação (DA-28).
+      max-attempts: 0
+    model:
+      # Só o chat é usado. Áudio, imagem, embeddings e moderação ficam desligados (DM-03).
+      chat: openai
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+  http:
+    clients:
+      # Vale para o RestClient que o Spring AI usa na OpenAI (DA-28). Sem streaming, a API só manda
+      # bytes quando termina, então o read-timeout funciona como prazo total da chamada.
+      connect-timeout: 5s
+      read-timeout: 30s
   jpa:
     open-in-view: false
     hibernate:
@@ -21,6 +56,24 @@ spring:
 
 assistant:
   time-zone: America/Sao_Paulo
+  ai:
+    model: gpt-6-luna                      # ADR-0016 / DA-28; trocar de modelo é só configuração
+  security:
+    # X-Api-Key de /api/** (ADR-0012). Só no .env ou em variável de ambiente; sem ela, a aplicação não sobe.
+    api-key: ${ASSISTANT_API_KEY:}
+  conversation:
+    expiration:
+      # PROVISÓRIO (P-05): valores de desenvolvimento, sem decisão da clínica. Não usar como definitivos.
+      open: 2h
+      waiting-human: 24h
+    history-max-messages: 20               # ADR-0004 / DA-10 (conta a mensagem atual)
+    history-token-budget: 4000             # ADR-0004 / DA-28 (mensagens anteriores, estimativa)
+    max-customer-message-length: 2000      # DA-28
+    retry-backoff: 1s                      # DA-28: espera antes da única nova tentativa
+    # PROVISÓRIO (P-10): texto da resposta segura padrão (ADR-0002), sem dados da clínica.
+    fallback-reply: >-
+      Desculpe, não consegui responder agora. Você pode enviar sua mensagem de novo daqui a pouco?
+      Se for uma situação urgente com o seu animal, procure atendimento veterinário o quanto antes.
 
 logging:
   level:

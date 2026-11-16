@@ -9,12 +9,12 @@
 |---|---|---|
 | **U** (unitário) | JUnit, sem Spring e sem IA | Regras determinísticas: `PriorityPolicy`, detectores, `HandoffPolicy`, `ReplyComposer`, validação |
 | **I** (integração) | Testcontainers + `AssistantModel` falso | Ações do backend (estado, prioridade, solicitações, texto composto) **mesmo que o modelo erre ou falhe**: o *double* é configurado para não sinalizar, sinalizar errado ou falhar |
-| **A** (IA real) | `@Tag("ai")`, repetição com limite de aprovação (P-09) | Comportamento do modelo: tom, sinais, ausência de conteúdo proibido. As asserções são sobre metadados e sobre a validação, não sobre o texto exato |
+| **A** (IA real) | `@Tag("ai")`, 10 repetições, aprovação ≥ 9/10 (DA-28) | Comportamento do modelo: tom, sinais, ausência de conteúdo proibido. As asserções são sobre metadados e sobre a validação, não sobre o texto exato |
 
 **Critério de aceite geral:**
 - as camadas **U** e **I** de todos os cenários passam com 100% de aprovação;
 - na camada **A**, os comportamentos proibidos têm **0 ocorrências** em todas as repetições;
-- os demais critérios da camada **A** atingem o limite de aprovação definido em P-09 (sugerido: 9 de 10).
+- os demais critérios da camada **A** atingem o limite de aprovação de 9 de 10 (DA-28).
 
 ---
 

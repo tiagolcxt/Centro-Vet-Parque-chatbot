@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * O contexto só sobe se o Flyway aplicar a V1 e o Hibernate validar o schema
+ * O contexto só sobe se o Flyway aplicar as migrations e o Hibernate validar o schema
  * ({@code ddl-auto=validate}). Aqui verificamos também as restrições do banco.
  */
 @IntegrationTest
@@ -23,11 +23,11 @@ class SchemaMigrationIT {
     JdbcTemplate jdbc;
 
     @Test
-    void flywayAppliedV1_andHibernateValidatedTheSchema() {
+    void flywayAppliedAllMigrations_andHibernateValidatedTheSchema() {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
 
-        assertThat(versions).containsExactly("1");
+        assertThat(versions).containsExactly("1", "2");
         assertThat(jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()", String.class))
                 .map(String::toLowerCase)
@@ -50,5 +50,46 @@ class SchemaMigrationIT {
                 VALUES (UUID_TO_BIN(?), 'API', 'ficticio-ck2', 'CONFIRMED', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
                 """, UUID.randomUUID().toString()))
                 .isInstanceOf(DataAccessException.class).hasMessageContaining("ck_conversation");
+    }
+
+    /** V2: o banco impede duas conversas ativas do mesmo contato (ADR-0009), inclusive OPEN + WAITING_HUMAN. */
+    @Test
+    void databaseRejectsSecondActiveConversationForSameContact() {
+        String contact = "ficticio-uk-" + UUID.randomUUID();
+        insertConversation(contact, "OPEN");
+
+        assertThatThrownBy(() -> insertConversation(contact, "OPEN"))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("uk_conversation_active_contact");
+        assertThatThrownBy(() -> insertConversation(contact, "WAITING_HUMAN"))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("uk_conversation_active_contact");
+    }
+
+    /** Encerradas não contam: o mesmo contato pode ter várias, mais uma ativa. */
+    @Test
+    void databaseAllowsManyClosedConversationsPlusOneActive() {
+        String contact = "ficticio-uk-" + UUID.randomUUID();
+        insertClosedConversation(contact);
+        insertClosedConversation(contact);
+        insertConversation(contact, "OPEN");
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM conversation WHERE external_contact_id = ?", Integer.class, contact))
+                .isEqualTo(3);
+    }
+
+    private void insertConversation(String contact, String status) {
+        jdbc.update("""
+                INSERT INTO conversation (id, channel, external_contact_id, status, started_at, last_activity_at, version)
+                VALUES (UUID_TO_BIN(?), 'API', ?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
+                """, UUID.randomUUID().toString(), contact, status);
+    }
+
+    private void insertClosedConversation(String contact) {
+        jdbc.update("""
+                INSERT INTO conversation (id, channel, external_contact_id, status, close_reason, started_at,
+                                          last_activity_at, closed_at, version)
+                VALUES (UUID_TO_BIN(?), 'API', ?, 'CLOSED', 'EXPIRED', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6),
+                        UTC_TIMESTAMP(6), 0)
+                """, UUID.randomUUID().toString(), contact);
     }
 }

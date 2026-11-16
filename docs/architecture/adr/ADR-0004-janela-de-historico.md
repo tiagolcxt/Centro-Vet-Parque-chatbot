@@ -1,6 +1,6 @@
 # ADR-0004 — Janela de histórico: 20 mensagens + orçamento de tokens
 
-- **Status:** Aceito, com pendências (P-09)
+- **Status:** Aceito
 - **Data:** 2026-11-11
 - **Decisão:** DA-10
 
@@ -12,10 +12,11 @@ O contexto da conversa precisa ser reconstruído a partir do banco a cada mensag
 
 1. O histórico enviado ao modelo é composto pelas **últimas 20 mensagens da conversa atual**, como mensagens reais `user`/`assistant`.
 2. Aplica-se também um **orçamento de tokens** para o histórico: mensagens são removidas a partir da mais antiga até o total estimado caber no orçamento. Vale o limite que for atingido primeiro (20 mensagens ou orçamento).
-3. **A mensagem atual do tutor nunca é cortada.** Ela é limitada na entrada pelo tamanho máximo de mensagem (P-09).
+3. **A mensagem atual do tutor nunca é cortada.** Ela é limitada na entrada a 2.000 caracteres (DA-28).
 4. **Sem sumarização automática** neste momento.
 5. Somente mensagens da **conversa atual** entram no histórico. Conversas anteriores não entram (ADR-0009).
-6. O valor do orçamento de tokens e o método de estimativa (tokenizador do Spring AI ou aproximação por caracteres, a verificar na Etapa 2) são parâmetros configuráveis. Os valores finais estão **pendentes (P-09)**.
+6. O valor do orçamento de tokens é configurável. Orçamento definido: **4.000 tokens** estimados (DA-28, ADR-0016). Método de estimativa (Etapa 2): tokenizador do Spring AI (JTokkit, codificação `o200k_base`) mais 4 tokens por mensagem. O tokenizador do `gpt-6-luna` não é publicado, então o valor é estimativa.
+7. Na implementação (Etapa 2), o limite de 20 **conta a mensagem atual** (19 anteriores + a atual) e o orçamento vale para as **anteriores**. Detalhes em [context-management.md](../context-management.md).
 
 ## Alternativas consideradas
 

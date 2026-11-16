@@ -1,6 +1,6 @@
 # ADR-0008 — Validação de respostas e rastreamento de fontes institucionais
 
-- **Status:** Aceito, com pendências (PT-11, P-09)
+- **Status:** Aceito, com pendências (PT-11)
 - **Data:** 2026-11-11
 - **Decisões:** DA-12, DA-26 (V6 ampliada)
 
@@ -43,7 +43,7 @@ O `AssistantTurn` passa a conter:
 `knowledgeGap = true` gera (ou atualiza) uma `ServiceRequest(INFORMATION)`, para a equipe responder a dúvida.
 
 ### 5. Tratamento da reprovação
-Conforme ADR-0002 (falha). O número de novas tentativas é **pendente (P-09)**.
+Conforme ADR-0002 (falha). No máximo 1 nova tentativa por turno (DA-28).
 
 ### 6. Estratégia de teste desde a introdução (Etapa 3)
 - **Testes unitários** do validador com um conjunto versionado de respostas aprovadas e reprovadas. Para cada formato e verificação acima, ao menos um caso positivo e um negativo, incluindo os falsos positivos conhecidos (eco da preferência).

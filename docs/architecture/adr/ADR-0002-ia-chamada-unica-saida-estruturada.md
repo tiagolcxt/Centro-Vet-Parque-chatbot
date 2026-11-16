@@ -1,6 +1,6 @@
 # ADR-0002 — IA: chamada única, saída estruturada, reconciliação e nenhum acesso à persistência
 
-- **Status:** Aceito, com pendências (P-09)
+- **Status:** Aceito
 - **Data:** 2026-11-11
 - **Decisões:** DA-01, DA-02
 
@@ -30,7 +30,7 @@ O assistente precisa gerar um texto natural para o tutor e, ao mesmo tempo, info
    - se o `reply` afirma que alguém foi avisado ou notificado, o resultado é **inconsistente** (não existe notificação no MVP);
    - se o modelo declara lacuna de conhecimento, mas o `reply` afirma fatos institucionais, o resultado é **inconsistente** (ADR-0008);
    - se há indício de possível emergência, o texto final **sempre** inclui a orientação da política aprovada, inserida pelo backend (ADR-0007).
-5. **Tratamento de falha:** a mensagem do tutor já está persistida e o estado da conversa não é alterado pelo turno com falha. O tutor recebe uma resposta segura padrão. **Quando a falha envolve encaminhamento** (inconsistência sobre transferência, ou pedido explícito de humano detectado), a resposta segura é a de encaminhamento: o sistema falha em direção ao humano. Número de novas tentativas e timeout: **pendente (P-09)**.
+5. **Tratamento de falha:** a mensagem do tutor já está persistida e o estado da conversa não é alterado pelo turno com falha. O tutor recebe uma resposta segura padrão. **Quando a falha envolve encaminhamento** (inconsistência sobre transferência, ou pedido explícito de humano detectado), a resposta segura é a de encaminhamento: o sistema falha em direção ao humano. Novas tentativas e timeout: no máximo 1 nova tentativa por turno (recusa não repete), timeout de 30 s ([ADR-0016](ADR-0016-modelo-parametros-timeout-retry.md), DA-28).
 
 ## Alternativas consideradas
 

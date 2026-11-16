@@ -17,9 +17,9 @@
 | R-09 | Conversas misturando atendimentos diferentes | Correção | B | M | Ciclo de vida e expiração (DA-13) | E2 | Prazo P-05 provisório até ser definido |
 | R-10 | Solicitação duplicada quando o tutor volta após a expiração | Operação | M | B | Equipe vê as duas; aceito no MVP (ADR-0009) | — | Aceito |
 | R-11 | Dado extraído errado tratado como confirmado | Correção | M | M | Proveniência em quatro níveis; confirmação só com critério P-08 (DA-14) | E5 | Detecção de confirmação depende do modelo |
-| R-12 | Testes com IA real instáveis (não determinísticos) | Qualidade | A | M | Asserções sobre metadados e regras; repetição com limite de aprovação; temperatura em P-09 | E2–E6 | Variação entre versões do modelo |
+| R-12 | Testes com IA real instáveis (não determinísticos) | Qualidade | A | M | Asserções sobre metadados e regras; 10 repetições com aprovação ≥ 9/10; sem `temperature`, que pode não ser aceita pelo modelo (DA-28) | E2–E6 | Variação entre versões do modelo |
 | R-13 | Mudanças de API no Spring AI *milestone* (2.0.0-M4) | Manutenção | M | M | Versão fixada; Spring AI isolado no módulo `ai`; verificação de APIs no início da E2 (DM-02) | E2 | Atualização para GA exigirá revisão do adaptador |
-| R-14 | Custo e latência por turno (prompt com base inteira, chamada extra em `WAITING_HUMAN`, falhas) | Operação | M | M | Orçamento de tokens; limite de tamanho de mensagem; métricas por turno; timeout (P-09) | E2, E6 | Sem *rate limiting* até PT-07 |
+| R-14 | Custo e latência por turno (prompt com base inteira, chamada extra em `WAITING_HUMAN`, falhas) | Operação | M | M | Orçamento de tokens; limite de tamanho de mensagem; métricas por turno; timeout 30 s / 15 s, no máximo 1 nova tentativa (DA-28) | E2, E6 | Sem *rate limiting* até PT-07 |
 | R-15 | Erro no YAML institucional derruba a aplicação | Operação | M | B | Validação fail-fast com mensagem clara (DA-03) | E3 | Exige quem saiba editar YAML |
 | R-16 | *Prompt injection* via mensagem do tutor | Segurança | M | B | Sem tools; conteúdo delimitado como dado; validação do texto; cenários na E6 | E2–E6 | Texto manipulado que passe pela validação |
 | R-17 | Questionários preenchidos ou dados reais versionados no Git | Privacidade | B | A | Repositório próprio; `.gitignore` antes do primeiro commit (DA-09) | E1 | Arquivos com nomes inesperados; revisar o `git status` |

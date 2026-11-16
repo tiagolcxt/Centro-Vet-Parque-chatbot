@@ -19,8 +19,9 @@ repositories {
 }
 
 dependencies {
-    // Spring AI: só o BOM nesta etapa (sem uso até a Etapa 2; ADR-0002)
+    // Spring AI 2.0.0-M4 + OpenAI (ADR-0002, ADR-0016)
     implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M4')
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -41,6 +42,24 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs << '-parameters'
+}
+
+// Testes com IA real (DM-13): só com OPENAI_API_KEY (variável de ambiente ou .env) e dados fictícios.
+tasks.register('aiTest', Test) {
+    description = 'Testes que chamam a OpenAI de verdade (@Tag("ai")).'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'ai'
+    }
+    systemProperty 'file.encoding', 'UTF-8'
+    testLogging {
+        events = ['passed', 'skipped', 'failed']
+        exceptionFormat = 'full'
+        showStandardStreams = true
+    }
+    outputs.upToDateWhen { false }
 }
 
 tasks.named('test') {

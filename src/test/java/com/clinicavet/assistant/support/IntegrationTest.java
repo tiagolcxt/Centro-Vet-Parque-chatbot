@@ -9,12 +9,21 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Teste de integração com MySQL real (Testcontainers). Exige Docker em execução. Nunca usa a OpenAI
- * nem dados reais (DA-17).
+ * Teste de integração com MySQL real (Testcontainers) e servidor HTTP real em porta aleatória. Exige
+ * Docker em execução. Usa o {@link FakeAssistantModel} e o {@link TestClock}: nunca chama a OpenAI nem
+ * usa dados reais (DA-17). Prazos de expiração de teste explícitos (P-05 ainda pendente).
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+        "assistant.security.api-key=" + IntegrationTest.API_KEY,
+        "assistant.conversation.expiration.open=30m",
+        "assistant.conversation.expiration.waiting-human=2h",
+        "assistant.conversation.retry-backoff=0s"
+})
+@Import({TestcontainersConfiguration.class, TestDoublesConfiguration.class})
 public @interface IntegrationTest {
+
+    /** Chave fictícia, só de teste. */
+    String API_KEY = "chave-de-teste-ficticia-0123456789abcdef";
 }

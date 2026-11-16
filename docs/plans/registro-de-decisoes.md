@@ -44,6 +44,7 @@
 | DA-25 | **Encaminhamento ampliado**: prioridade P1–P2 (P3 conforme P-20), insatisfação, decisão de funcionário; oferta (ou encaminhamento, P-12) em sofrimento emocional, confusão e conversa improdutiva; sem pedir justificativa nem retomar o fluxo automatizado | Diretrizes 3.1, 3.3 | 0007 |
 | DA-26 | **Validação V6 ampliada**: reprova notificação inexistente, promessa de contato ou retorno sem processo aprovado e afirmação de solicitação resolvida | Diretrizes 1.3, 1.4 | 0008 |
 | DA-27 | **Lista de expressões de alerta** aprovada pela equipe veterinária usada como **verificação determinística** que impõe piso P1/P2: só eleva a prioridade, nunca rebaixa, não diagnostica; ausência de correspondência não significa situação leve | PT-13, decidida em 2026-11-11 (opção A) | 0019 |
+| DA-28 | **Modelo e parâmetros** (ADR-0016): `gpt-6-luna`; `reasoning_effort` `low` (principal e modo restrito); `temperature` não enviada; saída máx. 2.000 / 500 tokens; histórico 20 mensagens + 4.000 tokens; mensagem do tutor até 2.000 caracteres; timeout 30 s / 15 s; no máximo 1 nova tentativa por turno (recusa não repete; modo restrito sem retry); testes com IA 10×, aprovação ≥ 9/10, proibidos 0/10 | P-09, aprovada em 2026-11-16 | 0016 |
 
 ## 2. Decisões mantidas da proposta original
 
@@ -80,7 +81,7 @@
 | P-06 | **Múltiplas solicitações na mesma conversa** (ex.: consulta para um pet e informação sobre vacina): permitidas em paralelo? Uma "em andamento" por vez? | Clínica (como trabalham hoje) + responsável | 5 | Regra de "solicitação em andamento" no contexto operacional; aceite da Etapa 5 |
 | P-07 | **Pedidos envolvendo vários pets** ("marcar para os dois") | Clínica | 5 | Relação solicitação × pet (um ou vários). Pode exigir migration; afeta o schema da Etapa 5 |
 | P-08 | **Critérios para considerar uma informação confirmada**; prazo de validade de `CADASTRADA`; status mínimo exigido para registrar dados numa solicitação | Responsável pelo projeto + clínica | 5 | Transição MENCIONADA → CONFIRMADA; `submit()` da solicitação de agendamento |
-| P-09 | **Modelo, parâmetros e resiliência**: modelo e versão fixada, temperatura, limite de tokens da resposta, orçamento de tokens do histórico, tamanho máximo da mensagem do tutor, timeout, número de novas tentativas | Responsável pelo projeto | 2 | Configuração final do adaptador; estabilidade dos testes com IA real; ADR-0016 |
+| P-09 | ~~Modelo, parâmetros e resiliência~~ | **Decidida → DA-28** (ADR-0016) | — | — |
 | P-10 | **Idioma, formato e persona**: responder sempre em pt-BR?; tamanho máximo da resposta; uso de emojis; nome do assistente; tratamento (você × senhor/senhora) | Clínica (persona, tratamento) + responsável (idioma, formato) | 2 (provisório) / 6 (final) | Texto final do `system-message.st` e dos textos padrão; aceite qualitativo da Etapa 6 |
 | P-11 | **Informações institucionais**: identificação, horários por dia, feriados, atendimento fora do expediente, serviços e especialidades, banho e tosa, **se preços podem ser divulgados** e quais, formas de pagamento, políticas de cancelamento e falta, FAQ, tipos de atendimento que podem ser solicitados | Clínica | 3 (estrutura) / 7 (conteúdo real) | Conteúdo do YAML real; regra de preço (se a clínica não divulgar preços, nenhum valor monetário é autorizado); **barreira G9** |
 | P-12 | **Situações exclusivas de atendimento humano**; encaminhar automaticamente × apenas oferecer em: sintomas, **sofrimento emocional, luto, vulnerabilidade financeira** (diretrizes); texto de recusa sobre medicamentos, doses e exames | Clínica (questionário Q8, Q12) | 4 (*placeholder*) / 7 (definitiva) | Condições 3 e 7 da `HandoffPolicy` |
@@ -155,7 +156,7 @@ Registradas para não se perderem. **Não** fazem parte do escopo até decisão 
 | C14 | P-15 |
 | C15 | P-04 |
 | C16 | P-07 |
-| I1, I12 | P-09 |
+| I1, I12 | DA-28 (ADR-0016) |
 | I2 | DA-13, P-05 |
 | I3 | P-06 |
 | I4 | PT-09 |

@@ -39,11 +39,25 @@ class JpaConversationRepository implements ConversationRepository {
     }
 
     @Override
+    public Optional<Conversation> findByIdForUpdate(ConversationId id) {
+        return jpa.findByIdForUpdate(id.value()).map(ConversationEntity::toDomain);
+    }
+
+    @Override
     public Optional<Conversation> findActiveByContact(ContactIdentity contact) {
-        List<ConversationEntity> active = jpa.findByChannelAndExternalContactIdAndStatusIn(
-                contact.channel(), contact.externalContactId(), ACTIVE);
+        return single(jpa.findByChannelAndExternalContactIdAndStatusIn(
+                contact.channel(), contact.externalContactId(), ACTIVE));
+    }
+
+    @Override
+    public Optional<Conversation> findActiveByContactForUpdate(ContactIdentity contact) {
+        return single(jpa.findActiveForUpdate(contact.channel(), contact.externalContactId(), ACTIVE));
+    }
+
+    private static Optional<Conversation> single(List<ConversationEntity> active) {
         if (active.size() > 1) {
-            // Invariante de ADR-0009 violada. Sem o identificador do contato no log (dado pessoal).
+            // Invariante de ADR-0009 violada (o índice único da V2 impede). Sem o identificador do
+            // contato no log (dado pessoal).
             throw new IllegalStateException("mais de uma conversa ativa para o mesmo contato: " + active.size());
         }
         return active.stream().findFirst().map(ConversationEntity::toDomain);
@@ -65,8 +79,7 @@ class JpaMessageRepository implements MessageRepository {
     }
 
     @Override
-    public List<Message> findLatest(com.clinicavet.assistant.conversation.domain.ConversationId conversationId,
-                                    int limit) {
+    public List<Message> findLatest(ConversationId conversationId, int limit) {
         if (limit <= 0) {
             throw new IllegalArgumentException("limit deve ser positivo");
         }
@@ -76,5 +89,19 @@ class JpaMessageRepository implements MessageRepository {
         List<Message> chronological = new ArrayList<>(newestFirst);
         Collections.reverse(chronological);
         return List.copyOf(chronological);
+    }
+
+    @Override
+    public List<Message> findPage(ConversationId conversationId, int page, int size) {
+        if (page < 0 || size <= 0) {
+            throw new IllegalArgumentException("page deve ser >= 0 e size, positivo");
+        }
+        return jpa.findByConversationIdOrderByCreatedAtAsc(conversationId.value(), PageRequest.of(page, size))
+                .stream().map(MessageEntity::toDomain).toList();
+    }
+
+    @Override
+    public long countByConversation(ConversationId conversationId) {
+        return jpa.countByConversationId(conversationId.value());
     }
 }

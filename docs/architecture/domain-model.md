@@ -1,13 +1,13 @@
 # Modelo de domínio — estado implementado
 
-> Reflete o código ao fim da **Etapa 1** (2026-11-11). Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
+> Reflete o código ao fim da **Etapa 2** (2026-11-16). O domínio não mudou na Etapa 2; mudaram a persistência (V2) e as escolhas de implementação abaixo. Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
 
 ## Agregados
 
 | Agregado | Estados / regras implementadas | Persistência |
 |---|---|---|
 | **Conversation** | `OPEN` ⇄ `WAITING_HUMAN` → `CLOSED` (final). Encerramento por equipe (`CLOSED_BY_STAFF`) ou expiração (`EXPIRED`). Expiração = `now > lastActivityAt + prazo(status)`, com prazos sem valor padrão (P-05). Nunca troca de tutor. A atividade nunca volta no tempo. Estado encerrado sempre tem motivo e data | `conversation` |
-| **Message** | Imutável. Autor `CUSTOMER` ou `ASSISTANT`; só o assistente registra intenção. Conteúdo obrigatório, até 10.000 caracteres (limite de armazenamento; o limite de entrada é P-09) | `message` |
+| **Message** | Imutável. Autor `CUSTOMER` ou `ASSISTANT`; só o assistente registra intenção. Conteúdo obrigatório, até 10.000 caracteres (limite de armazenamento; o limite de entrada é 2.000 caracteres, DA-28) | `message` |
 | **Tutor** | Identificado pelo contato do canal (`ContactIdentity`), único por canal. Nome e telefone opcionais. `lastSeenAt` só avança | `tutor` |
 | **Pet** | Vinculado a um tutor. Nome obrigatório. `OTHER` exige descrição da espécie; `DOG`/`CAT` não aceitam descrição. Raça e idade em texto livre | `pet` |
 | **ServiceRequest** | `COLLECTING → PENDING → IN_PROGRESS → RESOLVED`; `CANCELLED` a partir de qualquer estado não final. `submit()` recebe o conjunto de campos exigidos (`SUMMARY`, `TUTOR`, `PET`) e recusa listando os ausentes; o conjunto real por tipo é P-13. Sem data/hora confirmada (ADR-0011) | `service_request` |
@@ -39,8 +39,21 @@ Decisões de detalhe tomadas na Etapa 1, sem ADR próprio por serem locais e rev
 | I-05 | O banco tem **`CHECK`** para valores de enum e para a consistência de conversa encerrada | Defesa em profundidade contra escrita fora da aplicação; um enum novo exige migration |
 | I-06 | Mensagens com o mesmo instante (mesmo microssegundo) não têm ordem garantida entre si | Improvável na prática; se for um problema, uma coluna de sequência resolve |
 
+Escolhas da Etapa 2 (aguardam o aceite da etapa):
+
+| # | Escolha | Motivo |
+|---|---|---|
+| I-07 | Unicidade da conversa ativa no banco por **coluna gerada + índice único** (`active_marker`, migration `V2`) | O MySQL não tem índice único parcial. `NULL` não colide, então só a ativa conta (ADR-0009) |
+| I-08 | Turno com **lock pessimista** na conversa nas duas transações. Na transação 2, o conflito é detectado pela versão **ou** pela última mensagem gravada | O lock serializa quem altera a conversa. Conferir a última mensagem cobre duas mensagens no mesmo microssegundo, que não mudariam a versão (I-06) |
+| I-09 | Mensagem enviada a uma conversa **encerrada ou expirada** vai para a conversa **ativa do contato**, que pode ser aberta nesse momento. A resposta traz `conversationId` e `newConversation` | Mesmo comportamento do WhatsApp, em que o canal só conhece o contato. A URL serve para identificar o contato |
+| I-10 | Na falha do turno, a **resposta segura é gravada** como mensagem do assistente, sem intenção. A conversa não é alterada | O histórico mostra o que o tutor de fato recebeu; "estado não muda" vale para status e intenção (ADR-0002) |
+| I-11 | O limite de 20 mensagens **conta a atual**; o orçamento de tokens vale para as **anteriores**; estimativa com JTokkit `o200k_base` + 4 por mensagem | ADR-0004 (itens 3, 6 e 7) |
+| I-12 | **429 é repetível**, embora o Spring AI o trate como erro não transitório | DA-28 inclui 429 entre os erros com nova tentativa |
+| I-13 | Corpo inválido (Bean Validation) → **422**; JSON malformado e parâmetro de consulta inválido → **400** | DM-11 pede 422 para entrada inválida; os outros dois são erros de protocolo |
+| I-14 | Sem `ASSISTANT_API_KEY`, ou com menos de 32 caracteres, a aplicação **não sobe** | Evita subir com a API aberta por esquecimento (ADR-0012) |
+| I-15 | Em `WAITING_HUMAN`, o turno ainda segue o fluxo normal | O modo restrito é da Etapa 4; até lá, nada coloca conversas nesse status |
+
 ## Ainda não modelado (por etapa)
 
-- E2: unicidade da conversa ativa garantida também no banco (hoje é verificada no adaptador, que falha se encontrar duas).
 - E4: `clinicalPriority`, `handoffReason`, `handoffAt` (ADR-0007, ADR-0018).
 - E5: proveniência de tutor/pet (ADR-0010), detalhes de agendamento (motivo, preferência), regra de várias solicitações (P-06) e vários pets (P-07).

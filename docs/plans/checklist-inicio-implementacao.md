@@ -39,7 +39,7 @@ Elas têm prazo longo, porque dependem da clínica ou de orientação jurídica.
 | Equipe veterinária | P-20 e itens V1–V7 de [aprovacoes-equipe-veterinaria.md](../product/aprovacoes-equipe-veterinaria.md) (**V5, protocolo de emergência, é prioritário**) |
 | Clínica (diretrizes) | P-19 e itens C1–C7 de [aprovacoes-equipe-veterinaria.md](../product/aprovacoes-equipe-veterinaria.md) |
 | Clínica + orientação jurídica | P-03, P-04, P-16 |
-| Responsável pelo projeto (antes da Etapa 2) | P-09 (PT-01 e PT-05 já decididas) |
+| Responsável pelo projeto (antes da Etapa 2) | — (PT-01, PT-05 e P-09 decididas) |
 
 ---
 
