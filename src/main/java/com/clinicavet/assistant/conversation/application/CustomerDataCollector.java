@@ -5,6 +5,7 @@ import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;
+import com.clinicavet.assistant.conversation.domain.TurnSignal;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequest;
@@ -95,7 +96,7 @@ class CustomerDataCollector {
                 .orElseGet(CustomerRecords::empty);
 
         String tutorName = acceptTutorName(update.tutorName(), customerTexts, records);
-        List<AcceptedPet> accepted = acceptPets(update.pets(), customerTexts, records);
+        List<AcceptedPet> accepted = acceptPets(withAppointmentPet(update), customerTexts, records);
         if (tutorName != null || !accepted.isEmpty()) {
             records = ensureTutor(conversation, records, now);
         }
@@ -122,8 +123,22 @@ class CustomerDataCollector {
         if (handedOff) {
             return Outcome.NONE;
         }
-        return appointment(conversation, turn, update.appointment(), customerTexts, records, requests, collecting,
-                touched, now);
+        return appointment(conversation, turn, update.appointment(), customerTexts, thisConversation, records, requests,
+                collecting, touched, now);
+    }
+
+    /**
+     * O modelo às vezes cita o pet só no pedido ({@code appointmentRequest.petName}) e não em {@code extracted}. O
+     * nome passa pelas mesmas regras, como um pet citado sem espécie (CT-19).
+     */
+    private static List<CustomerUpdate.PetMention> withAppointmentPet(CustomerUpdate update) {
+        String draftName = update.appointment().petName();
+        if (draftName == null || update.pets().stream().anyMatch(p -> NameKey.same(p.name(), draftName))) {
+            return update.pets();
+        }
+        List<CustomerUpdate.PetMention> pets = new ArrayList<>(update.pets());
+        pets.add(new CustomerUpdate.PetMention(draftName, null, null, null, null, false));
+        return pets;
     }
 
     // ---- tutor ----
@@ -370,7 +385,8 @@ class CustomerDataCollector {
     // ---- agendamento (P-06, P-07, P-13 provisórios) ----
 
     private Outcome appointment(Conversation conversation, AssistantTurn turn, CustomerUpdate.AppointmentDraft draft,
-                                List<String> customerTexts, CustomerRecords records, List<ServiceRequest> requests,
+                                List<String> customerTexts, List<Message> thisConversation, CustomerRecords records,
+                                List<ServiceRequest> requests,
                                 Optional<ServiceRequest> collecting, List<Pet> touched, Instant now) {
         String reason = CustomerDataNormalizer.freeText(draft.reason(), ServiceRequest.MAX_REASON_LENGTH);
         String period = CustomerDataNormalizer.freeText(draft.preferredPeriod(), ServiceRequest.MAX_PERIOD_LENGTH);
@@ -381,6 +397,11 @@ class CustomerDataCollector {
             request = collecting.get();
         } else {
             if (!wantsAppointment || (reason == null && period == null && pet.isEmpty())) {
+                return Outcome.NONE;
+            }
+            if (sensitive(turn, thisConversation)) {
+                // CT-19: em assunto sensível o assistente acolhe e oferece a equipe; não abre coleta por conta própria.
+                log.info("Pedido de agendamento não aberto [motivo=assunto_sensivel]");
                 return Outcome.NONE;
             }
             boolean alreadyRegistered = pet.isPresent() && requests.stream()
@@ -414,6 +435,13 @@ class CustomerDataCollector {
             serviceRequests.save(request);
             return Outcome.NONE;
         }
+    }
+
+    /** Assunto sensível neste turno ou em resposta anterior do assistente nesta conversa (sinal gravado na mensagem). */
+    private static boolean sensitive(AssistantTurn turn, List<Message> thisConversation) {
+        return turn.signals().contains(TurnSignal.SENSITIVE_TOPIC) || thisConversation.stream()
+                .anyMatch(m -> m.author() == MessageAuthor.ASSISTANT
+                        && m.metadata().signals().contains(TurnSignal.SENSITIVE_TOPIC));
     }
 
     /** Pet do pedido: o nome citado (se corresponde a um pet do tutor); senão o único pet citado neste turno. */

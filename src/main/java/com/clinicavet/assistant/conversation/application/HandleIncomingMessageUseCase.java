@@ -11,6 +11,7 @@ import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
+import com.clinicavet.assistant.conversation.domain.MessageAuthor;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
 import com.clinicavet.assistant.conversation.domain.PriorityPolicy;
 import com.clinicavet.assistant.conversation.domain.TurnSignal;
@@ -224,6 +225,12 @@ public class HandleIncomingMessageUseCase {
                     // Texto do sistema: o modelo não sabe se o registro deu certo e nunca confirma dia nem horário.
                     reply = reply + "\n\n" + customerData.appointmentRegisteredReply().strip();
                 }
+                // DA-38: a primeira resposta da conversa se apresenta como assistente virtual. Em P1/P2 não: a
+                // orientação vem primeiro (H6).
+                if (start.previous().isEmpty() && !plan.emergency() && !plan.turnLevel().isUrgentOrWorse()
+                        && !reply.toLowerCase(java.util.Locale.ROOT).contains("assistente virtual")) {
+                    reply = settings.firstReplyIntro().strip() + "\n\n" + reply;
+                }
                 failed = false;
             }
             case TurnOutcome.Failed failure -> {
@@ -262,7 +269,11 @@ public class HandleIncomingMessageUseCase {
         boolean overdue = current.handoffAt()
                 .map(at -> now.isAfter(at.plus(handoffSettings.deadlineFor(current.clinicalPriority()))))
                 .orElse(false);
-        String reply = composer.composeWaiting(priority.turnLevel(), emergency, failed, overdue);
+        // CT-19: a resposta da espera varia com o sinal e nunca repete a anterior.
+        String previousReply = start.previous().stream().filter(m -> m.author() == MessageAuthor.ASSISTANT)
+                .reduce((a, b) -> b).map(Message::content).orElse(null);
+        String reply = composer.composeWaiting(priority.turnLevel(), emergency, failed, overdue,
+                signals == null ? Set.of() : signals.signals(), previousReply);
         current.registerActivity(now);
         Conversation saved = conversations.save(current);
         Set<TurnSignal> recorded = EnumSet.noneOf(TurnSignal.class);

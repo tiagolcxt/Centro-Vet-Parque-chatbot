@@ -93,7 +93,7 @@ class KnowledgeTurnIT {
         ApiClient.Response response = api.sendMessage(id, "Quanto custa a consulta?");
 
         assertThat(response.body().path("fallback").asBoolean()).isFalse();
-        assertThat(response.body().path("reply").asString()).isEqualTo("A consulta custa R$ 150,00.");
+        assertThat(response.body().path("reply").asString()).endsWith("A consulta custa R$ 150,00.");
         assertThat(informationRequests(id)).isEmpty();
     }
 
@@ -126,7 +126,7 @@ class KnowledgeTurnIT {
         ApiClient.Response response = api.sendMessage(id, "Pode marcar uma consulta no sábado?");
 
         assertThat(response.body().path("fallback").asBoolean()).isFalse();
-        assertThat(response.body().path("reply").asString()).startsWith("Anotei seu pedido");
+        assertThat(response.body().path("reply").asString()).contains("Anotei seu pedido");
         assertThat(model.requests()).hasSize(2);
     }
 }

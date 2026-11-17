@@ -59,7 +59,8 @@ class SpringAiAssistantModel implements AssistantModel {
 
     /** Sinais que o modelo pode enviar (os do backend, como alerta e conversa improdutiva, ficam fora). */
     enum ModelSignal {
-        EMOTIONAL_DISTRESS, DISSATISFACTION, CONFUSION, FINANCIAL_VULNERABILITY, BEREAVEMENT, NEEDS_STAFF_DECISION,
+        EMOTIONAL_DISTRESS, DISSATISFACTION, CONFUSION, FINANCIAL_VULNERABILITY, BEREAVEMENT, SENSITIVE_TOPIC,
+        NEEDS_STAFF_DECISION,
         WORSENING, POST_PROCEDURE_CHANGE
     }
 

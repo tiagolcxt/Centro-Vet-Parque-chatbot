@@ -6,7 +6,7 @@ Primeira camada de atendimento de uma clínica veterinária: conversa com tutore
 
 ## Estado atual
 
-**Etapa 5 — Coleta de dados e solicitações de agendamento concluída** (aguardando aceite). Etapa 4 aceita. Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido e ciclo de vida, base institucional em YAML validada na inicialização e um validador que barra valores sem fonte, confirmação de agendamento, promessas sem processo e doses. Dúvidas que a base não responde viram pedidos de informação para a equipe. Pedidos de atendimento humano, possíveis emergências, sintomas e reclamações vão para a fila da equipe, com prioridade clínica (P1 a P6) que só a equipe rebaixa. A equipe tem rotas para a fila, para devolver ou encerrar conversas e para resolver solicitações. O assistente coleta tutor e pet com proveniência por campo (mencionada, confirmada, cadastrada, a reconfirmar) e organiza pedidos de agendamento que só ficam registrados com pet, motivo e nome do tutor, sem nunca confirmar dia nem horário. Textos de emergência e prazos ainda são provisórios (P-01, P-02). As regras de coleta e agendamento usam valores provisórios (P-06, P-07, P-08, P-13). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
+**Etapa 5 — Coleta de dados e solicitações de agendamento concluída e aceita**. Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido e ciclo de vida, base institucional em YAML validada na inicialização e um validador que barra valores sem fonte, confirmação de agendamento, promessas sem processo e doses. Dúvidas que a base não responde viram pedidos de informação para a equipe. Pedidos de atendimento humano, possíveis emergências, sintomas e reclamações vão para a fila da equipe, com prioridade clínica (P1 a P6) que só a equipe rebaixa. A equipe tem rotas para a fila, para devolver ou encerrar conversas e para resolver solicitações. O assistente coleta tutor e pet com proveniência por campo (mencionada, confirmada, cadastrada, a reconfirmar) e organiza pedidos de agendamento que só ficam registrados com pet, motivo e nome do tutor, sem nunca confirmar dia nem horário. Textos de emergência e prazos ainda são provisórios (P-01, P-02). As regras de coleta e agendamento usam valores provisórios (P-06, P-07, P-08, P-13). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
 
 ## Pré-requisitos
 
@@ -39,6 +39,18 @@ O `.env` não é versionado. As credenciais só existem nele (e, fora do desenvo
 ```
 
 No Windows (PowerShell), use `.\gradlew.bat`.
+
+## Conversar pelo terminal (Windows)
+
+Com a aplicação no ar (`.\gradlew.bat bootRun`), em outro terminal na pasta `assistant-backend`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\chat.ps1
+```
+
+O script lê a `ASSISTANT_API_KEY` do `.env`, envia em UTF-8 (acentos funcionam) e mostra, depois de cada resposta, o status, a prioridade, a intenção e o motivo do encaminhamento. Comandos: `/pedidos` (solicitações da conversa), `/historico`, `/fila` (fila da equipe), `/devolver` e `/encerrar` (simulam a equipe), `/nova` (outro contato) e `/sair`. Para voltar como o mesmo cliente fictício em outra execução, use `-Contato ficticio-ana`.
+
+**Somente dados fictícios:** as mensagens vão para a OpenAI, e o banco de desenvolvimento não tem as proteções da Etapa 7. Para o assistente conhecer a clínica fictícia, o `.env` precisa de `ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml`.
 
 ## Testar a API
 

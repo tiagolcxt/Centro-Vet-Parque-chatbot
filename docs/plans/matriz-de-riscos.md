@@ -23,7 +23,7 @@
 | R-15 | Erro no YAML institucional derruba a aplicação | Operação | M | B | Validação fail-fast com mensagem clara (DA-03) | E3 | Exige quem saiba editar YAML |
 | R-16 | *Prompt injection* via mensagem do tutor | Segurança | M | B | Sem tools; conteúdo delimitado como dado; validação do texto; cenários na E6 | E2–E6 | Texto manipulado que passe pela validação |
 | R-17 | Questionários preenchidos ou dados reais versionados no Git | Privacidade | B | A | Repositório próprio; `.gitignore` antes do primeiro commit (DA-09) | E1 | Arquivos com nomes inesperados; revisar o `git status` |
-| R-18 | Respostas longas, robóticas ou com menus repetidos | UX | M | M | Regras no `system-message.st`; avaliação qualitativa (P-10) | E2, E6 | Subjetivo |
+| R-18 | Respostas longas, robóticas ou com menus repetidos | UX | M | M | Regras de tamanho e formato (DA-38, medidas por `FormatAiIT`); avaliação qualitativa (P-10) | E2, E6 | Subjetivo |
 | R-19 | *Placeholders* de política (emergência, prazo) chegando a uso real | Segurança / operação | B | A | Verificação automática na inicialização do ambiente real; barreira E7 | E7 | — |
 | R-20 | Perda de informação livre fora da janela de 20 mensagens | UX | M | M | Dados estruturados preservados pelas camadas 3 e 5; medição na E6 (DA-10) | E6 | Informação livre antiga se perde |
 | R-21 | Decisões pendentes de entrada não tomadas a tempo, travando etapas | Prazo | M | M | Pendências por etapa explícitas no roadmap; checklist de entrada | Todas | — |

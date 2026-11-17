@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ReplyComposerTest {
 
     private static final HandoffSettings.Replies TEXTS = new HandoffSettings.Replies("REGISTRADA", "RECEBIDA", "OFERTA",
-            "EMERGENCIA", "ORIENTACAO-CURTA", "PRAZO-VENCIDO");
+            "EMERGENCIA", "ORIENTACAO-CURTA", "PRAZO-VENCIDO", "EXPLICACAO", "EXPLICACAO-2");
 
     private static HandoffSettings settings() {
         Map<ClinicalPriority, Duration> deadlines = new EnumMap<>(ClinicalPriority.class);
@@ -88,5 +88,25 @@ class ReplyComposerTest {
         assertThat(composer.composeWaiting(P2_URGENT, false, false, false)).isEqualTo("ORIENTACAO-CURTA\n\nRECEBIDA");
         assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, true, false)).isEqualTo("RECEBIDA\n\nORIENTACAO-CURTA");
         assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, true)).isEqualTo("RECEBIDA\n\nPRAZO-VENCIDO");
+    }
+
+    @Test
+    void waiting_explainsOnFrustration_andNeverRepeatsTheSameTextInARow() {
+        var confusion = java.util.Set.of(com.clinicavet.assistant.conversation.domain.TurnSignal.CONFUSION);
+        var none = java.util.Set.<com.clinicavet.assistant.conversation.domain.TurnSignal>of();
+
+        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, confusion, "RECEBIDA"))
+                .isEqualTo("EXPLICACAO");
+        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, confusion, "EXPLICACAO"))
+                .isEqualTo("EXPLICACAO-2");
+        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, confusion, "EXPLICACAO-2"))
+                .isEqualTo("EXPLICACAO");
+        // Sem sinal, mas a anterior já foi a confirmação: não repete.
+        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, none, "REGISTRADA\n\nRECEBIDA"))
+                .isEqualTo("EXPLICACAO");
+        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, none, "Outra coisa")).isEqualTo("RECEBIDA");
+        // Emergência continua primeiro.
+        assertThat(composer.composeWaiting(P6_RELATIONSHIP, true, false, false, confusion, "RECEBIDA"))
+                .isEqualTo("EMERGENCIA\n\nEXPLICACAO");
     }
 }

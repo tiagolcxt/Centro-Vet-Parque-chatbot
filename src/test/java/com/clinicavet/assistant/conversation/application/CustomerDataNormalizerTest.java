@@ -17,11 +17,12 @@ class CustomerDataNormalizerTest {
         assertThat(CustomerDataNormalizer.petName("  Mel  ")).isEqualTo("Mel");
         assertThat(CustomerDataNormalizer.tutorName("Ana   Maria d'Ávila")).isEqualTo("Ana Maria d'Ávila");
         assertThat(CustomerDataNormalizer.petName("Bidu-Jr.")).isEqualTo("Bidu-Jr.");
+        assertThat(CustomerDataNormalizer.petName("Gata Preta")).isEqualTo("Gata Preta");   // nome com palavra comum
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "   ", "Mel123", "<cliente>", "{x}", "1Mel", "um dois tres quatro cinco seis",
-            "Mel; DROP"})
+            "Mel; DROP", "cachorro", "Cachorro", "minha gata", "o pet", "Cão", "meu bichinho", "filhote"})
     void invalidNames_areDiscarded(String raw) {
         assertThat(CustomerDataNormalizer.petName(raw)).isNull();
     }

@@ -37,10 +37,14 @@ public record HandoffSettings(@NotNull Map<ClinicalPriority, Duration> deadlines
      * @param emergencyPlaceholder    no lugar da política de emergência enquanto P-01 não for aprovada
      * @param shortGuidancePlaceholder no lugar da orientação curta de quando procurar atendimento (P-01)
      * @param overduePlaceholder      no lugar da orientação de prazo vencido enquanto P-02 não for aprovada
+     * @param waitingExplanation      em {@code WAITING_HUMAN}, quando o tutor mostra confusão ou insatisfação, ou para não
+     *                                repetir a confirmação: explica, com honestidade, em que pé está a conversa (CT-19)
+     * @param waitingExplanationRepeat variação da explicação, para não mandar o mesmo texto duas vezes seguidas
      */
     public record Replies(@NotBlank String handoff, @NotBlank String waitingConfirmation, @NotBlank String humanOffer,
                           @NotBlank String emergencyPlaceholder, @NotBlank String shortGuidancePlaceholder,
-                          @NotBlank String overduePlaceholder) {
+                          @NotBlank String overduePlaceholder, @NotBlank String waitingExplanation,
+                          @NotBlank String waitingExplanationRepeat) {
     }
 
     public Duration deadlineFor(ClinicalPriority priority) {

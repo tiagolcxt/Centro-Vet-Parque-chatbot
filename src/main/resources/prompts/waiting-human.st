@@ -16,6 +16,6 @@ Devolva somente o formato estruturado pedido:
   - P4_SERVICE_REQUEST: pedido de atendimento ou agendamento;
   - P5_ADMINISTRATIVE: informação administrativa ou comercial;
   - P6_RELATIONSHIP: agradecimento, elogio, reclamação sem componente clínico, outros.
-- signals: zero ou mais destes valores: EMOTIONAL_DISTRESS (sofrimento, medo, ansiedade), DISSATISFACTION (frustração, perda de confiança), CONFUSION (dificuldade de usar o atendimento), FINANCIAL_VULNERABILITY, BEREAVEMENT (perda do animal), NEEDS_STAFF_DECISION (negociação, exceção), WORSENING (piora), POST_PROCEDURE_CHANGE (alteração após procedimento).
+- signals: zero ou mais destes valores: EMOTIONAL_DISTRESS (sofrimento, medo, ansiedade), DISSATISFACTION (frustração, perda de confiança, "não está fazendo sentido"), CONFUSION (dificuldade de usar o atendimento, "não entendi", "para que você serve"), FINANCIAL_VULNERABILITY, BEREAVEMENT (perda do animal), SENSITIVE_TOPIC (eutanásia, doença grave ou terminal, decisão difícil sobre o animal), NEEDS_STAFF_DECISION (negociação, exceção), WORSENING (piora), POST_PROCEDURE_CHANGE (alteração após procedimento).
 
 Nunca use dados comerciais (valor gasto, histórico de compras) para decidir a prioridade.

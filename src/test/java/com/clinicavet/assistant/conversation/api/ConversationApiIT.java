@@ -231,7 +231,8 @@ class ConversationApiIT {
             ApiClient.Response second = api.sendMessage(id, "Que horas vocês abrem?");
 
             assertThat(first.status()).isEqualTo(200);
-            assertThat(first.body().path("reply").asString()).isEqualTo("Olá! Como posso ajudar?");
+            assertThat(first.body().path("reply").asString())
+                    .isEqualTo("Sou o assistente virtual da clínica.\n\nOlá! Como posso ajudar?");   // DA-38
             assertThat(first.body().path("intent").asString()).isEqualTo("GREETING");
             assertThat(first.body().path("fallback").asBoolean()).isFalse();
             assertThat(first.body().path("newConversation").asBoolean()).isFalse();
@@ -241,7 +242,7 @@ class ConversationApiIT {
             assertThat(messages).extracting(m -> m.path("author").asString())
                     .containsExactly("CUSTOMER", "ASSISTANT", "CUSTOMER", "ASSISTANT");
             assertThat(messages).extracting(m -> m.path("content").asString())
-                    .containsExactly("Oi", "Olá! Como posso ajudar?", "Que horas vocês abrem?",
+                    .containsExactly("Oi", "Sou o assistente virtual da clínica.\n\nOlá! Como posso ajudar?", "Que horas vocês abrem?",
                             "Não tenho essa informação disponível.");
             assertThat(messages.get(1).path("intent").asString()).isEqualTo("GREETING");
             assertThat(messages.get(0).path("intent").isNull()).isTrue();
@@ -391,7 +392,7 @@ class ConversationApiIT {
             ApiClient.Response response = api.sendMessage(id, "Oi");
 
             assertThat(response.body().path("fallback").asBoolean()).isFalse();
-            assertThat(response.body().path("reply").asString()).isEqualTo("Tudo certo.");
+            assertThat(response.body().path("reply").asString()).endsWith("Tudo certo.");
             assertThat(model.requests()).hasSize(2);
         }
     }

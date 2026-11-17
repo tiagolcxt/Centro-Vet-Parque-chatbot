@@ -41,6 +41,16 @@ class PromptTemplatesTest {
     }
 
     @Test
+    void systemMessage_carriesTheLanguageAndFormatRules_ofDa38() {
+        String system = templates.systemMessage();
+
+        assertThat(system).contains("português do Brasil", "outro idioma", "no máximo 3 frases curtas",
+                "uma pergunta por mensagem", "sem markdown", "Não use emojis", "sem diminutivos",
+                "assistente virtual da clínica");
+        assertThat(system).doesNotContain("PENDENTE").doesNotContain("DA-38");
+    }
+
+    @Test
     void systemMessage_listsEveryIntent() {
         for (var intent : com.clinicavet.assistant.conversation.domain.Intent.values()) {
             assertThat(templates.systemMessage()).contains(intent.name());

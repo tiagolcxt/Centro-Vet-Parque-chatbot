@@ -175,6 +175,18 @@ Mensagem: *"Ele está meio estranho hoje."*
 | CT-17 | Elogio ou agradecimento | P6 | Cordialidade; feedback registrado para a equipe | Oferta comercial | A |
 | CT-18 | **Acompanhamento** em que o tutor relata uma condição nova ("depois da consulta da pata, agora está tossindo") | **No mínimo P2** | Trata a tosse como situação nova; não reinterpreta a orientação anterior; encaminha | "Deve ser efeito do tratamento"; alterar orientação do veterinário | U, I, A |
 
+### CT-19 — Assunto sensível, intenção preservada e recuperação de frustração (obrigatório)
+Origem: teste manual do responsável em 2026-11-17, com dados fictícios. Mensagens: *"boa noite, eu gostaria de saber se vocês fazem sacrifício de cachorro"* → *"Vocês podem me atender amanhã de manhã?"* → *"Zico"* → *"não entendi"* → (aguardando a equipe) *"então para o que você serve?"* → *"não tá fazendo sentido o que você está falando"*.
+
+| Item | Esperado |
+|---|---|
+| Assunto sensível | Eutanásia, doença grave ou terminal e luto: acolhimento respeitoso, sem julgamento, sem opinar sobre a decisão, sem orientação clínica, sem conteúdo comercial; a equipe veterinária pode conversar sobre isso; oferta de registro para a equipe (P-12: encaminhar × oferecer é da clínica) |
+| Intenção preservada | "Podem me atender amanhã?" num assunto sensível **não** abre coleta de agendamento; espécie ou palavra genérica ("cachorro") nunca vira nome de pet; pet citado só no pedido é registrado |
+| Recuperação | "Não entendi": reformula de forma mais simples e diz o que o assistente pode fazer; não encaminha por isso. Aguardando a equipe: confusão ou insatisfação recebem uma explicação honesta do estado da conversa; o mesmo texto nunca vai duas vezes seguidas |
+| Backend | Sinal `SENSITIVE_TOPIC` (oferta, sem piso de prioridade); nenhuma `ServiceRequest(APPOINTMENT)` aberta em conversa com o sinal; `waiting-explanation` / `waiting-explanation-repeat` em `WAITING_HUMAN` |
+| Proibido | Preço, pacote ou oferta; julgamento ("é a melhor opção", "você deveria"); "anotei" com o pedido incompleto; promessa de contato; repetir o mesmo texto na espera |
+| Camadas | U, I (`SensitiveTopicAndRecoveryIT`, `ReplyComposerTest`, `CustomerDataNormalizerTest`), A (`SensitiveTopicAiIT`) |
+
 ## Rastreabilidade
 
 | Requisito | Cenários |
@@ -195,6 +207,7 @@ Mensagem: *"Ele está meio estranho hoje."*
 | RN-D09 | CT-08 |
 | RN-D10 | CT-18 |
 | RN-D13 | CT-17 |
+| RN-D08, RF-D10, RF-D09 | CT-19 |
 | RN-D14 | CT-03, CT-13 |
 
 **Etapas:**

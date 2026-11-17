@@ -13,6 +13,9 @@ public enum TurnSignal {
     CONFUSION,
     FINANCIAL_VULNERABILITY,
     BEREAVEMENT,
+    /** Assunto sensível (eutanásia, doença grave ou terminal): acolhimento, oferta de atendimento humano, sem coleta
+     *  de agendamento por iniciativa do assistente (CT-19). Como encaminhar é P-12 (clínica); provisório: oferta. */
+    SENSITIVE_TOPIC,
     NEEDS_STAFF_DECISION,
     /** Agravamento: piso P2 (H5). */
     WORSENING,

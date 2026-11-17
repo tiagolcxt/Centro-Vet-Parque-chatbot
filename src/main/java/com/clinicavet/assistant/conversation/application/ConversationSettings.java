@@ -20,6 +20,8 @@ import java.time.Duration;
  * @param maxCustomerMessageLength tamanho máximo da mensagem do tutor, em caracteres (DA-28)
  * @param retryBackoff             espera antes da única nova tentativa do turno (DA-28)
  * @param fallbackReply            resposta segura padrão (ADR-0002). <b>Texto provisório (P-10)</b>
+ * @param firstReplyIntro          apresentação acrescentada pelo backend à primeira resposta da conversa quando o modelo
+ *                                 não se apresentou (DA-38). Nome do assistente pendente da clínica (P-10)
  */
 @Validated
 @ConfigurationProperties("assistant.conversation")
@@ -29,7 +31,8 @@ public record ConversationSettings(
         @Positive int historyTokenBudget,
         @Positive int maxCustomerMessageLength,
         @NotNull Duration retryBackoff,
-        @NotBlank String fallbackReply) {
+        @NotBlank String fallbackReply,
+        @NotBlank String firstReplyIntro) {
 
     public record Expiration(@NotNull Duration open, @NotNull Duration waitingHuman) {
     }

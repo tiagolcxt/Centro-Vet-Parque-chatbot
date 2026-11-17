@@ -142,7 +142,8 @@ class GuidelineScenariosIT {
 
         assertThat(first.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(first.path("handoffReason").asString()).isEqualTo("EXPLICIT_REQUEST");
-        assertThat(first.path("reply").asString()).isEqualTo(handoff.replies().handoff().strip());
+        assertThat(first.path("reply").asString()).endsWith(handoff.replies().handoff().strip())
+                .doesNotContain("?");   // sem pedir o motivo
         assertThat(openRequestTypes(id)).containsExactly(RequestType.HUMAN_CONTACT);
 
         JsonNode second = api.sendMessage(id, "já falei, quero uma pessoa").body();

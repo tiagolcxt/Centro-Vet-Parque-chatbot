@@ -77,6 +77,7 @@ Os textos padrão ficam em `assistant.handoff.replies` (provisórios). A orienta
 - Uma chamada, sem nova tentativa, até 500 tokens, prazo de 15 s (DA-28).
 - A prioridade é reavaliada (pode subir, nunca descer); a conversa continua `WAITING_HUMAN`.
 - O detector de expressões de alerta também roda aqui.
+- **Texto ao tutor (CT-19, opção A aprovada em 2026-11-17):** confirmação de recebimento (`waiting-confirmation`); com `CONFUSION`, `DISSATISFACTION` ou `EMOTIONAL_DISTRESS`, uma explicação honesta do estado (`waiting-explanation`: a conversa aguarda a equipe, o assistente não continua o assunto, o que o tutor escrever fica registrado); o mesmo texto **nunca vai duas vezes seguidas** (alterna com `waiting-explanation-repeat`). Nenhum promete contato. Textos provisórios (P-10, P-19).
 
 ## 6. Prazo de atendimento (ADR-0007 item 6, H11)
 
@@ -151,7 +152,7 @@ Transição inválida → `409`; desfecho ausente → `422`. Mesma API Key do ca
 | Dado | Aceito quando | Senão |
 |---|---|---|
 | Nome do tutor | Letras, espaço, `'`, `.`, `-`; até 5 palavras e 120 caracteres; **aparece como palavras numa mensagem do tutor desta conversa** (ou já é o nome cadastrado) | Descartado |
-| Nome do pet | Mesmas regras, até 80 caracteres; aparece numa mensagem do tutor ou já é de um pet deste tutor | Descartado |
+| Nome do pet | Mesmas regras, até 80 caracteres; aparece numa mensagem do tutor ou já é de um pet deste tutor; **não** pode ser só espécie ou termo genérico ("cachorro", "minha gata", "o pet", CT-19). Pet citado só em `appointmentRequest.petName` é tratado como pet citado sem espécie | Descartado |
 | Espécie | `DOG`, `CAT` ou `OTHER` com descrição; `UNKNOWN` ou `OTHER` sem descrição = não informada | Fica em aberto |
 | Raça, idade, motivo, preferência | Texto sem quebra de linha nem `< > { } [ ]`; cortado no limite (80, 80, 300, 120) | — |
 | Confirmação | Ver 10.4 | Ignorada |
@@ -197,6 +198,7 @@ O pet da confirmação é o nomeado; sem nome, o do pedido em coleta; sem pedido
 - **P-06:** no máximo **uma** `ServiceRequest(APPOINTMENT)` em `COLLECTING` por conversa. Pedidos de informação e de atendimento humano seguem em paralelo.
 - **P-07:** **um pet por solicitação**. "Para os dois" vira dois pedidos, um de cada vez: o prompt orienta a registrar o primeiro e depois começar o segundo. Durante a coleta, citar outro pet no pedido troca o pet (é tratado como correção).
 - Abertura: turno com intenção `APPOINTMENT_REQUEST` (principal ou secundária) e pelo menos um detalhe (pet, motivo ou preferência). "Quero marcar uma consulta" sozinho não abre nada. Não abre outro pedido para um pet que já tem pedido não encerrado nesta conversa.
+- **Assunto sensível (CT-19):** não abre pedido em conversa com o sinal `SENSITIVE_TOPIC` (no turno ou em resposta anterior do assistente); a equipe trata.
 - Não abre nem continua a coleta num turno que encaminhou a conversa (os dados do tutor e do pet são guardados mesmo assim).
 - **P-13:** para registrar (`COLLECTING → PENDING`): pet com nome e espécie, motivo e nome do tutor; preferência opcional.
 - **P-08:** nome e espécie do pet **confirmados nesta conversa**; nome do tutor MENCIONADO, CONFIRMADO ou CADASTRADO (A_RECONFIRMAR não basta).
@@ -209,6 +211,11 @@ O pet da confirmação é o nomeado; sem nome, o do pedido em coleta; sem pedido
 - O assistente não sabe o andamento nem o desfecho. Diz que o pedido está com a equipe e que dia e horário só valem depois de confirmados por ela. V5 e V6 reprovam qualquer afirmação de confirmação ou resolução (CT-09).
 - Pedido encerrado pela equipe aparece só como "encerrado pela equipe. Você não sabe o desfecho." O desfecho (DA-34) não vai ao modelo.
 - Perguntar pelo andamento, por si só, não encaminha a conversa (prompt). Com a IA real: 10/10 sem encaminhar (`CustomerDataAiIT`).
+
+### 10.8 Assuntos sensíveis e primeira resposta (CT-19, DA-38)
+
+- `SENSITIVE_TOPIC` (eutanásia, doença grave ou terminal, decisão difícil): o modelo acolhe e diz que a equipe veterinária pode conversar sobre isso; o **sistema** faz a oferta de registro (sinal de oferta, como `BEREAVEMENT`). Sem piso de prioridade: P3 já encaminharia, e encaminhar × oferecer é P-12 (clínica). Se o modelo sugerir encaminhamento, ele vale (o backend nunca remove um encaminhamento). Na IA real, o modelo encaminhou a pergunta sobre eutanásia em 10/10 (sinal de decisão da equipe).
+- A primeira resposta da conversa leva a apresentação `assistant.conversation.first-reply-intro` ("Sou o assistente virtual da clínica.", nome pendente na P-10) quando o modelo não se apresentou; não em P1/P2, em que a orientação vem primeiro (H6).
 
 ### 10.7 Atendimentos anteriores (DA-37)
 

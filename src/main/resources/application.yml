@@ -87,6 +87,13 @@ assistant:
         [PENDENTE: orientação aprovada pela clínica (P-01)] Se houver piora ou qualquer sinal de risco, procure
         atendimento veterinário imediatamente.
       overdue-placeholder: "[PENDENTE: orientação para quando a equipe não responde no prazo (P-02)]"
+      # Em WAITING_HUMAN, com confusão ou insatisfação, ou para não repetir a confirmação (CT-19). Sem prometer contato.
+      waiting-explanation: >-
+        Entendo, e desculpe se não fui claro. Esta conversa está aguardando a equipe da clínica, e por aqui eu não
+        consigo continuar o assunto. O que você escrever fica registrado junto dela para a equipe.
+      waiting-explanation-repeat: >-
+        Sua conversa continua aguardando a equipe da clínica. Pode escrever o que precisar: tudo fica registrado
+        nela para a equipe.
   customer-data:
     # PROVISÓRIO (P-08): por quanto tempo uma confirmação feita em outra conversa vale como CADASTRADA. Depois,
     # o dado aparece como A_RECONFIRMAR. Valor de desenvolvimento, sem decisão da clínica.
@@ -112,6 +119,8 @@ assistant:
     fallback-reply: >-
       Desculpe, não consegui responder agora. Você pode enviar sua mensagem de novo daqui a pouco?
       Se for uma situação urgente com o seu animal, procure atendimento veterinário o quanto antes.
+    # DA-38: apresentação na primeira resposta, garantida pelo backend. PENDENTE (P-10): nome do assistente.
+    first-reply-intro: "Sou o assistente virtual da clínica."
 
 logging:
   level:

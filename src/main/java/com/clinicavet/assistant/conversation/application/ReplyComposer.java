@@ -3,10 +3,12 @@ package com.clinicavet.assistant.conversation.application;
 import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
 import com.clinicavet.assistant.clinicknowledge.domain.KnowledgeItem;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
+import com.clinicavet.assistant.conversation.domain.TurnSignal;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Compõe o texto final ao tutor a partir da decisão do backend (ADR-0002 reconciliação, ADR-0007, H6–H8).
@@ -97,13 +99,26 @@ class ReplyComposer {
      * orientação de contato direto (P-02).
      */
     String composeWaiting(ClinicalPriority turnLevel, boolean possibleEmergency, boolean failed, boolean overdueNow) {
+        return composeWaiting(turnLevel, possibleEmergency, failed, overdueNow, Set.of(), null);
+    }
+
+    /**
+     * Com confusão, insatisfação ou sofrimento, a confirmação vira uma explicação honesta do estado da conversa; e o
+     * mesmo texto nunca vai duas vezes seguidas (CT-19, opção A aprovada em 2026-11-17). O modelo continua sem
+     * escrever texto livre em {@code WAITING_HUMAN}.
+     *
+     * @param signals       sinais do modo restrito neste turno
+     * @param previousReply a última resposta do assistente nesta conversa, ou {@code null}
+     */
+    String composeWaiting(ClinicalPriority turnLevel, boolean possibleEmergency, boolean failed, boolean overdueNow,
+                          Set<TurnSignal> signals, String previousReply) {
         List<String> parts = new ArrayList<>();
         if (possibleEmergency || turnLevel == ClinicalPriority.P1_POSSIBLE_EMERGENCY) {
             parts.add(emergency);
         } else if (turnLevel == ClinicalPriority.P2_URGENT) {
             parts.add(shortGuidance);
         }
-        parts.add(texts.waitingConfirmation().strip());
+        parts.add(waitingText(signals, previousReply));
         if (failed && parts.size() == 1) {
             parts.add(shortGuidance);
         }
@@ -111,6 +126,23 @@ class ReplyComposer {
             parts.add(overdue);
         }
         return join(parts.toArray(String[]::new));
+    }
+
+    private static final Set<TurnSignal> FRUSTRATION = Set.of(TurnSignal.CONFUSION, TurnSignal.DISSATISFACTION,
+            TurnSignal.EMOTIONAL_DISTRESS);
+
+    private String waitingText(Set<TurnSignal> signals, String previousReply) {
+        String confirmation = texts.waitingConfirmation().strip();
+        String explanation = texts.waitingExplanation().strip();
+        String repeat = texts.waitingExplanationRepeat().strip();
+        String chosen = signals.stream().anyMatch(FRUSTRATION::contains) ? explanation : confirmation;
+        if (previousReply != null && previousReply.contains(chosen)) {
+            chosen = chosen.equals(explanation) ? repeat : explanation;
+            if (previousReply.contains(chosen)) {
+                chosen = chosen.equals(repeat) ? explanation : repeat;
+            }
+        }
+        return chosen;
     }
 
     private String handoffText() {

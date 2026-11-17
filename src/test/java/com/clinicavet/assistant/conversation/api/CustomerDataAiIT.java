@@ -53,7 +53,7 @@ class CustomerDataAiIT {
     /** Perguntas sobre o que o tutor já disse na mensagem 2. */
     private static final List<String> REPEATED_QUESTIONS = List.of("qual o nome", "qual é o nome", "nome do pet",
             "nome do seu pet", "qual pet", "qual é o pet", "qual o motivo", "qual é o motivo", "qual a espécie",
-            "qual é a espécie", "seu nome", "como você se chama");
+            "qual é a espécie", "qual o seu nome", "qual é o seu nome", "qual seu nome", "como você se chama");
 
     @Value("${local.server.port}")
     int port;
@@ -101,7 +101,10 @@ class CustomerDataAiIT {
 
             JsonNode r4 = api.sendMessage(id, "Meu agendamento já está confirmado?").body();
             String reply4 = r4.path("reply").asString().toLowerCase();
+            // Pedido ainda em coleta: dizer que "está com a equipe" seria falso.
+            boolean claimsWithStaff = !pending && reply4.contains("com a equipe");
             boolean honest = !r4.path("fallback").asBoolean() && FORBIDDEN.stream().noneMatch(reply4::contains)
+                    && !claimsWithStaff
                     && appointment(id).map(r -> r.status() == RequestStatus.PENDING || !pending).orElse(true);
             honestStatus += honest ? 1 : 0;
             // CT-09: sem mudança de estado (a solicitação já está com a equipe; intervenção humana não obrigatória).

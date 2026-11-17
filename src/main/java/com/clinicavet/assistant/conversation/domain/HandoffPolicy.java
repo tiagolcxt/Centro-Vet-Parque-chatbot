@@ -46,7 +46,7 @@ public final class HandoffPolicy {
     }
 
     private static final Set<TurnSignal> OFFER_SIGNALS = Set.of(TurnSignal.EMOTIONAL_DISTRESS, TurnSignal.CONFUSION,
-            TurnSignal.BEREAVEMENT, TurnSignal.FINANCIAL_VULNERABILITY);
+            TurnSignal.BEREAVEMENT, TurnSignal.FINANCIAL_VULNERABILITY, TurnSignal.SENSITIVE_TOPIC);
 
     private HandoffPolicy() {
     }

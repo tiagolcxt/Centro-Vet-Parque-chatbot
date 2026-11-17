@@ -52,9 +52,28 @@ final class CustomerDataNormalizer {
         return name(raw, Tutor.MAX_NAME_LENGTH);
     }
 
+    /**
+     * Nome de pet, ou {@code null}. Além do formato, recusa espécie ou palavra genérica no lugar do nome ("cachorro",
+     * "minha gata", "o pet"): de "sacrifício de cachorro" não sai um pet chamado Cachorro (CT-19).
+     */
     static String petName(String raw) {
-        return name(raw, Pet.MAX_TEXT_LENGTH);
+        String name = name(raw, Pet.MAX_TEXT_LENGTH);
+        if (name == null) {
+            return null;
+        }
+        boolean onlyGeneric = words(RuleText.normalize(name)).stream()
+                .allMatch(w -> GENERIC_PET_WORDS.contains(w) || ARTICLES.contains(w));
+        return onlyGeneric ? null : name;
     }
+
+    /** Espécies e termos genéricos que não são nome de animal. */
+    static final Set<String> GENERIC_PET_WORDS = Set.of("cachorro", "cachorra", "cachorrinho", "cachorrinha", "cao",
+            "caes", "cadela", "cadelinha", "gato", "gata", "gatinho", "gatinha", "gatos", "cachorros", "pet", "pets",
+            "animal", "animais", "bicho", "bichinho", "bichinha", "filhote", "filhotinho", "felino", "felina",
+            "canino", "canina", "coelho", "passaro", "peixe", "hamster", "calopsita", "papagaio", "tartaruga",
+            "porquinho", "cobaia", "furao", "dog", "cat");
+    private static final Set<String> ARTICLES = Set.of("o", "a", "os", "as", "meu", "minha", "meus", "minhas", "um",
+            "uma", "seu", "sua", "do", "da", "de", "nosso", "nossa");
 
     /** Texto livre limpo e cortado no limite, ou {@code null} se vazio. */
     static String freeText(String raw, int maxLength) {

@@ -43,7 +43,7 @@ No modo estrito todos os campos são obrigatórios; texto vazio significa "não 
 
 Arquivo `src/main/resources/prompts/system-message.st`, em UTF-8, **sem nenhum dado da clínica**. Linhas que começam com `##` são notas para quem mantém o arquivo e não vão ao modelo.
 
-Conteúdo **provisório** (P-10, texto final na Etapa 6): persona genérica, pt-BR, "você", respostas curtas e sem emojis. As regras fixas:
+Idioma e formato decididos na **DA-38**: pt-BR, até 3 frases curtas (~500 caracteres), uma pergunta por mensagem, texto simples sem markdown, sem emojis, sem diminutivos e apresentação como assistente virtual na primeira resposta (medido por `FormatAiIT`). **Pendente da clínica (P-10):** nome do assistente e tratamento; até lá, "assistente virtual da clínica" e "você". As regras fixas:
 - não diagnosticar, não interpretar sintomas, não indicar medicamento, dose ou tratamento;
 - usar **somente** `<dados_da_clinica>`; o que estiver DESCONHECIDO ou ausente é declarado como lacuna, sem citar valores que o tutor não escreveu;
 - citar em `knowledgeRefs` as chaves usadas; nunca citar item DESCONHECIDO;

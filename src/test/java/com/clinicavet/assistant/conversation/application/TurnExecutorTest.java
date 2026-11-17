@@ -36,7 +36,7 @@ class TurnExecutorTest {
         };
         ConversationSettings settings = new ConversationSettings(
                 new ConversationSettings.Expiration(Duration.ofMinutes(30), Duration.ofHours(2)),
-                20, 4000, 2000, Duration.ZERO, "fallback");
+                20, 4000, 2000, Duration.ZERO, "fallback", "Sou o assistente virtual.");
         return new TurnExecutor(model, new TurnResultClassifier(),
                 new ResponseValidator(ClinicKnowledge.empty()), settings, Clock.systemUTC()).execute(REQUEST);
     }
