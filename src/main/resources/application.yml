@@ -62,6 +62,31 @@ assistant:
     # Base institucional (ADR-0003). Padrão: o modelo todo null (o assistente não sabe nada da clínica).
     # Desenvolvimento: ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml (dados fictícios).
     location: ${ASSISTANT_KNOWLEDGE_FILE:file:config/clinic-knowledge.example.yml}
+  handoff:
+    # PROVISÓRIO (P-02): prazo de atendimento humano por nível, valores de desenvolvimento sem decisão da
+    # clínica. Passado o prazo sem ação da equipe, a conversa aparece como atrasada e a próxima resposta ao
+    # tutor inclui a orientação de contato direto (ADR-0007 item 6, ADR-0018 H11).
+    deadlines:
+      P1_POSSIBLE_EMERGENCY: 15m
+      P2_URGENT: 1h
+      P3_CLINICAL_FOLLOW_UP: 4h
+      P4_SERVICE_REQUEST: 24h
+      P5_ADMINISTRATIVE: 24h
+      P6_RELATIONSHIP: 48h
+    # PROVISÓRIO (P-10, P-19): textos do sistema. Nenhum afirma notificação nem promete contato (ADR-0007).
+    # A orientação de emergência e o contato direto vêm da base (approved-texts, P-01 e P-02); enquanto
+    # não aprovados, entram os placeholders abaixo, aceitáveis só com dados fictícios (ADR-0014).
+    replies:
+      handoff: "Sua conversa ficou registrada para a equipe da clínica."
+      waiting-confirmation: "Recebi sua mensagem. Ela ficou registrada nesta conversa para a equipe da clínica."
+      human-offer: "Se preferir, sua conversa pode ficar registrada para a equipe da clínica. É só me dizer."
+      emergency-placeholder: >-
+        [PENDENTE: política de emergência da clínica (P-01)] Se o seu animal estiver em risco, procure
+        atendimento veterinário imediatamente.
+      short-guidance-placeholder: >-
+        [PENDENTE: orientação aprovada pela clínica (P-01)] Se houver piora ou qualquer sinal de risco, procure
+        atendimento veterinário imediatamente.
+      overdue-placeholder: "[PENDENTE: orientação para quando a equipe não responde no prazo (P-02)]"
   security:
     # X-Api-Key de /api/** (ADR-0012). Só no .env ou em variável de ambiente; sem ela, a aplicação não sobe.
     api-key: ${ASSISTANT_API_KEY:}

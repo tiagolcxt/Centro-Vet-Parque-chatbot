@@ -1,8 +1,10 @@
 package com.clinicavet.assistant.conversation.api;
 
 import com.clinicavet.assistant.conversation.application.HandleIncomingMessageUseCase;
+import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
+import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;
@@ -41,14 +43,17 @@ record ConversationResponse(UUID id, ConversationStatus status, Instant startedA
  *                        encerrada ou expirada (ADR-0009)
  * @param newConversation a conversa foi aberta por esta mensagem
  * @param intent          intenção do turno, só registro na Etapa 2; {@code null} se o turno falhou
- * @param fallback        {@code true} quando o turno falhou e a resposta é a segura padrão (ADR-0002)
+ * @param fallback        {@code true} quando o modelo falhou e o texto foi composto só pelo backend (ADR-0002)
+ * @param priority        prioridade clínica da conversa depois do turno (ADR-0018)
+ * @param handoffReason   motivo do encaminhamento, se a conversa está com a equipe (ADR-0007)
  */
 record TurnResponse(UUID conversationId, boolean newConversation, String reply, ConversationStatus status,
-                    Intent intent, boolean fallback) {
+                    Intent intent, boolean fallback, ClinicalPriority priority, HandoffReason handoffReason) {
 
     static TurnResponse from(HandleIncomingMessageUseCase.Result result) {
         return new TurnResponse(result.conversationId().value(), result.newConversation(), result.reply(),
-                result.status(), result.intent().orElse(null), result.fallback());
+                result.status(), result.intent().orElse(null), result.fallback(), result.priority(),
+                result.handoffReason().orElse(null));
     }
 }
 

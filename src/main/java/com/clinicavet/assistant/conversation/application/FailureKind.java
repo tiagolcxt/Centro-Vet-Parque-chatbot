@@ -7,6 +7,11 @@ public enum FailureKind {
     INVALID(true),
     /** Texto e metadados se contradizem. As regras entram nas Etapas 3 e 4. */
     INCONSISTENT(true),
+    /**
+     * O texto anuncia transferência para a equipe, mas a decisão do backend não é encaminhar (ADR-0002,
+     * reconciliação). Se persistir, a resposta segura é a de encaminhamento: falha em direção ao humano.
+     */
+    TRANSFER_WITHOUT_HANDOFF(true),
     TIMEOUT(true),
     TECHNICAL_TRANSIENT(true),
     TECHNICAL_PERMANENT(false);

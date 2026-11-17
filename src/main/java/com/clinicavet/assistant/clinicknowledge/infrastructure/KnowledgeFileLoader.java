@@ -148,6 +148,13 @@ public final class KnowledgeFileLoader {
                 }
                 problems.add(key + ": preço deve ser um número inteiro de centavos, sem aspas (ex.: 15000 = R$ 150,00)");
             }
+            case TEXT_LIST -> {
+                if (raw instanceof List<?> list && !list.isEmpty()
+                        && list.stream().allMatch(v -> v instanceof String s && !s.isBlank() && s.length() <= 200)) {
+                    return list.stream().map(v -> ((String) v).strip()).toList();
+                }
+                problems.add(key + ": deve ser uma lista não vazia de textos entre aspas (até 200 caracteres cada) ou null");
+            }
             case HOURS -> {
                 if (raw instanceof List<?> list) {
                     List<String> intervals = new ArrayList<>();

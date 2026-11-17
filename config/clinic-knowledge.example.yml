@@ -61,6 +61,13 @@ policies:
 #     answer: null
 faq: null
 
+# Expressões de alerta aprovadas pela EQUIPE VETERINÁRIA (P-20, ADR-0019). Uma correspondência na mensagem do
+# tutor impõe prioridade mínima P1 ou P2 e encaminha. Só eleva, nunca rebaixa, não diagnostica. A ausência de
+# correspondência NÃO significa situação leve. Escreva em minúsculas; acentos e espaços extras são ignorados.
+triage:
+  alert-expressions-p1: null
+  alert-expressions-p2: null
+
 # Textos aprovados que o sistema insere nas respostas (não vão ao assistente como informação):
 approved-texts:
   emergency-policy: null     # P-01

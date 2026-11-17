@@ -1,8 +1,8 @@
 # ADR-0007 — Encaminhamento humano e tratamento de possível emergência
 
-- **Status:** Aceito, com pendências (P-01, P-02, P-12, P-14, P-20, PT-10, PT-14)
+- **Status:** Aceito, com pendências (P-01, P-02, P-12, P-14, P-20). PT-10 e PT-14 decididas em 2026-11-17 (DA-30, DA-31). Implementado na Etapa 4
 - **Data:** 2026-11-11
-- **Decisões:** DA-11, DA-25 (ampliação pelas Diretrizes de Atendimento)
+- **Decisões:** DA-11, DA-25 (ampliação pelas Diretrizes de Atendimento), DA-30 (expressões de pedido explícito), DA-31 (conversa improdutiva)
 
 ## Contexto
 
@@ -17,7 +17,16 @@ O tutor deve poder pedir atendimento humano a qualquer momento, e o sistema deve
 ### 1. Detecção determinística de pedido explícito
 - Um detector de domínio (`ExplicitHumanRequestDetector`) roda **antes** da chamada ao modelo, em qualquer estado da conversa. Ele compara o texto normalizado (minúsculas, sem acentos, espaços colapsados) com uma lista configurável de **expressões** (frases, não palavras soltas como "pessoa").
 - Quando detecta, o encaminhamento é decidido **independentemente** do modelo, da validação ou de falhas técnicas.
-- A lista inicial de expressões é **pendente (PT-10)**.
+- Lista inicial (DA-30), num arquivo versionado com testes. Uma expressão com "não" ou "nunca" até 3 palavras antes não dispara. Grupos:
+  - pedido de **falar ou conversar com** atendente, pessoa, humano, funcionário, recepção, veterinário(a), doutor(a), alguém, responsável ou gerente ("quero", "queria", "gostaria de", "preciso", "posso", "tem como", "dá pra");
+  - **transferência**: "me transfere / me passa / me encaminha / me coloca para" um atendente, a equipe, alguém ou uma pessoa;
+  - **atendimento humano**: "atendimento humano", "atendente humano", "pessoa de verdade", "pessoa real", "ser humano", "gente de verdade";
+  - **recusa do robô**: "não quero (falar com) robô / bot / máquina / IA / assistente virtual", "chega de robô";
+  - **pedido de ligação**: "me liga", "me ligue", "podem me ligar", "alguém pode me ligar";
+  - **mensagem curta inteira** (até 4 palavras): "atendente", "atendente por favor", "humano", "falar com alguém", "quero uma pessoa".
+  - Abreviações "vc" e "pfv" reconhecidas.
+- Frases de controle que **não** disparam (testes): elogio ou relato sobre atendente ("a atendente de ontem foi atenciosa"), passado ("já falei com a atendente ontem"), negação ("não precisa chamar atendente"), "falar com você" (o próprio assistente), "falar sobre a consulta", relato do veterinário ("o veterinário falou para voltar"), "a pessoa que me atendeu", "humano também pega essa doença?", "você é um robô?".
+- Um pedido que o detector não pegue ainda é coberto pela intenção `HUMAN_REQUEST` do modelo (condição 2 do item 2).
 
 ### 2. Decisão de encaminhamento (`HandoffPolicy`, determinística)
 Encaminha quando **qualquer** condição for verdadeira (o backend pode adicionar encaminhamentos, nunca removê-los):
@@ -30,7 +39,8 @@ Encaminha quando **qualquer** condição for verdadeira (o backend pode adiciona
 7. situações exclusivas de humano definidas pela clínica (**P-12**);
 8. *(acrescentado pelas Diretrizes, DA-25)* prioridade clínica efetiva **P1 ou P2** (ADR-0018); **P3** quando exigir julgamento profissional (critério: P-20);
 9. *(DA-25)* sinais `DISSATISFACTION` ou `NEEDS_STAFF_DECISION`;
-10. *(DA-25)* `EMOTIONAL_DISTRESS`, `CONFUSION` e `UNPRODUCTIVE_CONVERSATION` (detector do backend, limiares PT-14). Nesses casos o encaminhamento é **oferecido** e passa a automático quando combinado com conteúdo clínico ou ao atingir o limite de conversa improdutiva. Oferecer ou encaminhar direto: **P-12**.
+10. *(DA-25)* `EMOTIONAL_DISTRESS`, `CONFUSION` e `UNPRODUCTIVE_CONVERSATION` (detector do backend, limiares DA-31). Nesses casos o encaminhamento é **oferecido** e passa a automático quando combinado com conteúdo clínico ou ao atingir o limite de conversa improdutiva. Oferecer ou encaminhar direto: **P-12**.
+   - **Limiares de `UNPRODUCTIVE_CONVERSATION` (DA-31):** nas últimas 10 mensagens da conversa, três contagens: falhas seguidas (turnos com resposta segura), mensagem do tutor repetida e resposta do assistente repetida (sem contar a resposta segura), por igualdade do texto normalizado. Na **2ª** ocorrência de qualquer uma, oferece atendimento humano; na **3ª**, encaminha automaticamente. Um turno válido zera as falhas seguidas. A oferta é feita no máximo uma vez por conversa; recusada, não se repete, mas o encaminhamento automático continua valendo. O detector não roda em `WAITING_HUMAN`. A mensagem do assistente passa a registrar, em coluna própria, se foi a resposta segura (migration da Etapa 4). Texto da oferta provisório, sem prometer contato; se a P-12 definir encaminhamento direto, a oferta deixa de existir.
 
 O motivo persistido passa a incluir os valores `CLINICAL_PRIORITY`, `DISSATISFACTION`, `EMOTIONAL_DISTRESS`, `UNPRODUCTIVE_CONVERSATION` e `STAFF_DECISION`, além da lista de sinais do turno. Depois de um pedido explícito, o assistente não pede justificativa, não tenta convencer o tutor a continuar com a IA e não retoma o fluxo automatizado (diretriz 3.3).
 
@@ -82,3 +92,17 @@ Por ação explícita da equipe: devolver a conversa ao assistente ou encerrá-l
 - O detector pode encaminhar em excesso (falso positivo). É aceito por ser falha em direção ao humano.
 - Cada mensagem em `WAITING_HUMAN` gera uma chamada curta ao modelo (custo baixo, mas não zero).
 - Sem notificação, o encaminhamento só é efetivo se alguém consultar as listagens. Quem acompanha e com que frequência é **P-14**.
+
+## Implementação (Etapa 4, 2026-11-17)
+
+Regras completas, com a tabela de motivos, a composição do texto e a rastreabilidade RF-D/RN-D: [business-rules.md](../business-rules.md).
+
+- **Detector (item 1):** `ExplicitHumanRequestDetector` com a lista da DA-30 em `src/main/resources/rules/human-request-expressions.yml`. Além da lista aprovada, entrou "quero/preciso uma pessoa/um atendente" para cobrir o 2º turno do CT-02 ("já falei, quero uma pessoa"), que passa de 4 palavras.
+- **Política (item 2):** `HandoffPolicy` (domínio). Para não reencaminhar uma conversa que a equipe devolveu sem rebaixar, a condição de prioridade usa o **nível do turno** (modelo + pisos deste turno), não o nível acumulado da conversa.
+- **Persistência (item 3):** migration `V3` (`handoff_reason`, `handoff_at`, `CHECK` de que `WAITING_HUMAN` tem motivo e momento). O enum de motivo ficou com os valores da DA-25 incluídos. Devolver ao assistente limpa motivo e momento; encerrar os mantém.
+- **Modo restrito (item 4):** `waiting-human.st`, schema `waiting_human_signals_v1`, uma chamada, 500 tokens, 15 s.
+- **Emergência (item 5):** o indício vem do modelo **ou** da lista de expressões de alerta (ADR-0019), que não depende do modelo. Texto: `approved-texts.emergency-policy` ou o *placeholder*.
+- **Prazo (item 6):** `assistant.handoff.deadlines`, valores provisórios (P-02). Atraso na fila (`overdue`) e orientação na próxima mensagem do tutor.
+- **Conversa improdutiva (item 10):** `UnproductiveConversationDetector` (DA-31). Escolha dentro da regra aprovada: mensagens do tutor com menos de 3 palavras ("ok", "sim") não contam como repetição.
+- **Reconciliação (ADR-0002):** anúncio de transferência sem encaminhamento é a falha `TRANSFER_WITHOUT_HANDOFF`; se persistir, encaminha com `TURN_FAILURE`.
+- **Testes:** `ExplicitHumanRequestDetectorTest`, `PriorityAndHandoffPolicyTest`, `ReplyComposerTest`, `GuidelineScenariosIT` (CT-01 a CT-08, CT-10 a CT-12, CT-14 a CT-16), `StaffOperationsIT`, `HandoffAiIT` (modelo real, 40/40).

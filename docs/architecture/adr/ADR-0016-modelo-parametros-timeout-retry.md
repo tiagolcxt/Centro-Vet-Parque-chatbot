@@ -99,3 +99,9 @@ O `SpringAiAssistantModelIT` aponta o adaptador real para um servidor HTTP local
 - [Spring AI — Provider-Native Structured Output](https://docs.spring.io/spring-ai/reference/api/structured-output/native.html)
 - [Spring AI 2.0.0-M4 — anúncio](https://spring.io/blog/2026/03/26/spring-ai-2-0-0-M4-and-1-1-4-and-1-0-5-available/)
 - [OpenAI Community — Temperature in GPT-5 models](https://community.openai.com/t/temperature-in-gpt-5-models/1337133)
+
+### Complemento (Etapa 4, 2026-11-17): modo restrito
+
+- O prazo de 15 s do modo restrito é aplicado à **resposta**, com um `Future` e `get(15 s)`: passado o prazo, entra o fail-safe. A requisição HTTP segue até o read-timeout geral (30 s) e é descartada. Um cliente HTTP próprio evitaria isso; não foi necessário no MVP.
+- Saída de até 500 tokens (`maxCompletionTokens` só nas opções do modo restrito) e nenhuma nova tentativa.
+- O schema principal passou a `assistant_turn_v3`. Com o enum de intenção usado em dois campos, o gerador põe a definição em `$defs` e referencia por `$ref`; o modo estrito da OpenAI aceitou (testes com IA real da Etapa 4 e repetição dos das Etapas 2 e 3).

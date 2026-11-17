@@ -20,5 +20,7 @@ public enum ItemType {
     /** Preço inteiro em centavos ({@code 15000} = R$ 150,00). */
     PRICE_CENTS,
     /** Lista de intervalos {@code HH:mm-HH:mm}; lista vazia = fechado. */
-    HOURS
+    HOURS,
+    /** Lista de textos (ex.: expressões de alerta, ADR-0019). Lista vazia não é aceita: use null. */
+    TEXT_LIST
 }

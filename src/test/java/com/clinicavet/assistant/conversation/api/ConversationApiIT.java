@@ -259,12 +259,13 @@ class ConversationApiIT {
         void window_respectsTheMessageLimit() {
             String id = api.openConversation(newContact());
             for (int i = 1; i <= 12; i++) {
+                model.thenReply("Resposta " + i, "OTHER");   // respostas distintas: repetidas viram conversa improdutiva
                 api.sendMessage(id, "Mensagem curta " + i);
             }
 
             AssistantRequest last = model.lastRequest();
             assertThat(last.history()).hasSize(settings.historyMaxMessages() - 1);   // + a atual = 20
-            assertThat(last.history().getLast().content()).isEqualTo(FakeAssistantModel.DEFAULT_REPLY);
+            assertThat(last.history().getLast().content()).isEqualTo("Resposta 11");
             assertThat(last.history().get(last.history().size() - 2).content()).isEqualTo("Mensagem curta 11");
             assertThat(last.customerMessage()).isEqualTo("Mensagem curta 12");
         }

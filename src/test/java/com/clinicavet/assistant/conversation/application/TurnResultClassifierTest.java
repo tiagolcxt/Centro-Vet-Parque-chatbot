@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.application;
 
+import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,7 +12,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TurnResultClassifierTest {
 
-    private static final String TAIL = ",\"knowledgeRefs\":[],\"knowledgeGap\":false}";
+    private static final String TAIL = ",\"secondaryIntents\":[],\"knowledgeRefs\":[],\"knowledgeGap\":false"
+            + ",\"handoffRequested\":false,\"possibleEmergency\":false,\"priority\":\"P6_RELATIONSHIP\""
+            + ",\"signals\":[],\"clinicalUncertainty\":false}";
 
     private final TurnResultClassifier classifier = new TurnResultClassifier();
 
@@ -23,13 +26,14 @@ class TurnResultClassifierTest {
     void validTurn_isAccepted_withReplyStripped() {
         TurnOutcome outcome = classify("{\"reply\":\"  Olá! Como posso ajudar?  \",\"intent\":\"GREETING\"" + TAIL, "STOP");
 
-        assertThat(outcome).isEqualTo(new TurnOutcome.Valid(AssistantTurn.simple("Olá! Como posso ajudar?", Intent.GREETING), 1));
+        assertThat(outcome).isEqualTo(new TurnOutcome.Valid(new AssistantTurn("Olá! Como posso ajudar?", Intent.GREETING, List.of(),
+                List.of(), false, false, false, ClinicalPriority.P6_RELATIONSHIP, java.util.Set.of(), false), 1));
     }
 
     @Test
     void sourcesAndGap_areRead() {
-        TurnOutcome outcome = classify("{\"reply\":\"Abrimos aos sábados das 8h às 12h.\",\"intent\":\"CLINIC_INFORMATION\","
-                + "\"knowledgeRefs\":[\" hours.saturday \"],\"knowledgeGap\":true}", "STOP");
+        TurnOutcome outcome = classify(com.clinicavet.assistant.support.TurnJson.of("Abrimos aos sábados das 8h às 12h.", "CLINIC_INFORMATION")
+                .refs(" hours.saturday ").gap().json(), "STOP");
 
         assertThat(outcome).isInstanceOfSatisfying(TurnOutcome.Valid.class, valid -> {
             assertThat(valid.turn().knowledgeRefs()).containsExactly("hours.saturday");
@@ -106,7 +110,7 @@ class TurnResultClassifierTest {
 
     @Test
     void refsListIsImmutableCopy() {
-        TurnOutcome outcome = classify("{\"reply\":\"x\",\"intent\":\"OTHER\",\"knowledgeRefs\":[\"a\"],\"knowledgeGap\":false}", "STOP");
+        TurnOutcome outcome = classify(com.clinicavet.assistant.support.TurnJson.of("x", "OTHER").refs("a").json(), "STOP");
         assertThat(((TurnOutcome.Valid) outcome).turn().knowledgeRefs()).isEqualTo(List.of("a"));
     }
 }

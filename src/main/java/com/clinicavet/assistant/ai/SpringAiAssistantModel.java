@@ -4,6 +4,7 @@ import com.clinicavet.assistant.conversation.application.AssistantModel;
 import com.clinicavet.assistant.conversation.application.AssistantModelException;
 import com.clinicavet.assistant.conversation.application.AssistantRequest;
 import com.clinicavet.assistant.conversation.application.ModelReply;
+import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;
 import org.springframework.ai.chat.client.ChatClient;
@@ -29,6 +30,12 @@ import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.Duration;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,11 +57,28 @@ import java.util.regex.Pattern;
 @Component
 class SpringAiAssistantModel implements AssistantModel {
 
-    /** Formato do {@code AssistantTurn} v2 visto pelo modelo: o enum vira lista fechada no schema. */
-    record AssistantTurnSchema(String reply, Intent intent, List<String> knowledgeRefs, boolean knowledgeGap) {
+    /** Sinais que o modelo pode enviar (os do backend, como alerta e conversa improdutiva, ficam fora). */
+    enum ModelSignal {
+        EMOTIONAL_DISTRESS, DISSATISFACTION, CONFUSION, FINANCIAL_VULNERABILITY, BEREAVEMENT, NEEDS_STAFF_DECISION,
+        WORSENING, POST_PROCEDURE_CHANGE
     }
 
-    static final String SCHEMA_NAME = "assistant_turn_v2";
+    /** Formato do {@code AssistantTurn} v3 visto pelo modelo: os enums viram listas fechadas no schema. */
+    record AssistantTurnSchema(String reply, Intent intent, List<Intent> secondaryIntents, List<String> knowledgeRefs,
+                               boolean knowledgeGap, boolean handoffRequested, boolean possibleEmergency,
+                               ClinicalPriority priority, List<ModelSignal> signals, boolean clinicalUncertainty) {
+    }
+
+    /** Modo restrito ({@code WAITING_HUMAN}): só sinais, sem texto (ADR-0007, item 4). */
+    record RestrictedSchema(boolean possibleEmergency, boolean explicitHumanRequest, ClinicalPriority priority,
+                            List<ModelSignal> signals) {
+    }
+
+    static final String SCHEMA_NAME = "assistant_turn_v3";
+    static final String RESTRICTED_SCHEMA_NAME = "waiting_human_signals_v1";
+    /** DA-28: modo restrito com saída de até 500 tokens e prazo de 15 s, sem nova tentativa. */
+    static final int RESTRICTED_MAX_TOKENS = 500;
+    static final Duration RESTRICTED_TIMEOUT = Duration.ofSeconds(15);
     private static final String OPEN_TAG = "<mensagem_do_cliente>";
     private static final String CLOSE_TAG = "</mensagem_do_cliente>";
     private static final Pattern DELIMITER = Pattern.compile("(?i)<\\s*/?\\s*mensagem_do_cliente\\s*>");
@@ -63,25 +87,37 @@ class SpringAiAssistantModel implements AssistantModel {
     private final ChatClient chatClient;
     private final PromptTemplates templates;
     private final OpenAiChatOptions structuredOutput;
+    private final OpenAiChatOptions restrictedOutput;
+    private final ExecutorService restrictedExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     SpringAiAssistantModel(ChatClient.Builder chatClientBuilder, PromptTemplates templates) {
         this.chatClient = chatClientBuilder.build();
         this.templates = templates;
-        String schema = new BeanOutputConverter<>(AssistantTurnSchema.class).getJsonSchema();
         this.structuredOutput = OpenAiChatOptions.builder()
-                .responseFormat(ResponseFormat.builder()
-                        .type(ResponseFormat.Type.JSON_SCHEMA)
-                        .jsonSchema(ResponseFormat.JsonSchema.builder()
-                                .name(SCHEMA_NAME)
-                                .schema(schema)
-                                .strict(true)
-                                .build())
+                .responseFormat(strictSchema(SCHEMA_NAME, AssistantTurnSchema.class))
+                .build();
+        this.restrictedOutput = OpenAiChatOptions.builder()
+                .responseFormat(strictSchema(RESTRICTED_SCHEMA_NAME, RestrictedSchema.class))
+                .maxCompletionTokens(RESTRICTED_MAX_TOKENS)
+                .build();
+    }
+
+    private static ResponseFormat strictSchema(String name, Class<?> type) {
+        return ResponseFormat.builder()
+                .type(ResponseFormat.Type.JSON_SCHEMA)
+                .jsonSchema(ResponseFormat.JsonSchema.builder()
+                        .name(name)
+                        .schema(new BeanOutputConverter<>(type).getJsonSchema())
+                        .strict(true)
                         .build())
                 .build();
     }
 
     @Override
     public ModelReply respond(AssistantRequest request) {
+        if (request.mode() == AssistantRequest.Mode.RESTRICTED) {
+            return respondRestricted(request);
+        }
         Prompt prompt = new Prompt(toMessages(request), structuredOutput);
         ChatResponse response;
         try {
@@ -92,9 +128,32 @@ class SpringAiAssistantModel implements AssistantModel {
         return toReply(response);
     }
 
+    /**
+     * O prazo de 15 s do modo restrito vale para a resposta: depois dele, o fail-safe responde ao tutor. A
+     * requisição HTTP em si continua até o read-timeout geral (30 s) e é descartada; um cliente HTTP próprio
+     * para o modo restrito evitaria isso, mas não foi necessário no MVP (ADR-0016, complemento).
+     */
+    private ModelReply respondRestricted(AssistantRequest request) {
+        Prompt prompt = new Prompt(toMessages(request), restrictedOutput);
+        Future<ChatResponse> call = restrictedExecutor.submit(() -> chatClient.prompt(prompt).call().chatResponse());
+        try {
+            return toReply(call.get(RESTRICTED_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS));
+        } catch (TimeoutException e) {
+            call.cancel(true);
+            throw new AssistantModelException(AssistantModelException.Kind.TIMEOUT, "timeout do modo restrito", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssistantModelException(AssistantModelException.Kind.TRANSIENT, "interrompido", e);
+        } catch (ExecutionException e) {
+            throw e.getCause() instanceof RuntimeException runtime ? translate(runtime)
+                    : new AssistantModelException(AssistantModelException.Kind.PERMANENT, "falha", e);
+        }
+    }
+
     List<Message> toMessages(AssistantRequest request) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(templates.systemMessage()));
+        messages.add(new SystemMessage(request.mode() == AssistantRequest.Mode.RESTRICTED
+                ? templates.waitingHumanMessage() : templates.systemMessage()));
         messages.add(new SystemMessage(templates.clinicContext()));
         messages.add(new SystemMessage(templates.operationalContext(request.operational())));
         for (AssistantRequest.HistoryEntry entry : request.history()) {

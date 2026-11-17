@@ -45,6 +45,11 @@ public final class ApiClient {
                 StandardCharsets.UTF_8)).header("Content-Type", "application/json"));
     }
 
+    public Response patch(String path, Map<String, ?> body) {
+        return send(request(path).method("PATCH", HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body),
+                StandardCharsets.UTF_8)).header("Content-Type", "application/json"));
+    }
+
     public Response get(String path) {
         return send(request(path).GET());
     }

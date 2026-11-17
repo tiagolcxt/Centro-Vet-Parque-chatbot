@@ -1,6 +1,6 @@
 # Gestão de contexto — o que vai ao modelo a cada mensagem
 
-> Reflete o código ao fim da **Etapa 3 — Conhecimento institucional** (2026-11-16). Camadas implementadas: **1** (identidade), **2** (institucional), **4** (conversa) e parte da **5** (operacional). A camada 3 (tutor e pet) entra na Etapa 5.
+> Reflete o código ao fim da **Etapa 4 — Encaminhamento humano e segurança** (2026-11-17). Camadas implementadas: **1** (identidade; ou o modo restrito em `WAITING_HUMAN`), **2** (institucional, com a lista de alerta), **4** (conversa) e parte da **5** (operacional). A camada 3 (tutor e pet) entra na Etapa 5. Regras de encaminhamento e prioridade: [business-rules.md](business-rules.md).
 > Desenho completo: [proposta, seção 4.2](../plans/etapa-0-analise-e-proposta.md). Decisões: ADR-0002, ADR-0003, ADR-0004, ADR-0008, ADR-0015, ADR-0016, DA-29.
 
 ## Princípio
@@ -19,7 +19,9 @@ Nada fica só em memória. A cada mensagem, a aplicação **reconstrói o contex
 
 As mensagens do tutor (anteriores e atual) vão delimitadas por `<mensagem_do_cliente>…</mensagem_do_cliente>`. Se o tutor escrever essas marcas no texto, elas são removidas antes do envio, para que ele não consiga "fechar" o bloco e escrever fora dele. O prompt de sistema manda tratar o conteúdo delimitado como dado, nunca como instrução.
 
-A resposta pedida é o `AssistantTurn` v2, com JSON Schema **estrito** (`assistant_turn_v2`):
+**Dois modos** (ADR-0007, item 4): em `OPEN`, o modo principal, com a mensagem 1 = `system-message.st`; em `WAITING_HUMAN`, o **modo restrito**, com a mensagem 1 = `waiting-human.st`, saída só de sinais (`possibleEmergency`, `explicitHumanRequest`, `priority`, `signals`), uma chamada, 500 tokens, 15 s. As demais mensagens são iguais nos dois modos.
+
+No modo principal, a resposta pedida é o `AssistantTurn` v3, com JSON Schema **estrito** (`assistant_turn_v3`):
 
 | Campo | Uso |
 |---|---|
@@ -27,6 +29,9 @@ A resposta pedida é o `AssistantTurn` v2, com JSON Schema **estrito** (`assista
 | `intent` | Uma das 11 intenções (lista fechada no schema). Grava em `message.intent` e `conversation.current_intent`. Entra na verificação V4 |
 | `knowledgeRefs` | Chaves da base que o modelo diz ter usado (E3). Definem os valores autorizados (V1, V2) |
 | `knowledgeGap` | O tutor pediu algo que a base não tem ou tem como DESCONHECIDO (E3). Gera pedido de informação para a equipe (V3) |
+| `secondaryIntents` | Até 2 intenções a mais (E4, DA-33). Contam para encaminhamento e pisos de prioridade |
+| `handoffRequested`, `possibleEmergency` | Sugestões de encaminhamento e de possível emergência (E4). O backend decide |
+| `priority`, `signals`, `clinicalUncertainty` | Sugestão de nível e sinais (E4, ADR-0018). Incerteza clínica impõe piso P2 |
 
 ## Camada 1 — identidade e comportamento
 
@@ -94,7 +99,7 @@ Bloco `<estado_do_atendimento>`:
 - **status** da conversa, em texto (`em atendimento pelo assistente`, `sinalizada para revisão da equipe`);
 - **data e hora local** da clínica, no fuso `America/Sao_Paulo`, com dia da semana em português (ex.: `segunda-feira, 16/11/2026, 09:05`).
 
-Encaminhamento, prioridade, atraso e solicitação em andamento entram nas Etapas 4 e 5.
+A prioridade, o motivo do encaminhamento e o atraso **não** vão ao modelo: são decisões do backend, e o modelo não deve ser influenciado pelo nível anterior ao sugerir o do turno. O status já indica quando a conversa está com a equipe. A solicitação em andamento entra na Etapa 5.
 
 ## Do resultado do modelo ao que é gravado
 
@@ -104,6 +109,8 @@ Fora de transação: monta o contexto → chama o modelo (até 2×) → classifi
 Transação 2: conversa mudou? → 409 | válido → grava intenção + resposta (+ pedido de informação se houver lacuna)
                                   | falha → grava a resposta segura
 ```
+
+A partir da Etapa 4, antes do modelo rodam os detectores determinísticos (pedido de humano, alerta), e na transação 2 o backend aplica prioridade, encaminhamento e oferta e **compõe o texto final** ([business-rules.md](business-rules.md), seções 2 a 4). Em `WAITING_HUMAN` o texto é sempre composto pelo backend.
 
 | Resultado (`TurnResultClassifier`) | Nova tentativa? | O que acontece |
 |---|---|---|

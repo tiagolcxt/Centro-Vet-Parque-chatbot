@@ -34,3 +34,13 @@ As [Diretrizes de Atendimento](../../product/diretrizes-de-atendimento.md) exige
 - Excesso de prioridade alta (super-triagem) é preferível a sub-triagem, mas pode cansar a equipe. A Etapa 6 mede a distribuição por nível e a frequência de rebaixamento pela equipe.
 - O modo restrito de `WAITING_HUMAN` passa a devolver `priority` e `signals[]`.
 - Migration na Etapa 4: colunas de prioridade na `conversation` e na `message`.
+
+## Implementação (Etapa 4, 2026-11-17)
+
+- `ClinicalPriority`, `PrioritySource` e `PriorityPolicy` no domínio do módulo `conversation`; migration `V3` com `clinical_priority` (padrão P6), `CHECK` dos valores e índice da fila `(status, clinical_priority, handoff_at)`.
+- **Nível do turno × nível efetivo:** a política devolve os dois. O efetivo (mais urgente entre turno e conversa) fica na conversa; o do turno decide encaminhamento e composição, para que uma conversa devolvida pela equipe não volte à fila por causa do nível antigo.
+- **Origem (item 8):** `MODEL`, `BACKEND_FLOOR` (piso igual ou mais urgente que a sugestão) ou `CURRENT_LEVEL` (o nível já existente prevaleceu). Gravada em cada mensagem do assistente, com os sinais.
+- **Rebaixamento (item 4):** `PATCH /api/conversations/{id}/priority` + tabela `priority_change` (nível anterior, novo, nota, momento, autor). Autor = "equipe (API Key)" até a Etapa 7.
+- **Fila (item 6):** ordenação pelo nome do enum (P1 antes de P6) e por `handoff_at`; o atraso usa o prazo do nível atual (P-02, provisório).
+- **Sem dados comerciais (item 5):** as entradas da política são intenções, sinais, possível emergência, incerteza clínica e piso de alerta; um teste confere a lista de componentes.
+- Regras completas: [business-rules.md](../business-rules.md).

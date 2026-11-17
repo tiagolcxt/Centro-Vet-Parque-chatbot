@@ -1,12 +1,19 @@
 package com.clinicavet.assistant.conversation.application;
 
+import com.clinicavet.assistant.conversation.application.rules.AlertExpressionDetector;
+import com.clinicavet.assistant.conversation.application.rules.ExplicitHumanRequestDetector;
+import com.clinicavet.assistant.conversation.domain.AssistantMetadata;
+import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
+import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
+import com.clinicavet.assistant.conversation.domain.PriorityPolicy;
+import com.clinicavet.assistant.conversation.domain.TurnSignal;
 import com.clinicavet.assistant.servicerequest.domain.RequestField;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
@@ -22,24 +29,26 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * Um turno de conversa (proposta 5.1, Etapa 2).
+ * Um turno de conversa (proposta 5.1).
  * <ol>
- *   <li><b>Transação 1:</b> resolve a conversa ativa do contato (expira e abre outra, se preciso),
- *       grava a mensagem do tutor e lê a janela recente. A mensagem fica gravada aconteça o que
- *       acontecer depois.</li>
- *   <li><b>Fora de transação:</b> monta o contexto, chama o modelo (no máximo 2 vezes) e classifica.</li>
- *   <li><b>Transação 2:</b> confere que ninguém mexeu na conversa durante a chamada. Se mexeu, responde
- *       {@code 409} sem resposta, e a mensagem do tutor entra no histórico do turno seguinte (DA-21).
- *       Senão, aplica o turno válido (intenção) ou só grava a resposta segura, sem mudar o estado.</li>
+ *   <li><b>Transação 1:</b> resolve a conversa ativa do contato (expira e abre outra, se preciso), grava a
+ *       mensagem do tutor e lê a janela recente. A mensagem fica gravada aconteça o que acontecer depois.</li>
+ *   <li><b>Fora de transação:</b> detectores determinísticos (pedido de humano, expressões de alerta), depois
+ *       o modelo: <b>modo principal</b> em {@code OPEN} (até 2 chamadas, validação e reconciliação) ou
+ *       <b>modo restrito</b> em {@code WAITING_HUMAN} (só sinais, uma chamada, ADR-0007 item 4).</li>
+ *   <li><b>Transação 2:</b> confere que ninguém mexeu na conversa (senão {@code 409}, DA-21). Aplica tudo de uma
+ *       vez (ADR-0017): prioridade (só sobe), intenção, encaminhamento + {@code ServiceRequest(HUMAN_CONTACT)},
+ *       pedido de informação, oferta de atendimento humano e a resposta composta pelo backend.</li>
  * </ol>
- * A conversa-alvo da URL serve para identificar o contato. Como no WhatsApp, a mensagem vai para a
- * conversa ativa do contato, que pode ser outra se a alvo estiver encerrada ou expirada (ADR-0009).
+ * A conversa-alvo da URL serve para identificar o contato. Como no WhatsApp, a mensagem vai para a conversa
+ * ativa do contato, que pode ser outra se a alvo estiver encerrada ou expirada (ADR-0009).
  */
 @Service
 public class HandleIncomingMessageUseCase {
@@ -47,16 +56,29 @@ public class HandleIncomingMessageUseCase {
     private static final Logger log = LoggerFactory.getLogger(HandleIncomingMessageUseCase.class);
 
     /**
-     * @param conversationId conversa em que a mensagem entrou (pode diferir da URL)
+     * @param conversationId  conversa em que a mensagem entrou (pode diferir da URL)
      * @param newConversation a conversa foi aberta por esta mensagem
-     * @param fallback        a resposta é a segura padrão, porque o turno falhou
+     * @param fallback        o modelo falhou e a resposta foi composta pelo backend sem o texto dele
      */
     public record Result(ConversationId conversationId, boolean newConversation, String reply,
-                         ConversationStatus status, Optional<Intent> intent, boolean fallback) {
+                         ConversationStatus status, Optional<Intent> intent, boolean fallback,
+                         ClinicalPriority priority, Optional<HandoffReason> handoffReason) {
     }
 
     private record TurnStart(Conversation conversation, boolean newConversation, Message customerMessage,
                              List<Message> recent, Instant at) {
+
+        List<Message> previous() {
+            return recent.stream().filter(m -> !m.id().equals(customerMessage.id())).toList();
+        }
+    }
+
+    private sealed interface ModelResult {
+        record Main(TurnOutcome outcome) implements ModelResult {
+        }
+
+        record Restricted(RestrictedOutcome outcome) implements ModelResult {
+        }
     }
 
     private final ConversationRepository conversations;
@@ -65,22 +87,34 @@ public class HandleIncomingMessageUseCase {
     private final ConversationLifecycle lifecycle;
     private final ContextAssembler contextAssembler;
     private final TurnExecutor executor;
+    private final TurnDecider decider;
+    private final ReplyComposer composer;
+    private final ExplicitHumanRequestDetector humanRequest;
+    private final AlertExpressionDetector alerts;
     private final TransactionRunner tx;
     private final ConversationSettings settings;
+    private final HandoffSettings handoffSettings;
     private final Clock clock;
 
     HandleIncomingMessageUseCase(ConversationRepository conversations, MessageRepository messages,
                                  ServiceRequestRepository serviceRequests, ConversationLifecycle lifecycle,
-                                 ContextAssembler contextAssembler, TurnExecutor executor, TransactionRunner tx, ConversationSettings settings,
-                                 Clock clock) {
+                                 ContextAssembler contextAssembler, TurnExecutor executor, TurnDecider decider,
+                                 ReplyComposer composer, ExplicitHumanRequestDetector humanRequest,
+                                 AlertExpressionDetector alerts, TransactionRunner tx, ConversationSettings settings,
+                                 HandoffSettings handoffSettings, Clock clock) {
         this.conversations = conversations;
         this.messages = messages;
         this.serviceRequests = serviceRequests;
         this.lifecycle = lifecycle;
         this.contextAssembler = contextAssembler;
         this.executor = executor;
+        this.decider = decider;
+        this.composer = composer;
+        this.humanRequest = humanRequest;
+        this.alerts = alerts;
         this.tx = tx;
         this.settings = settings;
+        this.handoffSettings = handoffSettings;
         this.clock = clock;
     }
 
@@ -91,15 +125,26 @@ public class HandleIncomingMessageUseCase {
                 .contact();
 
         TurnStart start = tx.withRetry(() -> begin(contact, content));
+        Conversation conversation = start.conversation();
 
-        AssistantRequest request = contextAssembler.assemble(start.conversation(), start.recent(),
-                start.customerMessage(), start.at());
-        TurnOutcome outcome = executor.execute(request);
+        // Determinísticos, antes do modelo e independentes dele (ADR-0007 item 1, ADR-0019)
+        TurnDecider.Context ctx = new TurnDecider.Context(conversation.clinicalPriority(),
+                conversation.humanOfferMade(), start.previous(), content, humanRequest.detect(content),
+                alerts.floor(content));
 
-        Result result = tx.inTransaction(() -> finish(start, outcome));
-        log.info("Turno concluído [conversationId={}, novaConversa={}, resultado={}, tentativas={}]",
+        AssistantRequest request = contextAssembler.assemble(conversation, start.recent(), start.customerMessage(),
+                start.at());
+        ModelResult modelResult = conversation.status() == ConversationStatus.WAITING_HUMAN
+                ? new ModelResult.Restricted(executor.executeRestricted(request))
+                : new ModelResult.Main(executor.execute(request, turn -> decider.reconcile(ctx, turn)));
+
+        Result result = tx.inTransaction(() -> finish(start, ctx, modelResult));
+        log.info("Turno concluído [conversationId={}, novaConversa={}, modo={}, falha={}, prioridade={}, "
+                        + "encaminhamento={}, pedidoExplicito={}, alerta={}]",
                 result.conversationId().value(), result.newConversation(),
-                result.fallback() ? ((TurnOutcome.Failed) outcome).kind() : "VALID", outcome.attempts());
+                modelResult instanceof ModelResult.Restricted ? "RESTRITO" : "PRINCIPAL", result.fallback(),
+                result.priority(), result.handoffReason().map(Enum::name).orElse("-"),
+                ctx.explicitRequest().orElse("-"), ctx.alertFloor().map(Enum::name).orElse("-"));
         return result;
     }
 
@@ -126,7 +171,7 @@ public class HandleIncomingMessageUseCase {
         return new TurnStart(saved, resolved.started(), customer, recent, now);
     }
 
-    private Result finish(TurnStart start, TurnOutcome outcome) {
+    private Result finish(TurnStart start, TurnDecider.Context ctx, ModelResult modelResult) {
         ConversationId id = start.conversation().id();
         Conversation current = conversations.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalStateException("conversa sumiu durante o turno"));
@@ -139,35 +184,117 @@ public class HandleIncomingMessageUseCase {
             log.info("Turno descartado por concorrência [conversationId={}]", id.value());
             throw new ConcurrentTurnException();
         }
-
         Instant now = clock.instant();
-        return switch (outcome) {
+        return switch (modelResult) {
+            case ModelResult.Restricted restricted -> finishWaiting(start, ctx, current, restricted.outcome(), now);
+            case ModelResult.Main main -> finishMain(start, ctx, current, main.outcome(), now);
+        };
+    }
+
+    private Result finishMain(TurnStart start, TurnDecider.Context ctx, Conversation current, TurnOutcome outcome,
+                              Instant now) {
+        ConversationId id = current.id();
+        String customerText = start.customerMessage().content();
+        TurnDecider.Decision decision;
+        String reply;
+        Intent intent = null;
+        List<Intent> secondary = List.of();
+        boolean failed;
+        switch (outcome) {
             case TurnOutcome.Valid valid -> {
                 AssistantTurn turn = valid.turn();
+                decision = decider.decideValid(ctx, turn);
+                reply = composer.composeValid(plan(decision, turn.possibleEmergency()), turn.reply());
+                intent = turn.intent();
+                secondary = turn.secondaryIntents();
                 current.recordIntent(turn.intent());
-                current.registerActivity(now);
-                Conversation saved = conversations.save(current);
-                messages.save(Message.fromAssistant(id, turn.reply(), turn.intent(), now));
                 if (turn.knowledgeGap()) {
-                    recordInformationGap(id, start.customerMessage().content(), now);
+                    recordInformationGap(id, customerText, now);
                 }
-                yield new Result(id, start.newConversation(), turn.reply(), saved.status(),
-                        Optional.of(turn.intent()), false);
+                failed = false;
             }
-            case TurnOutcome.Failed failed -> {
-                // Falha: o estado da conversa não muda (ADR-0002). A resposta segura fica no histórico,
-                // porque foi o que o tutor recebeu.
-                String reply = settings.fallbackReply().strip();
-                messages.save(Message.fromAssistant(id, reply, null, now));
-                yield new Result(id, start.newConversation(), reply, current.status(), Optional.empty(), true);
+            case TurnOutcome.Failed failure -> {
+                // Falha: intenção e coleta não mudam (ADR-0002). Prioridade e encaminhamento ainda podem mudar,
+                // porque vêm dos detectores determinísticos (H8, ADR-0007).
+                decision = decider.decideFailure(ctx, failure.kind() == FailureKind.TRANSFER_WITHOUT_HANDOFF);
+                reply = composer.composeFailure(plan(decision, false), settings.fallbackReply(),
+                        current.clinicalPriority());
+                failed = true;
             }
-        };
+        }
+        current.raisePriority(decision.priority().effective());
+        decision.handoff().handoff().ifPresent(reason -> handOff(current, reason, customerText, now));
+        if (decision.handoff().offerHuman()) {
+            current.markHumanOfferMade();
+        }
+        current.registerActivity(now);
+        Conversation saved = conversations.save(current);
+        messages.save(Message.fromAssistant(id, reply, intent,
+                metadata(failed, decision.priority(), decision.signals(), secondary), now));
+        return new Result(id, start.newConversation(), reply, saved.status(), Optional.ofNullable(intent), failed,
+                saved.clinicalPriority(), decision.handoff().handoff());
+    }
+
+    private Result finishWaiting(TurnStart start, TurnDecider.Context ctx, Conversation current,
+                                 RestrictedOutcome outcome, Instant now) {
+        boolean failed = outcome instanceof RestrictedOutcome.Failed;
+        RestrictedSignals signals = outcome instanceof RestrictedOutcome.Valid valid ? valid.signals() : null;
+        PriorityPolicy.Inputs inputs = signals == null
+                ? PriorityPolicy.Inputs.deterministicOnly(ctx.alertFloor())
+                : new PriorityPolicy.Inputs(signals.priority(), Set.of(), signals.signals(), signals.possibleEmergency(),
+                false, ctx.alertFloor());
+        PriorityPolicy.Assessment priority = PriorityPolicy.assess(current.clinicalPriority(), inputs);
+        boolean emergency = signals != null && signals.possibleEmergency();
+        current.raisePriority(priority.effective());
+        boolean overdue = current.handoffAt()
+                .map(at -> now.isAfter(at.plus(handoffSettings.deadlineFor(current.clinicalPriority()))))
+                .orElse(false);
+        String reply = composer.composeWaiting(priority.turnLevel(), emergency, failed, overdue);
+        current.registerActivity(now);
+        Conversation saved = conversations.save(current);
+        Set<TurnSignal> recorded = EnumSet.noneOf(TurnSignal.class);
+        if (signals != null) {
+            recorded.addAll(signals.signals());
+        }
+        if (ctx.alertFloor().isPresent()) {
+            recorded.add(TurnSignal.ALERT_EXPRESSION);
+        }
+        messages.save(Message.fromAssistant(current.id(), reply, null,
+                metadata(failed, priority, recorded, List.of()), now));
+        return new Result(current.id(), start.newConversation(), reply, saved.status(), Optional.empty(), failed,
+                saved.clinicalPriority(), saved.handoffReason());
+    }
+
+    private static ReplyComposer.Plan plan(TurnDecider.Decision decision, boolean possibleEmergency) {
+        return new ReplyComposer.Plan(decision.priority().turnLevel(), possibleEmergency, decision.explicitRequest(),
+                decision.handoff().handsOff(), decision.handoff().offerHuman());
+    }
+
+    private static AssistantMetadata metadata(boolean failed, PriorityPolicy.Assessment priority, Set<TurnSignal> signals,
+                                              List<Intent> secondary) {
+        return new AssistantMetadata(failed, priority.effective(), priority.source(), signals, secondary);
+    }
+
+    /**
+     * Encaminhamento (ADR-0007, item 3): {@code WAITING_HUMAN} com motivo e momento e uma
+     * {@code ServiceRequest(HUMAN_CONTACT)} pendente, na mesma transação (ADR-0017). Ninguém é notificado.
+     */
+    private void handOff(Conversation conversation, HandoffReason reason, String customerText, Instant now) {
+        conversation.handOff(reason, now);
+        boolean alreadyOpen = serviceRequests.findByConversation(conversation.id()).stream()
+                .anyMatch(r -> r.type() == RequestType.HUMAN_CONTACT && !r.status().isFinal());
+        if (!alreadyOpen) {
+            ServiceRequest request = ServiceRequest.open(conversation.id(), RequestType.HUMAN_CONTACT, now);
+            request.describe(truncate("[" + reason.name() + "] " + customerText), now);
+            request.submit(Set.of(RequestField.SUMMARY), now);
+            serviceRequests.save(request);
+        }
     }
 
     /**
      * Lacuna de conhecimento vira pedido de informação para a equipe (ADR-0008, item 4): uma
      * {@code ServiceRequest(INFORMATION)} aberta por conversa. Se já houver uma pendente, a nova dúvida é
-     * acrescentada ao resumo. Nenhuma notificação: a equipe vê nas listagens (ADR-0007, Etapa 4).
+     * acrescentada ao resumo. Nenhuma notificação: a equipe vê nas listagens.
      */
     private void recordInformationGap(ConversationId conversationId, String question, Instant now) {
         Optional<ServiceRequest> open = serviceRequests.findByConversation(conversationId).stream()

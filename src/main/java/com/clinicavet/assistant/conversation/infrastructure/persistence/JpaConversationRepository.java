@@ -5,6 +5,7 @@ import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.Message;
+import com.clinicavet.assistant.conversation.domain.PriorityChange;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
 import org.springframework.data.domain.PageRequest;
@@ -23,9 +24,27 @@ class JpaConversationRepository implements ConversationRepository {
             EnumSet.of(ConversationStatus.OPEN, ConversationStatus.WAITING_HUMAN);
 
     private final ConversationJpaRepository jpa;
+    private final PriorityChangeJpaRepository priorityChanges;
 
-    JpaConversationRepository(ConversationJpaRepository jpa) {
+    JpaConversationRepository(ConversationJpaRepository jpa, PriorityChangeJpaRepository priorityChanges) {
         this.jpa = jpa;
+        this.priorityChanges = priorityChanges;
+    }
+
+    @Override
+    public List<Conversation> findByStatusInQueueOrder(ConversationStatus status, int limit) {
+        return jpa.findQueue(status, PageRequest.of(0, limit)).stream().map(ConversationEntity::toDomain).toList();
+    }
+
+    @Override
+    public void savePriorityChange(PriorityChange change) {
+        priorityChanges.saveAndFlush(PriorityChangeEntity.newFrom(change));
+    }
+
+    @Override
+    public List<PriorityChange> findPriorityChanges(ConversationId id) {
+        return priorityChanges.findByConversationIdOrderByChangedAtAsc(id.value()).stream()
+                .map(PriorityChangeEntity::toDomain).toList();
     }
 
     @Override

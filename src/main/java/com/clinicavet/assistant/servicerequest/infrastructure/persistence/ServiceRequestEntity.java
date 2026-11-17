@@ -1,6 +1,7 @@
 package com.clinicavet.assistant.servicerequest.infrastructure.persistence;
 
 import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequest;
@@ -47,6 +48,13 @@ class ServiceRequestEntity {
     @Column(name = "summary", length = 500)
     private String summary;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "outcome", columnDefinition = "VARCHAR(30)")
+    private RequestOutcome outcome;
+
+    @Column(name = "outcome_note", length = 500)
+    private String outcomeNote;
+
     @Column(name = "created_at", columnDefinition = "DATETIME(6)", nullable = false)
     private Instant createdAt;
 
@@ -69,6 +77,8 @@ class ServiceRequestEntity {
         entity.type = request.type();
         entity.status = request.status();
         entity.summary = request.summary().orElse(null);
+        entity.outcome = request.outcome().orElse(null);
+        entity.outcomeNote = request.outcomeNote().orElse(null);
         entity.createdAt = request.createdAt();
         entity.updatedAt = request.updatedAt();
         entity.version = request.version();
@@ -78,6 +88,6 @@ class ServiceRequestEntity {
     ServiceRequest toDomain() {
         return ServiceRequest.restore(new ServiceRequestId(id), new ConversationId(conversationId),
                 tutorId == null ? null : new TutorId(tutorId), petId == null ? null : new PetId(petId),
-                type, status, summary, createdAt, updatedAt, version);
+                type, status, summary, outcome, outcomeNote, createdAt, updatedAt, version);
     }
 }

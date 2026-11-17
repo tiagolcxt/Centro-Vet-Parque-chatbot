@@ -1,0 +1,59 @@
+# Pedido explícito de atendimento humano (ADR-0007, item 1; lista aprovada na DA-30).
+#
+# - O texto do tutor é normalizado antes da comparação: minúsculas, SEM acentos, SEM pontuação, espaços
+#   colapsados. Escreva os padrões assim: "nao" (não "não"), "atendimento humano".
+# - Regra de negação: uma ocorrência com "nao" ou "nunca" até 3 palavras antes NÃO dispara
+#   ("nao precisa chamar atendente").
+# - short-messages: a mensagem INTEIRA (até max-short-words palavras) igual a um destes textos dispara.
+# - Toda mudança aqui precisa de caso de teste em ExplicitHumanRequestDetectorTest, inclusive as frases de
+#   controle que não podem disparar.
+
+negation-window: 3
+max-short-words: 4
+
+patterns:
+  # Pedido + falar/conversar com uma pessoa
+  - id: pedido-falar-com-pessoa
+    pattern: '\b(quero|queria|gostaria|preciso|posso|tem como|da pra|da para|consigo|deixa eu|me deixa)\b(\s\w+){0,4}\s(falar|conversar)\scom\s((um|uma|o|a|algum|alguma)\s)?(atendente|pessoa|humano|humana|funcionario|funcionaria|recepcao|recepcionista|veterinario|veterinaria|doutor|doutora|alguem|responsavel|gerente|equipe)\b'
+  - id: quero-uma-pessoa
+    pattern: '\b(quero|preciso|queria)\s(uma|um)\s(pessoa|atendente|humano|funcionario|funcionaria)\b'
+  - id: falar-com-atendente-no-inicio
+    pattern: '^(falar|conversar)\scom\s((um|uma|o|a|algum|alguma)\s)?(atendente|pessoa|humano|humana|funcionario|funcionaria|recepcao|recepcionista|veterinario|veterinaria|alguem|responsavel|gerente)\b'
+  # Pedir transferência
+  - id: me-transfere
+    pattern: '\bme\s(transfere|transfira|transferir|passa|passe|passar|encaminha|encaminhe|encaminhar|coloca|coloque|colocar|manda|mande)\s(pra|para|pro|com)\s((o|a|um|uma)\s)?(atendente|alguem|pessoa|humano|humana|equipe|veterinario|veterinaria|recepcao|funcionario|funcionaria|responsavel)\b'
+  - id: transferir-para-atendente
+    pattern: '\b(transfere|transfira|transferir|transferencia)\s(pra|para|pro)\s((o|a|um|uma)\s)?(atendente|alguem|pessoa|humano|equipe|veterinario|veterinaria|recepcao)\b'
+  # Atendimento humano
+  - id: atendimento-humano
+    pattern: '\b(atendimento|atendente|suporte)\shumano\b'
+  - id: pessoa-de-verdade
+    pattern: '\b(pessoa|gente)\s(de verdade|real)\b'
+  - id: ser-humano
+    pattern: '\b(com|um|uma)\sser\shumano\b'
+  # Recusar o robô
+  - id: nao-quero-robo
+    pattern: '\bnao\squero\b(\s\w+){0,3}\s(robo|bot|maquina|ia|inteligencia artificial|assistente virtual)\b'
+  - id: chega-de-robo
+    pattern: '\bchega\sde\s(robo|bot|maquina)\b'
+  # Pedir que liguem
+  - id: me-liga
+    pattern: '\bme\s(liga|ligue|liguem)\b'
+  - id: podem-me-ligar
+    pattern: '\b(pode|podem|alguem pode|da pra|tem como|vc pode|voce pode)\sme\sligar\b'
+
+short-messages:
+  - "atendente"
+  - "atendente por favor"
+  - "atendente pfv"
+  - "um atendente"
+  - "quero atendente"
+  - "quero um atendente"
+  - "humano"
+  - "um humano"
+  - "pessoa"
+  - "uma pessoa"
+  - "quero uma pessoa"
+  - "falar com alguem"
+  - "quero falar com alguem"
+  - "atendimento humano"

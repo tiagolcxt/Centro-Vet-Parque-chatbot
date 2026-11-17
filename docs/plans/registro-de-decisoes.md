@@ -1,7 +1,7 @@
 # Registro de decisões
 
 > Fonte única de verdade sobre **o que foi decidido, o que foi mantido e o que está em aberto**.
-> Atualizado em 2026-11-16 (P-09 → DA-28; PT-11 → DA-29). Antes, em 2026-11-11: PT-01, PT-03, PT-04 e PT-05 decididas; Diretrizes de Atendimento incorporadas como DA-22 a DA-26, após a [revisão técnica](etapa-0-revisao-tecnica.md) e a consolidação de decisões pelo responsável pelo projeto.
+> Atualizado em 2026-11-17 (PT-10 → DA-30; PT-14 → DA-31; PT-02 → DA-32; PT-06 → DA-33; PT-08 → DA-34). Em 2026-11-16: P-09 → DA-28; PT-11 → DA-29. Antes, em 2026-11-11: PT-01, PT-03, PT-04 e PT-05 decididas; Diretrizes de Atendimento incorporadas como DA-22 a DA-26, após a [revisão técnica](etapa-0-revisao-tecnica.md) e a consolidação de decisões pelo responsável pelo projeto.
 > Uma recomendação da revisão **só** aparece como decisão se foi aprovada explicitamente; as demais estão na seção 4.
 
 **Convenções:**
@@ -46,6 +46,11 @@
 | DA-27 | **Lista de expressões de alerta** aprovada pela equipe veterinária usada como **verificação determinística** que impõe piso P1/P2: só eleva a prioridade, nunca rebaixa, não diagnostica; ausência de correspondência não significa situação leve | PT-13, decidida em 2026-11-11 (opção A) | 0019 |
 | DA-28 | **Modelo e parâmetros** (ADR-0016): `gpt-6-luna`; `reasoning_effort` `low` (principal e modo restrito); `temperature` não enviada; saída máx. 2.000 / 500 tokens; histórico 20 mensagens + 4.000 tokens; mensagem do tutor até 2.000 caracteres; timeout 30 s / 15 s; no máximo 1 nova tentativa por turno (recusa não repete; modo restrito sem retry); testes com IA 10×, aprovação ≥ 9/10, proibidos 0/10 | P-09, aprovada em 2026-11-16 | 0016 |
 | DA-29 | **Lista do validador** (ADR-0008, seção 3): formatos ampliados (dinheiro, horário, "24 horas", dias, datas, telefone, e-mail/site/@perfil, CEP, desconto e parcelamento, prazos); contexto operacional (data/hora) como fonte autorizada; expressões de V5 e V6 em arquivo versionado, com texto normalizado e regra de negação (até 3 palavras); **V7 nova: doses de medicamento reprovadas** (eco do tutor permitido) | PT-11, aprovada em 2026-11-16 (opção A + doses) | 0008 |
+| DA-30 | **Pedido explícito de humano** (ADR-0007, item 1): lista de expressões em arquivo versionado, texto normalizado (minúsculas, sem acento e pontuação), regra de negação de 3 palavras; grupos: pedido de falar/conversar com pessoa, transferência, atendimento humano, recusa do robô, pedido de ligação e mensagem curta inteira (até 4 palavras); "vc" e "pfv" reconhecidos; frases de controle versionadas como testes | PT-10, aprovada em 2026-11-17 (opção A) | 0007 |
+| DA-31 | **Conversa improdutiva** (ADR-0007, item 10): nas últimas 10 mensagens, três contagens (falhas seguidas, mensagem do tutor repetida, resposta do assistente repetida, por igualdade após normalização); oferece atendimento humano na 2ª ocorrência e encaminha automaticamente na 3ª (motivo `UNPRODUCTIVE_CONVERSATION`); turno válido zera as falhas; uma oferta por conversa; não roda em `WAITING_HUMAN`; resposta segura marcada em coluna própria da mensagem | PT-14, aprovada em 2026-11-17 (opção A) | 0007 |
+| DA-32 | **Orquestração do turno entre módulos** (ADR-0017): o caso de uso do turno usa diretamente as portas de repositório e os objetos de domínio de `servicerequest` e `tutor`, numa única transação; casos de uso desses módulos só para entradas externas (endpoints da equipe); nenhum módulo acessa infraestrutura de outro | PT-02, aprovada em 2026-11-17 (opção A) | 0017 |
+| DA-33 | **Intenções secundárias**: `AssistantTurn` ganha `secondaryIntents` (até 2); a principal segue a precedência da DA-24 (clínico antes do administrativo); `HandoffPolicy` considera principal e secundárias; intenção corrente e V4 usam só a principal; secundárias gravadas na mensagem do assistente | PT-06, aprovada em 2026-11-17 (opção B) | 0002 |
+| DA-34 | **Desfecho da solicitação**: ao resolver ou cancelar, desfecho obrigatório de lista fixa (`SCHEDULED_BY_STAFF`, `INFORMATION_PROVIDED`, `HANDLED_OUTSIDE`, `NO_AVAILABILITY`, `CUSTOMER_GAVE_UP`, `NO_RESPONSE`, `DUPLICATE`, `OTHER`) + observação opcional de até 500 caracteres (obrigatória com `OTHER`), sem dados de saúde ou pessoais além do necessário; o assistente não lê o desfecho no MVP | PT-08, aprovada em 2026-11-17 (opção A) | 0011 |
 
 ## 2. Decisões mantidas da proposta original
 
@@ -100,19 +105,19 @@
 | ID | O que precisa ser decidido | Opções registradas | Necessária na etapa | O que fica bloqueado |
 |---|---|---|---|---|
 | PT-01 | ~~Montagem do histórico~~ | **Decidida → DA-18** | — | — |
-| PT-02 | Orquestração do turno entre módulos | (a) o caso de uso do turno usa diretamente repositórios e objetos de domínio de `tutor` e `servicerequest`; (b) chama casos de uso desses módulos | Entrada da 4 | Integração do turno com `servicerequest` (Etapa 4) e `tutor` (Etapa 5); ADR-0017 |
+| PT-02 | ~~Orquestração do turno entre módulos~~ | **Decidida → DA-32** (opção A, ADR-0017) | — | — |
 | PT-03 | ~~Detalhes variáveis da solicitação~~ | **Decidida → DA-19** | — | — |
 | PT-04 | ~~Organização de pastas~~ | **Decidida → DA-20** | — | — |
 | PT-05 | ~~Mensagens simultâneas~~ | **Decidida → DA-21** | — | — |
-| PT-06 | Uma intenção principal por turno é limitação aceita no MVP, ou adicionar intenções secundárias? | Aceitar limitação × `secondaryIntents[]` | 4 | Contrato final do `AssistantTurn` |
+| PT-06 | ~~Intenções secundárias~~ | **Decidida → DA-33** (opção B) | — | — |
 | PT-07 | Limitação de taxa (*rate limiting*) por chave ou contato | Implementar na Etapa 7 × antes, se houver exposição fora de `localhost` | 7 (ou antes de expor) | Proteção de custo contra abuso |
-| PT-08 | Registro do **desfecho** da solicitação | `resolutionNote` (texto) × enum de desfecho × nada no MVP | 4 | Contrato do `PATCH /api/service-requests/{id}` |
+| PT-08 | ~~Desfecho da solicitação~~ | **Decidida → DA-34** (opção A) | — | — |
 | PT-09 | Granularidade da proveniência e correspondência de pets | Por registro (recomendado na proposta) × por campo; regra para variações de nome e homônimos | 5 | Migration de proveniência; *upsert* de pet |
-| PT-10 | Lista inicial de expressões de **pedido explícito de humano** | A propor no início da Etapa 4, revisada pelo responsável (e pela clínica, se desejar) | 4 | Detector determinístico |
+| PT-10 | ~~Expressões de pedido explícito de humano~~ | **Decidida → DA-30** (opção A) | — | — |
 | PT-11 | ~~Lista do validador~~ | **Decidida → DA-29** (opção A + doses) | — | — |
 | PT-12 | Momento de criação do registro do tutor | No primeiro contato × só quando houver dado do tutor/pet a guardar (minimização) | 5 | Regra de criação de `Tutor` |
 | PT-13 | ~~Lista de expressões de alerta~~ | **Decidida → DA-27** (opção A) | — | — |
-| PT-14 | **Limiares de conversa improdutiva** (falhas consecutivas, repetição da mesma pergunta, mensagens repetidas do tutor) | A propor no início da Etapa 4 | Entrada da 4 | Detector `UNPRODUCTIVE_CONVERSATION` |
+| PT-14 | ~~Limiares de conversa improdutiva~~ | **Decidida → DA-31** (opção A) | — | — |
 | PT-15 | **Referência a solicitações anteriores** do mesmo contato no contexto de uma conversa nova (para acompanhamento P3), hoje excluída pelo ADR-0009 | Manter exclusão × mostrar só tipo, data e status das solicitações abertas, como "atendimento anterior — não reutilizar dados" | Entrada da 5 | Camada operacional em conversas de acompanhamento |
 
 ## 4. Recomendações da revisão técnica não aprovadas nesta rodada

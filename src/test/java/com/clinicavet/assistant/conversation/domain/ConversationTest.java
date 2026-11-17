@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.domain;
 
+import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.shared.domain.Channel;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
 import com.clinicavet.assistant.shared.exception.DomainValidationException;
@@ -41,7 +42,7 @@ class ConversationTest {
         void open_toWaitingHuman_andBack() {
             Conversation conversation = Conversation.start(CONTACT, T0);
 
-            conversation.waitForHuman(T0.plusSeconds(60));
+            conversation.handOff(HandoffReason.EXPLICIT_REQUEST, T0.plusSeconds(60));
             assertThat(conversation.status()).isEqualTo(ConversationStatus.WAITING_HUMAN);
 
             conversation.returnToAssistant(T0.plusSeconds(120));
@@ -63,7 +64,7 @@ class ConversationTest {
         @Test
         void closeByStaff_fromWaitingHuman() {
             Conversation conversation = Conversation.start(CONTACT, T0);
-            conversation.waitForHuman(T0.plusSeconds(10));
+            conversation.handOff(HandoffReason.EXPLICIT_REQUEST, T0.plusSeconds(10));
 
             conversation.closeByStaff(T0.plusSeconds(20));
 
@@ -77,9 +78,9 @@ class ConversationTest {
         @Test
         void waitForHuman_whenAlreadyWaiting_isRejected() {
             Conversation conversation = Conversation.start(CONTACT, T0);
-            conversation.waitForHuman(T0);
+            conversation.handOff(HandoffReason.EXPLICIT_REQUEST, T0);
 
-            assertThatThrownBy(() -> conversation.waitForHuman(T0))
+            assertThatThrownBy(() -> conversation.handOff(HandoffReason.EXPLICIT_REQUEST, T0))
                     .isInstanceOf(InvalidStateTransitionException.class);
         }
 
@@ -96,7 +97,7 @@ class ConversationTest {
             Conversation conversation = Conversation.start(CONTACT, T0);
             conversation.closeByStaff(T0);
 
-            assertThatThrownBy(() -> conversation.waitForHuman(T0)).isInstanceOf(InvalidStateTransitionException.class);
+            assertThatThrownBy(() -> conversation.handOff(HandoffReason.EXPLICIT_REQUEST, T0)).isInstanceOf(InvalidStateTransitionException.class);
             assertThatThrownBy(() -> conversation.returnToAssistant(T0)).isInstanceOf(InvalidStateTransitionException.class);
             assertThatThrownBy(() -> conversation.closeByStaff(T0)).isInstanceOf(InvalidStateTransitionException.class);
             assertThatThrownBy(() -> conversation.registerActivity(T0)).isInstanceOf(InvalidStateTransitionException.class);
@@ -118,7 +119,7 @@ class ConversationTest {
         @Test
         void waitingHumanConversation_usesItsOwnTimeout() {
             Conversation conversation = Conversation.start(CONTACT, T0);
-            conversation.waitForHuman(T0);
+            conversation.handOff(HandoffReason.EXPLICIT_REQUEST, T0);
 
             assertThat(conversation.isExpired(T0.plus(Duration.ofHours(3)), POLICY)).isFalse();
             assertThat(conversation.isExpired(T0.plus(Duration.ofHours(49)), POLICY)).isTrue();

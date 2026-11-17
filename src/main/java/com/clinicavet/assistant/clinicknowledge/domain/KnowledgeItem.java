@@ -33,6 +33,7 @@ public record KnowledgeItem(String key, ItemType type, Object value) {
             case BOOLEAN -> ((Boolean) value) ? "sim" : "não";
             case PRICE_CENTS -> formatMoney((Long) value);
             case HOURS -> formatHours(castList(value));
+            case TEXT_LIST -> String.join("; ", castList(value));
             default -> value.toString();
         };
     }

@@ -3,6 +3,7 @@ package com.clinicavet.assistant.servicerequest.domain;
 import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.shared.domain.Texts;
 import com.clinicavet.assistant.shared.domain.Timestamps;
+import com.clinicavet.assistant.shared.exception.DomainValidationException;
 import com.clinicavet.assistant.shared.exception.InvalidStateTransitionException;
 import com.clinicavet.assistant.shared.exception.MissingRequiredFieldsException;
 import com.clinicavet.assistant.tutor.domain.PetId;
@@ -38,12 +39,15 @@ public final class ServiceRequest {
     private final RequestType type;
     private RequestStatus status;
     private String summary;
+    private RequestOutcome outcome;
+    private String outcomeNote;
     private final Instant createdAt;
     private Instant updatedAt;
     private final Long version;
 
     private ServiceRequest(ServiceRequestId id, ConversationId conversationId, TutorId tutorId,
                            PetId petId, RequestType type, RequestStatus status, String summary,
+                           RequestOutcome outcome, String outcomeNote,
                            Instant createdAt, Instant updatedAt, Long version) {
         this.id = Objects.requireNonNull(id, "id");
         this.conversationId = Objects.requireNonNull(conversationId, "conversationId");
@@ -52,6 +56,11 @@ public final class ServiceRequest {
         this.type = Objects.requireNonNull(type, "type");
         this.status = Objects.requireNonNull(status, "status");
         this.summary = Texts.optional("summary", summary, MAX_SUMMARY_LENGTH);
+        this.outcome = outcome;
+        this.outcomeNote = Texts.optional("outcomeNote", outcomeNote, MAX_SUMMARY_LENGTH);
+        if (status.isFinal() != (outcome != null)) {
+            throw new IllegalStateException("solicitação inconsistente: status=" + status + ", outcome=" + outcome);
+        }
         this.createdAt = Timestamps.normalize(createdAt);
         this.updatedAt = Timestamps.normalize(updatedAt);
         this.version = version;
@@ -59,14 +68,14 @@ public final class ServiceRequest {
 
     public static ServiceRequest open(ConversationId conversationId, RequestType type, Instant now) {
         return new ServiceRequest(ServiceRequestId.newId(), conversationId, null, null, type,
-                RequestStatus.COLLECTING, null, now, now, null);
+                RequestStatus.COLLECTING, null, null, null, now, now, null);
     }
 
     public static ServiceRequest restore(ServiceRequestId id, ConversationId conversationId,
                                          TutorId tutorId, PetId petId, RequestType type,
-                                         RequestStatus status, String summary, Instant createdAt,
-                                         Instant updatedAt, Long version) {
-        return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary,
+                                         RequestStatus status, String summary, RequestOutcome outcome,
+                                         String outcomeNote, Instant createdAt, Instant updatedAt, Long version) {
+        return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, outcome, outcomeNote,
                 createdAt, updatedAt, version);
     }
 
@@ -121,14 +130,30 @@ public final class ServiceRequest {
         transition(RequestStatus.IN_PROGRESS, at);
     }
 
-    public void resolve(Instant at) {
+    /** Resolve com o desfecho informado pela equipe (DA-34). {@code OTHER} exige observação. */
+    public void resolve(RequestOutcome outcome, String note, Instant at) {
         requireStatus(RequestStatus.IN_PROGRESS, "resolve");
+        recordOutcome(outcome, note);
         transition(RequestStatus.RESOLVED, at);
     }
 
-    public void cancel(Instant at) {
+    /** Cancela com o desfecho informado pela equipe (DA-34). */
+    public void cancel(RequestOutcome outcome, String note, Instant at) {
         requireNotFinal("cancel");
+        recordOutcome(outcome, note);
         transition(RequestStatus.CANCELLED, at);
+    }
+
+    private void recordOutcome(RequestOutcome outcome, String note) {
+        if (outcome == null) {
+            throw new DomainValidationException("outcome", "obrigatório ao resolver ou cancelar");
+        }
+        String cleanNote = Texts.optional("outcomeNote", note, MAX_SUMMARY_LENGTH);
+        if (outcome == RequestOutcome.OTHER && cleanNote == null) {
+            throw new DomainValidationException("outcomeNote", "obrigatória com o desfecho OTHER");
+        }
+        this.outcome = outcome;
+        this.outcomeNote = cleanNote;
     }
 
     private void transition(RequestStatus next, Instant at) {
@@ -181,6 +206,14 @@ public final class ServiceRequest {
 
     public Optional<String> summary() {
         return Optional.ofNullable(summary);
+    }
+
+    public Optional<RequestOutcome> outcome() {
+        return Optional.ofNullable(outcome);
+    }
+
+    public Optional<String> outcomeNote() {
+        return Optional.ofNullable(outcomeNote);
     }
 
     public Instant createdAt() {

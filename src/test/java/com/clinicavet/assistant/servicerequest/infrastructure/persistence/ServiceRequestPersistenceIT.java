@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.servicerequest.infrastructure.persistence;
 
+import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.servicerequest.domain.RequestField;
@@ -86,7 +87,7 @@ class ServiceRequestPersistenceIT {
         ServiceRequest copyA = requests.findById(saved.id()).orElseThrow();
         ServiceRequest copyB = requests.findById(saved.id()).orElseThrow();
 
-        copyA.cancel(T0.plusSeconds(1));
+        copyA.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0.plusSeconds(1));
         requests.save(copyA);
         copyB.describe("alteração concorrente", T0.plusSeconds(2));
 

@@ -106,7 +106,7 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 
 ---
 
-## Etapa 3 — Conhecimento institucional e proteção contra informação inventada ✅ (concluída em 2026-11-16; aguardando aceite do responsável)
+## Etapa 3 — Conhecimento institucional e proteção contra informação inventada ✅ (concluída em 2026-11-16; aceita pelo responsável em 2026-11-16)
 
 **Objetivo:** responder dúvidas institucionais **apenas** a partir da base, tratando o desconhecido, com validação por fontes testada desde a introdução.
 
@@ -145,17 +145,17 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 
 ---
 
-## Etapa 4 — Encaminhamento humano e segurança
+## Etapa 4 — Encaminhamento humano e segurança ✅ (concluída em 2026-11-17; aguardando aceite do responsável)
 
 **Objetivo:** garantir o encaminhamento independentemente do modelo, aplicar a **hierarquia de prioridades** (ADR-0018) e tratar possível emergência em qualquer estado, com as operações da equipe. Base: [Diretrizes](../product/diretrizes-de-atendimento.md) e [requisitos RF-D/RN-D](../specs/requisitos-diretrizes.md).
 
 **Pré-requisitos (entrada):**
-- **PT-02** (orquestração entre módulos, gera o ADR-0017);
-- **PT-06** (intenções secundárias);
-- **PT-08** (desfecho da solicitação);
-- **PT-10** (expressões de pedido explícito);
+- ~~PT-02~~ decidida: orquestração do turno (DA-32, ADR-0017);
+- ~~PT-06~~ decidida: `secondaryIntents` (DA-33);
+- ~~PT-08~~ decidida: desfecho obrigatório de lista fixa + observação (DA-34);
+- ~~PT-10~~ decidida: expressões de pedido explícito (DA-30);
 - ~~PT-13~~ decidida: lista determinística de expressões de alerta adotada (DA-27, ADR-0019);
-- **PT-14** (limiares de conversa improdutiva).
+- ~~PT-14~~ decidida: limiares de conversa improdutiva (DA-31).
 - **P-01**, **P-02**, **P-12**, **P-14** e **P-20** podem seguir com *placeholders* ou com a lista ilustrativa das diretrizes, mas o aceite nessas condições vale só para dados fictícios.
 
 **Tarefas:**
@@ -182,21 +182,30 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 10. Condições ampliadas de encaminhamento (DA-25), detector de conversa improdutiva (PT-14) e detector de expressões de alerta (DA-27, ADR-0019), com testes unitários de cada expressão e de frases de controle.
 11. `ReplyComposer`: P1 só com protocolo; P2 com encaminhamento + quando procurar atendimento imediato; mensagem mista com o clínico antes do administrativo.
 
+**Desvios e achados da implementação:**
+- A condição "prioridade P1 a P3 encaminha" usa o nível **do turno**, não o acumulado da conversa: senão uma conversa devolvida pela equipe sem rebaixar voltaria à fila na mensagem seguinte (ADR-0018, implementação).
+- Lista de alerta em duas chaves (`triage.alert-expressions-p1` e `-p2`), sem regra de negação (ADR-0019, implementação).
+- O prazo de 15 s do modo restrito vale para a resposta; a requisição HTTP segue até 30 s e é descartada (ADR-0016, complemento).
+- Mensagens do tutor com menos de 3 palavras não contam como repetição para conversa improdutiva (ADR-0007, implementação).
+- Expressão extra "quero/preciso uma pessoa", para o 2º turno do CT-02.
+- **RN-D13** (registro de elogio e sugestão para a equipe) não foi implementada: depende de um tipo de solicitação que a Etapa 5 define. RN-D05, RN-D07, RN-D08 e RN-D10 têm partes só no prompt (detalhes em [business-rules.md](../architecture/business-rules.md#9-rastreabilidade-rf-d--rn-d)).
+- Textos de emergência, prazo e encaminhamento continuam *placeholders* (P-01, P-02, P-19); a lista de alerta é ilustrativa (P-20). O aceite vale só para dados fictícios.
+
 **Critérios de aceite:**
-- [ ] Unitários: cada condição da `HandoffPolicy` isoladamente; o detector reconhece cada expressão de PT-10 com variações de caixa, acentuação e espaços; o detector **não** dispara em frases de controle definidas junto com PT-10.
-- [ ] Integração com o *double* configurado para **não** sinalizar encaminhamento: um pedido explícito de humano resulta em `WAITING_HUMAN` + `HUMAN_CONTACT`. O mesmo vale com o *double* falhando (timeout).
-- [ ] Integração: `reply` que anuncia transferência sem encaminhamento → falha → resposta de encaminhamento. `reply` que afirma notificação → reprovado.
-- [ ] Integração em `WAITING_HUMAN`:
+- [x] Unitários: cada condição da `HandoffPolicy` isoladamente; o detector reconhece cada expressão de PT-10 com variações de caixa, acentuação e espaços; o detector **não** dispara em frases de controle definidas junto com PT-10. (`PriorityAndHandoffPolicyTest`, `ExplicitHumanRequestDetectorTest`)
+- [x] Integração com o *double* configurado para **não** sinalizar encaminhamento: um pedido explícito de humano resulta em `WAITING_HUMAN` + `HUMAN_CONTACT`. O mesmo vale com o *double* falhando (timeout). (CT-02 em `GuidelineScenariosIT`)
+- [x] Integração: `reply` que anuncia transferência sem encaminhamento → falha → resposta de encaminhamento. `reply` que afirma notificação → reprovado. (`GuidelineScenariosIT`)
+- [x] Integração em `WAITING_HUMAN` (CT-07, CT-11, CT-16 em `GuidelineScenariosIT`):
   - mensagem com indício de emergência (sinalizado pelo *double*) → resposta contém a orientação de emergência;
   - modo restrito falhando → resposta contém a orientação curta de emergência;
   - nenhuma resposta afirma notificação;
   - nenhuma resposta continua a coleta.
-- [ ] Integração: após o prazo (valor de teste), a listagem marca a conversa como atrasada e a próxima resposta inclui a orientação de prazo vencido.
-- [ ] Integração: `PATCH` da solicitação não altera a conversa; `close` e `return-to-assistant` não alteram solicitações; transições inválidas → `409`.
-- [ ] IA real (dados fictícios): reclamação, pedido de atendente em linguagem coloquial, sintoma (comportamento conforme P-12 ou *placeholder*) e emergência evidente. Nenhuma resposta diagnostica, prescreve ou afirma notificação.
-- [ ] Camadas **U** e **I** dos cenários CT-01 a CT-08, CT-10 a CT-12 e CT-14 a CT-16 ([cenarios-diretrizes.md](../specs/cenarios-diretrizes.md)) passam com 100% de aprovação, inclusive com o *double* configurado para não sinalizar ou para falhar.
-- [ ] Nenhum caminho de código rebaixa a prioridade sem ação de funcionário (teste dedicado).
-- [ ] ADR-0007 e ADR-0018 revisados; ADR-0017 criado; ADR-0019 revisado com a lista efetivamente implementada.
+- [x] Integração: após o prazo (valor de teste), a listagem marca a conversa como atrasada e a próxima resposta inclui a orientação de prazo vencido. (CT-11)
+- [x] Integração: `PATCH` da solicitação não altera a conversa; `close` e `return-to-assistant` não alteram solicitações; transições inválidas → `409`. (`StaffOperationsIT`; desfecho ausente → `422`)
+- [x] IA real (dados fictícios): reclamação, pedido de atendente em linguagem coloquial, sintoma (comportamento conforme P-12 ou *placeholder*) e emergência evidente. Nenhuma resposta diagnostica, prescreve ou afirma notificação. (`HandoffAiIT`: **40/40** em 2026-11-17, 10 por cenário, nenhuma resposta segura)
+- [x] Camadas **U** e **I** dos cenários CT-01 a CT-08, CT-10 a CT-12 e CT-14 a CT-16 ([cenarios-diretrizes.md](../specs/cenarios-diretrizes.md)) passam com 100% de aprovação, inclusive com o *double* configurado para não sinalizar ou para falhar.
+- [x] Nenhum caminho de código rebaixa a prioridade sem ação de funcionário (teste dedicado). (`PriorityAndHandoffPolicyTest.neverLowersTheCurrentLevel`, `ConversationHandoffAndPriorityTest.raisePriority_neverLowers`, CT-16)
+- [x] ADR-0007 e ADR-0018 revisados; ADR-0017 criado; ADR-0019 revisado com a lista efetivamente implementada (seção "Implementação" de cada um; regras em [business-rules.md](../architecture/business-rules.md)).
 
 ---
 

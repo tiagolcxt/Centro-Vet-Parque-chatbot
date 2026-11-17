@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** DA-28: no máximo uma nova tentativa por turno; recusa e erro permanente não se repetem. */
 class TurnExecutorTest {
 
-    private static final String VALID = "{\"reply\":\"Oi!\",\"intent\":\"GREETING\",\"knowledgeRefs\":[],\"knowledgeGap\":false}";
+    private static final String VALID = com.clinicavet.assistant.support.TurnJson.of("Oi!", "GREETING").json();
     private static final AssistantRequest REQUEST = new AssistantRequest(
             new AssistantRequest.OperationalContext(ConversationStatus.OPEN,
                     ZonedDateTime.of(2026, 11, 16, 9, 0, 0, 0, ZoneId.of("America/Sao_Paulo"))),
@@ -49,7 +49,11 @@ class TurnExecutorTest {
 
     @Test
     void validFirstAnswer_singleCall() {
-        assertThat(run()).isEqualTo(new TurnOutcome.Valid(AssistantTurn.simple("Oi!", Intent.GREETING), 1));
+        assertThat(run()).isInstanceOfSatisfying(TurnOutcome.Valid.class, v -> {
+            assertThat(v.turn().reply()).isEqualTo("Oi!");
+            assertThat(v.turn().intent()).isEqualTo(Intent.GREETING);
+            assertThat(v.attempts()).isEqualTo(1);
+        });
         assertThat(calls).isEqualTo(1);
     }
 
@@ -81,7 +85,7 @@ class TurnExecutorTest {
 
     @Test
     void responseRejectedByTheValidator_isInconsistent_andRetriedOnce() {
-        String inventedPrice = "{\"reply\":\"A consulta custa R$ 200.\",\"intent\":\"PRICE_INQUIRY\",\"knowledgeRefs\":[],\"knowledgeGap\":false}";
+        String inventedPrice = com.clinicavet.assistant.support.TurnJson.of("A consulta custa R$ 200.", "PRICE_INQUIRY").json();
         script.add(() -> ModelReply.of(inventedPrice, "STOP"));
         script.add(() -> ModelReply.of(inventedPrice, "STOP"));
 

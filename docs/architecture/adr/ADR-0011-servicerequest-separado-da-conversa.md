@@ -1,6 +1,6 @@
 # ADR-0011 — ServiceRequest separado da conversa; solicitação ≠ agendamento
 
-- **Status:** Aceito, com pendências (PT-08, P-15)
+- **Status:** Aceito, com pendências (P-15). PT-08 decidida em 2026-11-17 (DA-34)
 - **Data:** 2026-11-11
 - **Decisão:** DA-07
 
@@ -35,7 +35,7 @@ A proposta original tinha um único `PATCH /api/service-requests/{id}` que tamb�
 
 ## Pendências ligadas
 
-- **PT-08:** registrar o **desfecho** da solicitação (ex.: `resolutionNote` ou enum), já que `RESOLVED` não diferencia "agendado pela equipe" de "sem horário" ou "desistiu".
+- **Desfecho (DA-34, resolve PT-08):** ao resolver (`RESOLVED`) ou cancelar (`CANCELLED`), a equipe informa um desfecho obrigatório de uma lista fixa: `SCHEDULED_BY_STAFF` (agendado pela equipe), `INFORMATION_PROVIDED` (informação passada), `HANDLED_OUTSIDE` (atendido por telefone ou presencialmente), `NO_AVAILABILITY` (sem horário disponível), `CUSTOMER_GAVE_UP` (tutor desistiu), `NO_RESPONSE` (sem retorno do tutor), `DUPLICATE` (outra solicitação já cobria) ou `OTHER`. Uma observação opcional de até 500 caracteres acompanha o desfecho e é obrigatória com `OTHER`. O contrato da API avisa para não escrever dados de saúde nem dados pessoais além do necessário. O assistente não lê o desfecho no MVP (P-15).
 - **P-15:** o que o assistente deve dizer quando a equipe resolveu por fora (telefone) e o tutor volta a perguntar.
 
 ## Alternativas consideradas

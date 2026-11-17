@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.servicerequest.domain;
 
+import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
 import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.shared.exception.InvalidStateTransitionException;
 import com.clinicavet.assistant.shared.exception.MissingRequiredFieldsException;
@@ -92,7 +93,7 @@ class ServiceRequestTest {
             ServiceRequest request = pending();
 
             request.startProgress(T0.plusSeconds(10));
-            request.resolve(T0.plusSeconds(20));
+            request.resolve(RequestOutcome.SCHEDULED_BY_STAFF, null, T0.plusSeconds(20));
 
             assertThat(request.status()).isEqualTo(RequestStatus.RESOLVED);
         }
@@ -101,7 +102,7 @@ class ServiceRequestTest {
         void pending_cannotJumpToResolved() {
             ServiceRequest request = pending();
 
-            assertThatThrownBy(() -> request.resolve(T0)).isInstanceOf(InvalidStateTransitionException.class);
+            assertThatThrownBy(() -> request.resolve(RequestOutcome.SCHEDULED_BY_STAFF, null, T0)).isInstanceOf(InvalidStateTransitionException.class);
         }
 
         @Test
@@ -116,9 +117,9 @@ class ServiceRequestTest {
             ServiceRequest fromInProgress = pending();
             fromInProgress.startProgress(T0);
 
-            fromCollecting.cancel(T0);
-            fromPending.cancel(T0);
-            fromInProgress.cancel(T0);
+            fromCollecting.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0);
+            fromPending.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0);
+            fromInProgress.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0);
 
             assertThat(fromCollecting.status()).isEqualTo(RequestStatus.CANCELLED);
             assertThat(fromPending.status()).isEqualTo(RequestStatus.CANCELLED);
@@ -129,12 +130,12 @@ class ServiceRequestTest {
         void finalStatuses_rejectEverything() {
             ServiceRequest resolved = pending();
             resolved.startProgress(T0);
-            resolved.resolve(T0);
+            resolved.resolve(RequestOutcome.SCHEDULED_BY_STAFF, null, T0);
             ServiceRequest cancelled = collecting();
-            cancelled.cancel(T0);
+            cancelled.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0);
 
             for (ServiceRequest request : new ServiceRequest[]{resolved, cancelled}) {
-                assertThatThrownBy(() -> request.cancel(T0)).isInstanceOf(InvalidStateTransitionException.class);
+                assertThatThrownBy(() -> request.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0)).isInstanceOf(InvalidStateTransitionException.class);
                 assertThatThrownBy(() -> request.describe("x", T0)).isInstanceOf(InvalidStateTransitionException.class);
                 assertThatThrownBy(() -> request.attachPet(PetId.newId(), T0)).isInstanceOf(InvalidStateTransitionException.class);
                 assertThatThrownBy(() -> request.startProgress(T0)).isInstanceOf(InvalidStateTransitionException.class);

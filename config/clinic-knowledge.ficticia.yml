@@ -61,6 +61,37 @@ faq:
     question: "O que levar na consulta?"
     answer: "A carteira de vacinação do animal, se houver."
 
+# LISTA ILUSTRATIVA, tirada dos exemplos da hierarquia de prioridades (docs/product). Não é protocolo clínico.
+# Só para testes com dados fictícios (P-20 pendente).
+triage:
+  alert-expressions-p1:
+    - "dificuldade para respirar"
+    - "nao consegue respirar"
+    - "nao esta respirando"
+    - "convulsao"
+    - "convulsionando"
+    - "desmaiou"
+    - "perdeu a consciencia"
+    - "sangrando muito"
+    - "hemorragia"
+    - "comeu veneno"
+    - "envenenado"
+    - "intoxicado"
+    - "foi atropelado"
+    - "nao consegue andar"
+    - "nao consegue se mexer"
+    - "dor intensa"
+    - "muita dor"
+  alert-expressions-p2:
+    - "esta piorando"
+    - "piorou"
+    - "sentindo dor"
+    - "com dor"
+    - "nao quer comer"
+    - "parou de comer"
+    - "nao quer beber agua"
+    - "parou de beber agua"
+
 approved-texts:
   emergency-policy: null
   direct-contact: null

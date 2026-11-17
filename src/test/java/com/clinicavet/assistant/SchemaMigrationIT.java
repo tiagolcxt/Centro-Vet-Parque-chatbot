@@ -27,7 +27,7 @@ class SchemaMigrationIT {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
 
-        assertThat(versions).containsExactly("1", "2");
+        assertThat(versions).containsExactly("1", "2", "3");
         assertThat(jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()", String.class))
                 .map(String::toLowerCase)
@@ -78,10 +78,13 @@ class SchemaMigrationIT {
     }
 
     private void insertConversation(String contact, String status) {
+        boolean waiting = status.equals("WAITING_HUMAN");   // V3: aguardando exige motivo e momento
         jdbc.update("""
-                INSERT INTO conversation (id, channel, external_contact_id, status, started_at, last_activity_at, version)
-                VALUES (UUID_TO_BIN(?), 'API', ?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
-                """, UUID.randomUUID().toString(), contact, status);
+                INSERT INTO conversation (id, channel, external_contact_id, status, started_at, last_activity_at,
+                                          handoff_reason, handoff_at, version)
+                VALUES (UUID_TO_BIN(?), 'API', ?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), ?, ?, 0)
+                """, UUID.randomUUID().toString(), contact, status, waiting ? "EXPLICIT_REQUEST" : null,
+                waiting ? java.sql.Timestamp.from(java.time.Instant.now()) : null);
     }
 
     private void insertClosedConversation(String contact) {

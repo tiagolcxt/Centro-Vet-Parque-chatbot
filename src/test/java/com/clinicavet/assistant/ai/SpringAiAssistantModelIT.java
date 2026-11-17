@@ -103,7 +103,12 @@ class SpringAiAssistantModelIT {
         JsonNode rawSchema = format.path("json_schema").path("schema");
         JsonNode schema = rawSchema.isString() ? JSON.readTree(rawSchema.asString()) : rawSchema;
         List<String> allowedIntents = new ArrayList<>();
-        schema.path("properties").path("intent").path("enum").forEach(n -> allowedIntents.add(n.asString()));
+        JsonNode intentSchema = schema.path("properties").path("intent");
+        if (intentSchema.has("$ref")) {   // enum usado em dois campos vai para $defs (Etapa 4)
+            String name = intentSchema.path("$ref").asString().substring(intentSchema.path("$ref").asString().lastIndexOf('/') + 1);
+            intentSchema = schema.path("$defs").path(name);
+        }
+        intentSchema.path("enum").forEach(n -> allowedIntents.add(n.asString()));
         assertThat(allowedIntents).containsExactlyInAnyOrder(
                 java.util.Arrays.stream(Intent.values()).map(Enum::name).toArray(String[]::new));
 

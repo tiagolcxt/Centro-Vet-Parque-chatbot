@@ -1,6 +1,6 @@
 # ADR-0001 — Arquitetura modular com princípios hexagonais
 
-- **Status:** Aceito, com pendências (PT-02)
+- **Status:** Aceito. PT-02 decidida em 2026-11-17 (DA-32, ADR-0017)
 - **Data:** 2026-11-11
 - **Decisões:** DM-01 (mantida), DA-04, DA-08
 
@@ -30,5 +30,5 @@ O briefing exige separação entre domínio, aplicação e infraestrutura, domí
 ## Consequências
 
 - Duplicação domínio × JPA: cerca de 4–5 classes por agregado (domínio, entidade, mapeamento, repositório Spring Data, adaptador). É o custo aceito da exigência de domínio sem JPA.
-- **Pendente (PT-02):** como o caso de uso do turno (`conversation`) interage com os módulos `tutor` e `servicerequest` dentro de uma mesma transação. A proposta registra duas opções. Precisa ser decidido antes da Etapa 4, quando essa interação começa (ADR-0017).
+- **Orquestração entre módulos (DA-32):** o caso de uso do turno usa diretamente as portas e os objetos de domínio de `tutor` e `servicerequest`, numa única transação. Detalhes no [ADR-0017](ADR-0017-orquestracao-do-turno-entre-modulos.md).
 - Um futuro adaptador WhatsApp entra como novo pacote de infraestrutura, sem alterar `conversation/domain`.

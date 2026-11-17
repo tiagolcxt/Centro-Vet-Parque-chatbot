@@ -1,10 +1,14 @@
 package com.clinicavet.assistant.conversation.infrastructure.persistence;
 
+import com.clinicavet.assistant.conversation.domain.AssistantMetadata;
+import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;
 import com.clinicavet.assistant.conversation.domain.MessageId;
+import com.clinicavet.assistant.conversation.domain.PrioritySource;
+import com.clinicavet.assistant.conversation.domain.TurnSignal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +18,11 @@ import jakarta.persistence.Table;
 import org.springframework.data.domain.Persistable;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 /**
@@ -45,6 +54,24 @@ class MessageEntity implements Persistable<UUID> {
     @Column(name = "created_at", columnDefinition = "DATETIME(6)", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "fallback", nullable = false)
+    private boolean fallback;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", columnDefinition = "VARCHAR(30)")
+    private ClinicalPriority priority;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority_source", columnDefinition = "VARCHAR(20)")
+    private PrioritySource prioritySource;
+
+    /** Lista separada por vírgula (só códigos, sem conteúdo). */
+    @Column(name = "signals", length = 300)
+    private String signals;
+
+    @Column(name = "secondary_intents", length = 100)
+    private String secondaryIntents;
+
     @jakarta.persistence.Transient
     private boolean isNew;
 
@@ -59,13 +86,40 @@ class MessageEntity implements Persistable<UUID> {
         entity.content = message.content();
         entity.intent = message.intent().orElse(null);
         entity.createdAt = message.createdAt();
+        AssistantMetadata meta = message.metadata();
+        entity.fallback = meta.fallback();
+        entity.priority = meta.priority();
+        entity.prioritySource = meta.prioritySource();
+        entity.signals = join(meta.signals().stream().sorted().map(Enum::name).toList());
+        entity.secondaryIntents = join(meta.secondaryIntents().stream().map(Enum::name).toList());
         entity.isNew = true;
         return entity;
     }
 
     Message toDomain() {
-        return Message.restore(new MessageId(id), new ConversationId(conversationId), author, content, intent,
+        AssistantMetadata meta = author == MessageAuthor.CUSTOMER ? AssistantMetadata.NONE
+                : new AssistantMetadata(fallback, priority, prioritySource, parseSignals(signals), parseIntents(secondaryIntents));
+        return Message.restore(new MessageId(id), new ConversationId(conversationId), author, content, intent, meta,
                 createdAt);
+    }
+
+    private static String join(List<String> values) {
+        return values.isEmpty() ? null : String.join(",", values);
+    }
+
+    private static Set<TurnSignal> parseSignals(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Set.of();
+        }
+        return Arrays.stream(raw.split(",")).map(TurnSignal::valueOf)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(TurnSignal.class)));
+    }
+
+    private static List<Intent> parseIntents(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(raw.split(",")).map(Intent::valueOf).toList();
     }
 
     @Override

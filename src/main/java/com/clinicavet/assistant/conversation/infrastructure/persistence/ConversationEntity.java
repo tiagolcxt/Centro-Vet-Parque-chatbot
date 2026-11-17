@@ -1,9 +1,11 @@
 package com.clinicavet.assistant.conversation.infrastructure.persistence;
 
+import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.CloseReason;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
+import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.shared.domain.Channel;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
@@ -58,6 +60,20 @@ class ConversationEntity {
     @Column(name = "closed_at", columnDefinition = "DATETIME(6)")
     private Instant closedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "clinical_priority", columnDefinition = "VARCHAR(30)", nullable = false)
+    private ClinicalPriority clinicalPriority;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "handoff_reason", columnDefinition = "VARCHAR(40)")
+    private HandoffReason handoffReason;
+
+    @Column(name = "handoff_at", columnDefinition = "DATETIME(6)")
+    private Instant handoffAt;
+
+    @Column(name = "human_offer_made", nullable = false)
+    private boolean humanOfferMade;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -77,6 +93,10 @@ class ConversationEntity {
         entity.startedAt = conversation.startedAt();
         entity.lastActivityAt = conversation.lastActivityAt();
         entity.closedAt = conversation.closedAt().orElse(null);
+        entity.clinicalPriority = conversation.clinicalPriority();
+        entity.handoffReason = conversation.handoffReason().orElse(null);
+        entity.handoffAt = conversation.handoffAt().orElse(null);
+        entity.humanOfferMade = conversation.humanOfferMade();
         entity.version = conversation.version();
         return entity;
     }
@@ -84,6 +104,7 @@ class ConversationEntity {
     Conversation toDomain() {
         return Conversation.restore(new ConversationId(id), new ContactIdentity(channel, externalContactId),
                 tutorId == null ? null : new TutorId(tutorId), status, currentIntent, closeReason,
-                startedAt, lastActivityAt, closedAt, version);
+                startedAt, lastActivityAt, closedAt, clinicalPriority, handoffReason, handoffAt, humanOfferMade,
+                version);
     }
 }

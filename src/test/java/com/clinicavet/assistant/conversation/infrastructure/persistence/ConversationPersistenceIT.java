@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.infrastructure.persistence;
 
+import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.conversation.domain.CloseReason;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
@@ -85,7 +86,7 @@ class ConversationPersistenceIT {
         Conversation copyA = conversations.findById(saved.id()).orElseThrow();
         Conversation copyB = conversations.findById(saved.id()).orElseThrow();
 
-        copyA.waitForHuman(T0.plusSeconds(1));
+        copyA.handOff(HandoffReason.EXPLICIT_REQUEST, T0.plusSeconds(1));
         conversations.save(copyA);
         copyB.closeByStaff(T0.plusSeconds(2));
 
@@ -107,7 +108,7 @@ class ConversationPersistenceIT {
 
         assertThat(conversations.findActiveByContact(contact)).map(Conversation::id).contains(current.id());
 
-        current.waitForHuman(T0.plusSeconds(3));
+        current.handOff(HandoffReason.EXPLICIT_REQUEST, T0.plusSeconds(3));
         conversations.save(current);
         assertThat(conversations.findActiveByContact(contact)).map(Conversation::status)
                 .contains(ConversationStatus.WAITING_HUMAN);

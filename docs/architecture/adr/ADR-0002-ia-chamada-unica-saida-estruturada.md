@@ -2,7 +2,7 @@
 
 - **Status:** Aceito
 - **Data:** 2026-11-11
-- **Decisões:** DA-01, DA-02
+- **Decisões:** DA-01, DA-02, DA-33 (intenções secundárias)
 
 ## Contexto
 
@@ -43,5 +43,5 @@ O assistente precisa gerar um texto natural para o tutor e, ao mesmo tempo, info
 
 - Os testes de regra usam um `AssistantTurn` falso, sem depender da OpenAI.
 - A robustez do controle do fluxo depende da reconciliação e da validação, não do formato JSON em si.
-- Há limitação conhecida: **uma intenção principal por turno** (PT-06).
+- Intenções secundárias (DA-33, Etapa 4): o `AssistantTurn` ganha `secondaryIntents` (até 2). A principal segue a precedência da DA-24, com o clínico antes do administrativo. A `HandoffPolicy` considera a principal e as secundárias; a intenção corrente da conversa e a V4 (ADR-0008) usam só a principal.
 - É necessário verificar, na Etapa 2, o suporte do Spring AI 2.0.0-M4 a JSON Schema estrito da OpenAI e como a API expõe recusa e `finish_reason`.

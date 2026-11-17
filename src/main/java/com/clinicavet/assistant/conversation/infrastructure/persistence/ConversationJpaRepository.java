@@ -19,6 +19,13 @@ interface ConversationJpaRepository extends JpaRepository<ConversationEntity, UU
     List<ConversationEntity> findByChannelAndExternalContactIdAndStatusIn(
             Channel channel, String externalContactId, Collection<ConversationStatus> statuses);
 
+    /** Fila da equipe (H10): prioridade (o nome do enum ordena P1 antes de P6), espera, atividade. */
+    @Query("""
+            select c from ConversationEntity c where c.status = :status
+            order by c.clinicalPriority asc, c.handoffAt asc, c.lastActivityAt asc
+            """)
+    List<ConversationEntity> findQueue(@Param("status") ConversationStatus status, Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from ConversationEntity c where c.id = :id")
     Optional<ConversationEntity> findByIdForUpdate(@Param("id") UUID id);
@@ -31,6 +38,11 @@ interface ConversationJpaRepository extends JpaRepository<ConversationEntity, UU
     List<ConversationEntity> findActiveForUpdate(@Param("channel") Channel channel,
                                                  @Param("externalContactId") String externalContactId,
                                                  @Param("statuses") Collection<ConversationStatus> statuses);
+}
+
+interface PriorityChangeJpaRepository extends JpaRepository<PriorityChangeEntity, UUID> {
+
+    List<PriorityChangeEntity> findByConversationIdOrderByChangedAtAsc(UUID conversationId);
 }
 
 interface MessageJpaRepository extends JpaRepository<MessageEntity, UUID> {

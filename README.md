@@ -6,7 +6,7 @@ Primeira camada de atendimento de uma clínica veterinária: conversa com tutore
 
 ## Estado atual
 
-**Etapa 3 — Conhecimento institucional concluída** (aguardando aceite). Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido e ciclo de vida, base institucional em YAML validada na inicialização e um validador que barra valores sem fonte, confirmação de agendamento, promessas sem processo e doses. Dúvidas que a base não responde viram pedidos de informação para a equipe. Ainda não há encaminhamento humano (Etapa 4). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
+**Etapa 4 — Encaminhamento humano e segurança concluída** (aguardando aceite). Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido e ciclo de vida, base institucional em YAML validada na inicialização e um validador que barra valores sem fonte, confirmação de agendamento, promessas sem processo e doses. Dúvidas que a base não responde viram pedidos de informação para a equipe. Pedidos de atendimento humano, possíveis emergências, sintomas e reclamações vão para a fila da equipe, com prioridade clínica (P1 a P6) que só a equipe rebaixa. A equipe tem rotas para a fila, para devolver ou encerrar conversas e para resolver solicitações. Textos de emergência e prazos ainda são provisórios (P-01, P-02). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
 
 ## Pré-requisitos
 
@@ -67,5 +67,6 @@ Troque `ID` pelo `id` devolvido no primeiro comando. Contratos e códigos de err
 | ADRs | [docs/architecture/adr/](docs/architecture/adr/README.md) |
 | Arquitetura implementada | [docs/architecture/architecture-overview.md](docs/architecture/architecture-overview.md) |
 | O que vai ao modelo | [docs/architecture/context-management.md](docs/architecture/context-management.md) |
+| Regras de encaminhamento e prioridade | [docs/architecture/business-rules.md](docs/architecture/business-rules.md) |
 | Modelo de domínio | [docs/architecture/domain-model.md](docs/architecture/domain-model.md) |
 | Diretrizes de atendimento | [docs/product/diretrizes-de-atendimento.md](docs/product/diretrizes-de-atendimento.md) |

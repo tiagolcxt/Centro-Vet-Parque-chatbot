@@ -113,7 +113,7 @@ src/main/java/com/clinicavet/assistant/
 └── shared/{config, exception, security}
 ```
 
-Os pacotes só são criados quando recebem código. A forma de o caso de uso do turno interagir com `tutor` e `servicerequest` é **pendente (PT-02)** e precisa ser decidida antes da Etapa 4.
+Os pacotes só são criados quando recebem código. A forma de o caso de uso do turno interagir com `tutor` e `servicerequest` foi decidida em 2026-11-17: uso direto das portas e dos objetos de domínio, numa transação (DA-32, ADR-0017).
 
 ### 2.3 Canal de comunicação
 

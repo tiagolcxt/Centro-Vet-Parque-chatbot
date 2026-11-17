@@ -33,3 +33,12 @@ Pelo ADR-0018, um sinal de possível emergência hoje depende do modelo (`possib
 
 - Entra na Etapa 4, junto com a `PriorityPolicy`, com testes unitários de cada expressão e frases de controle.
 - O ambiente real recusa iniciar sem a lista aprovada.
+
+## Implementação (Etapa 4, 2026-11-17)
+
+- A lista fica na base institucional em `triage.alert-expressions-p1` e `triage.alert-expressions-p2` (tipo novo `TEXT_LIST`), em vez de `triage.alert-expressions` único: o nível de cada expressão fica explícito na chave.
+- `AlertExpressionDetector`: texto normalizado (minúsculas, sem acentos e pontuação), correspondência por **palavras inteiras**. P1 vence P2. Roda no modo principal e no restrito, e também quando o modelo falha.
+- **Sem regra de negação**, de propósito: "não está respirando" é a própria expressão, e um falso positivo só eleva a prioridade.
+- A lista vai ao modelo como dado institucional, na camada 2 (RF-D14), e nunca como texto fixo do prompt.
+- **Lista atual: ilustrativa**, tirada dos exemplos da hierarquia de prioridades, só na base fictícia (`config/clinic-knowledge.ficticia.yml`). O modelo versionado (`config/clinic-knowledge.example.yml`) tem `null`: sem lista aprovada, o detector nunca dispara. A recusa de iniciar o ambiente real sem a lista aprovada fica para a Etapa 7 (ADR-0014), junto com a noção de ambiente.
+- Testes: `AlertAndUnproductiveDetectorsTest` (P1, P2, frases de controle, lista ausente), CT-01, CT-07, CT-16.

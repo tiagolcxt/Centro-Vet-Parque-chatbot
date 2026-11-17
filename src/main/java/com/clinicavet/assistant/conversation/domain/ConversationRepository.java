@@ -2,6 +2,7 @@ package com.clinicavet.assistant.conversation.domain;
 
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ConversationRepository {
@@ -26,4 +27,14 @@ public interface ConversationRepository {
 
     /** Como {@link #findActiveByContact}, travando a linha encontrada. Exige transação ativa. */
     Optional<Conversation> findActiveByContactForUpdate(ContactIdentity contact);
+
+    /**
+     * Conversas no status, na ordem da fila da equipe (H10): prioridade mais urgente primeiro e, dentro do
+     * nível, a que espera há mais tempo (encaminhamento ou última atividade).
+     */
+    List<Conversation> findByStatusInQueueOrder(ConversationStatus status, int limit);
+
+    void savePriorityChange(PriorityChange change);
+
+    List<PriorityChange> findPriorityChanges(ConversationId id);
 }

@@ -52,6 +52,9 @@ final class KnowledgeSchema {
                 "scheduling", ItemType.TEXT,
                 "cancellation", ItemType.TEXT,
                 "no-show", ItemType.TEXT));
+        SECTIONS.put("triage", ordered(
+                "alert-expressions-p1", ItemType.TEXT_LIST,
+                "alert-expressions-p2", ItemType.TEXT_LIST));
         SECTIONS.put("approved-texts", ordered(
                 "emergency-policy", ItemType.TEXT,
                 "direct-contact", ItemType.TEXT));
@@ -69,7 +72,7 @@ final class KnowledgeSchema {
 
     /** Ordem de primeiro nível no arquivo e no prompt. */
     static final java.util.List<String> TOP_LEVEL = java.util.List.of(
-            "identification", "hours", "services", "payment", "policies", "faq", "approved-texts");
+            "identification", "hours", "services", "payment", "policies", "faq", "triage", "approved-texts");
 
     private KnowledgeSchema() {
     }

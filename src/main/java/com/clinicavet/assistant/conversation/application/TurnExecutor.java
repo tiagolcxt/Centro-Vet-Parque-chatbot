@@ -8,11 +8,14 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Chama o modelo, classifica e valida a resposta por fontes (ADR-0008), com no máximo uma nova
  * tentativa por turno (DA-28), só para falhas repetíveis: timeout, erro transitório, resposta truncada,
- * inválida ou inconsistente (reprovada pelo validador). Recusa e erro permanente não são repetidos.
+ * inválida ou inconsistente (reprovada pelo validador ou pela reconciliação). Recusa e erro permanente não
+ * são repetidos. O modo restrito tem uma tentativa só (DA-28).
  * <p>
  * O log tem só metadados (resultado, códigos das violações, latência, tokens, modelo), nunca conteúdo
  * (DM-12).
@@ -40,15 +43,42 @@ class TurnExecutor {
     }
 
     TurnOutcome execute(AssistantRequest request) {
-        TurnOutcome outcome = attempt(request, 1);
+        return execute(request, turn -> Optional.empty());
+    }
+
+    /** @param reconciliation verificação extra do turno válido (ex.: transferência anunciada sem encaminhamento) */
+    TurnOutcome execute(AssistantRequest request, Function<AssistantTurn, Optional<FailureKind>> reconciliation) {
+        TurnOutcome outcome = attempt(request, 1, reconciliation);
         if (outcome instanceof TurnOutcome.Failed failed && failed.kind().retryable()) {
             pause();
-            outcome = attempt(request, MAX_ATTEMPTS);
+            outcome = attempt(request, MAX_ATTEMPTS, reconciliation);
         }
         return outcome;
     }
 
-    private TurnOutcome attempt(AssistantRequest request, int attempt) {
+    /** Modo restrito: uma tentativa, sem retry; falha vira fail-safe em quem chama. */
+    RestrictedOutcome executeRestricted(AssistantRequest request) {
+        long start = System.nanoTime();
+        try {
+            ModelReply reply = model.respond(request.restricted());
+            RestrictedOutcome outcome = classifier.classifyRestricted(reply);
+            log.info("Chamada ao modelo, modo restrito [resultado={}, finishReason={}, modelo={}, tokensEntrada={}, "
+                            + "tokensSaida={}, ms={}]",
+                    outcome instanceof RestrictedOutcome.Failed f ? f.kind() : "VALID", reply.finishReason(),
+                    reply.model(), reply.inputTokens(), reply.outputTokens(), elapsedMillis(start));
+            return outcome;
+        } catch (AssistantModelException e) {
+            log.warn("Chamada ao modelo falhou, modo restrito [resultado={}, motivo={}, ms={}]",
+                    e.kind(), e.getMessage(), elapsedMillis(start));
+            return new RestrictedOutcome.Failed(toFailure(e.kind()));
+        } catch (RuntimeException e) {
+            log.error("Erro inesperado no modo restrito [tipo={}]", e.getClass().getName());
+            return new RestrictedOutcome.Failed(FailureKind.TECHNICAL_PERMANENT);
+        }
+    }
+
+    private TurnOutcome attempt(AssistantRequest request, int attempt,
+                                Function<AssistantTurn, Optional<FailureKind>> reconciliation) {
         long start = System.nanoTime();
         try {
             ModelReply reply = model.respond(request);
@@ -58,6 +88,11 @@ class TurnExecutor {
                 violations = validator.validate(valid.turn(), request);
                 if (!violations.isEmpty()) {
                     outcome = new TurnOutcome.Failed(FailureKind.INCONSISTENT, attempt);
+                } else {
+                    Optional<FailureKind> reconciled = reconciliation.apply(valid.turn());
+                    if (reconciled.isPresent()) {
+                        outcome = new TurnOutcome.Failed(reconciled.get(), attempt);
+                    }
                 }
             }
             log.info("Chamada ao modelo [tentativa={}, resultado={}, finishReason={}, modelo={}, "
@@ -66,11 +101,7 @@ class TurnExecutor {
                     reply.inputTokens(), reply.outputTokens(), violations, elapsedMillis(start));
             return outcome;
         } catch (AssistantModelException e) {
-            FailureKind kind = switch (e.kind()) {
-                case TIMEOUT -> FailureKind.TIMEOUT;
-                case TRANSIENT -> FailureKind.TECHNICAL_TRANSIENT;
-                case PERMANENT -> FailureKind.TECHNICAL_PERMANENT;
-            };
+            FailureKind kind = toFailure(e.kind());
             log.warn("Chamada ao modelo falhou [tentativa={}, resultado={}, motivo={}, ms={}]",
                     attempt, kind, e.getMessage(), elapsedMillis(start));
             return new TurnOutcome.Failed(kind, attempt);
@@ -79,6 +110,14 @@ class TurnExecutor {
             log.error("Erro inesperado na chamada ao modelo [tentativa={}, tipo={}]", attempt, e.getClass().getName());
             return new TurnOutcome.Failed(FailureKind.TECHNICAL_PERMANENT, attempt);
         }
+    }
+
+    private static FailureKind toFailure(AssistantModelException.Kind kind) {
+        return switch (kind) {
+            case TIMEOUT -> FailureKind.TIMEOUT;
+            case TRANSIENT -> FailureKind.TECHNICAL_TRANSIENT;
+            case PERMANENT -> FailureKind.TECHNICAL_PERMANENT;
+        };
     }
 
     private void pause() {

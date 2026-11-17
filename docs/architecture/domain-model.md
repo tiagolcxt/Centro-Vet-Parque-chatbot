@@ -1,16 +1,17 @@
 # Modelo de domínio — estado implementado
 
-> Reflete o código ao fim da **Etapa 3** (2026-11-16). A Etapa 2 mudou a persistência (V2); a Etapa 3 acrescentou o módulo `clinicknowledge` (base institucional) e o uso de `ServiceRequest(INFORMATION)`. Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
+> Reflete o código ao fim da **Etapa 4** (2026-11-17). A Etapa 2 mudou a persistência (V2); a Etapa 3 acrescentou o módulo `clinicknowledge`; a Etapa 4 acrescentou prioridade clínica, encaminhamento, metadados do turno, registro de mudanças de prioridade e desfecho da solicitação (V3). Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
 
 ## Agregados
 
 | Agregado | Estados / regras implementadas | Persistência |
 |---|---|---|
-| **Conversation** | `OPEN` ⇄ `WAITING_HUMAN` → `CLOSED` (final). Encerramento por equipe (`CLOSED_BY_STAFF`) ou expiração (`EXPIRED`). Expiração = `now > lastActivityAt + prazo(status)`, com prazos sem valor padrão (P-05). Nunca troca de tutor. A atividade nunca volta no tempo. Estado encerrado sempre tem motivo e data | `conversation` |
-| **Message** | Imutável. Autor `CUSTOMER` ou `ASSISTANT`; só o assistente registra intenção. Conteúdo obrigatório, até 10.000 caracteres (limite de armazenamento; o limite de entrada é 2.000 caracteres, DA-28) | `message` |
+| **Conversation** | `OPEN` ⇄ `WAITING_HUMAN` → `CLOSED` (final). **E4:** encaminhar exige motivo (`HandoffReason`) e grava o momento; devolver ao assistente limpa os dois. Prioridade clínica (`ClinicalPriority`, P6 ao abrir) independente do status: `raisePriority` só sobe; `changePriorityByStaff` é o único jeito de baixar. Oferta de atendimento humano registrada (uma por conversa). Encerramento por equipe (`CLOSED_BY_STAFF`) ou expiração (`EXPIRED`). Expiração = `now > lastActivityAt + prazo(status)`, com prazos sem valor padrão (P-05). Nunca troca de tutor. A atividade nunca volta no tempo. Estado encerrado sempre tem motivo e data | `conversation` |
+| **Message** | Imutável. **E4:** a do assistente carrega `AssistantMetadata` (resposta segura ou não, prioridade efetiva, origem, sinais, intenções secundárias). Autor `CUSTOMER` ou `ASSISTANT`; só o assistente registra intenção. Conteúdo obrigatório, até 10.000 caracteres (limite de armazenamento; o limite de entrada é 2.000 caracteres, DA-28) | `message` |
 | **Tutor** | Identificado pelo contato do canal (`ContactIdentity`), único por canal. Nome e telefone opcionais. `lastSeenAt` só avança | `tutor` |
+| **PriorityChange** | Registro imutável de mudança de prioridade pela equipe: anterior, novo, nota, autor, momento (H4) | `priority_change` |
 | **Pet** | Vinculado a um tutor. Nome obrigatório. `OTHER` exige descrição da espécie; `DOG`/`CAT` não aceitam descrição. Raça e idade em texto livre | `pet` |
-| **ServiceRequest** | `COLLECTING → PENDING → IN_PROGRESS → RESOLVED`; `CANCELLED` a partir de qualquer estado não final. `submit()` recebe o conjunto de campos exigidos (`SUMMARY`, `TUTOR`, `PET`) e recusa listando os ausentes; o conjunto real por tipo é P-13. Sem data/hora confirmada (ADR-0011) | `service_request` |
+| **ServiceRequest** | `COLLECTING → PENDING → IN_PROGRESS → RESOLVED`; `CANCELLED` a partir de qualquer estado não final. **E4:** resolver e cancelar exigem desfecho (`RequestOutcome`, DA-34); `OTHER` exige observação. `submit()` recebe o conjunto de campos exigidos (`SUMMARY`, `TUTOR`, `PET`) e recusa listando os ausentes; o conjunto real por tipo é P-13. Sem data/hora confirmada (ADR-0011) | `service_request` |
 
 `Intent` tem as 11 intenções do briefing; valor externo desconhecido vira `OTHER`.
 
@@ -53,7 +54,7 @@ Escolhas da Etapa 2 (aceitas com a etapa em 2026-11-16):
 | I-14 | Sem `ASSISTANT_API_KEY`, ou com menos de 32 caracteres, a aplicação **não sobe** | Evita subir com a API aberta por esquecimento (ADR-0012) |
 | I-15 | Em `WAITING_HUMAN`, o turno ainda segue o fluxo normal | O modo restrito é da Etapa 4; até lá, nada coloca conversas nesse status |
 
-Escolhas da Etapa 3 (aguardam o aceite da etapa):
+Escolhas da Etapa 3 (aceitas com a etapa em 2026-11-16):
 
 | # | Escolha | Motivo |
 |---|---|---|
@@ -62,7 +63,16 @@ Escolhas da Etapa 3 (aguardam o aceite da etapa):
 | I-18 | A base institucional é um objeto de domínio imutável (`ClinicKnowledge`), carregado uma vez | Mudança na base exige reinício (ADR-0003); o prompt da camada 2 é montado uma vez |
 | I-19 | Preço com `payment.prices-disclosed` diferente de `true` é tratado como DESCONHECIDO na carga | Uma regra só, no domínio, vale para o prompt e para o validador (P-11, DA-29) |
 
+Escolhas da Etapa 4 (aguardam o aceite da etapa):
+
+| # | Escolha | Motivo |
+|---|---|---|
+| I-20 | `PriorityPolicy` e `HandoffPolicy` são classes de domínio sem estado; os detectores (que leem arquivos) ficam na aplicação | Regras testáveis sem Spring; configuração fora do domínio |
+| I-21 | O encaminhamento por prioridade usa o **nível do turno**, não o acumulado | Conversa devolvida pela equipe sem rebaixar não volta à fila sozinha |
+| I-22 | Uma `ServiceRequest(HUMAN_CONTACT)` aberta por conversa; um novo encaminhamento não duplica | A conversa já está na fila |
+| I-23 | Em falha do modelo, prioridade e encaminhamento ainda mudam pelos detectores; intenção e coleta não | Falha da IA não pode atrasar emergência nem pedido de humano (H8, ADR-0007) |
+| I-24 | Sinais e intenções secundárias gravados como listas de códigos em colunas de texto | Só para auditoria e métricas; sem consulta por sinal no MVP |
+
 ## Ainda não modelado (por etapa)
 
-- E4: `clinicalPriority`, `handoffReason`, `handoffAt` (ADR-0007, ADR-0018).
 - E5: proveniência de tutor/pet (ADR-0010), detalhes de agendamento (motivo, preferência), regra de várias solicitações (P-06) e vários pets (P-07).
