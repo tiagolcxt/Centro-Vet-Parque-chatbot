@@ -31,6 +31,8 @@ public final class ServiceRequest {
 
     private static final String AGGREGATE = "ServiceRequest";
     public static final int MAX_SUMMARY_LENGTH = 500;
+    public static final int MAX_REASON_LENGTH = 300;
+    public static final int MAX_PERIOD_LENGTH = 120;
 
     private final ServiceRequestId id;
     private final ConversationId conversationId;
@@ -39,6 +41,8 @@ public final class ServiceRequest {
     private final RequestType type;
     private RequestStatus status;
     private String summary;
+    private String reason;
+    private String preferredPeriod;
     private RequestOutcome outcome;
     private String outcomeNote;
     private final Instant createdAt;
@@ -47,7 +51,7 @@ public final class ServiceRequest {
 
     private ServiceRequest(ServiceRequestId id, ConversationId conversationId, TutorId tutorId,
                            PetId petId, RequestType type, RequestStatus status, String summary,
-                           RequestOutcome outcome, String outcomeNote,
+                           String reason, String preferredPeriod, RequestOutcome outcome, String outcomeNote,
                            Instant createdAt, Instant updatedAt, Long version) {
         this.id = Objects.requireNonNull(id, "id");
         this.conversationId = Objects.requireNonNull(conversationId, "conversationId");
@@ -56,6 +60,11 @@ public final class ServiceRequest {
         this.type = Objects.requireNonNull(type, "type");
         this.status = Objects.requireNonNull(status, "status");
         this.summary = Texts.optional("summary", summary, MAX_SUMMARY_LENGTH);
+        this.reason = Texts.optional("reason", reason, MAX_REASON_LENGTH);
+        this.preferredPeriod = Texts.optional("preferredPeriod", preferredPeriod, MAX_PERIOD_LENGTH);
+        if (type != RequestType.APPOINTMENT && (this.reason != null || this.preferredPeriod != null)) {
+            throw new DomainValidationException("reason", "motivo e preferência são só da solicitação de agendamento");
+        }
         this.outcome = outcome;
         this.outcomeNote = Texts.optional("outcomeNote", outcomeNote, MAX_SUMMARY_LENGTH);
         if (status.isFinal() != (outcome != null)) {
@@ -68,21 +77,59 @@ public final class ServiceRequest {
 
     public static ServiceRequest open(ConversationId conversationId, RequestType type, Instant now) {
         return new ServiceRequest(ServiceRequestId.newId(), conversationId, null, null, type,
-                RequestStatus.COLLECTING, null, null, null, now, now, null);
+                RequestStatus.COLLECTING, null, null, null, null, null, now, now, null);
     }
 
     public static ServiceRequest restore(ServiceRequestId id, ConversationId conversationId,
                                          TutorId tutorId, PetId petId, RequestType type,
                                          RequestStatus status, String summary, RequestOutcome outcome,
                                          String outcomeNote, Instant createdAt, Instant updatedAt, Long version) {
-        return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, outcome, outcomeNote,
-                createdAt, updatedAt, version);
+        return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, null, null, outcome,
+                outcomeNote, createdAt, updatedAt, version);
+    }
+
+    /** Reconstitui com os detalhes de agendamento (Etapa 5). */
+    public static ServiceRequest restore(ServiceRequestId id, ConversationId conversationId,
+                                         TutorId tutorId, PetId petId, RequestType type,
+                                         RequestStatus status, String summary, String reason,
+                                         String preferredPeriod, RequestOutcome outcome, String outcomeNote,
+                                         Instant createdAt, Instant updatedAt, Long version) {
+        return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, reason, preferredPeriod,
+                outcome, outcomeNote, createdAt, updatedAt, version);
     }
 
     public void describe(String summary, Instant at) {
         requireNotFinal("describe");
         this.summary = Texts.optional("summary", summary, MAX_SUMMARY_LENGTH);
         touch(at);
+    }
+
+    /** Motivo nas palavras do tutor (só {@code APPOINTMENT}, P-13 provisório). Vazio é ignorado. */
+    public void describeReason(String reason, Instant at) {
+        requireNotFinal("describeReason");
+        requireAppointment("reason");
+        String clean = Texts.optional("reason", reason, MAX_REASON_LENGTH);
+        if (clean != null) {
+            this.reason = clean;
+            touch(at);
+        }
+    }
+
+    /** Preferência de dia ou período em texto livre; nunca data/hora confirmada (DA-07). Vazio é ignorado. */
+    public void describePreferredPeriod(String period, Instant at) {
+        requireNotFinal("describePreferredPeriod");
+        requireAppointment("preferredPeriod");
+        String clean = Texts.optional("preferredPeriod", period, MAX_PERIOD_LENGTH);
+        if (clean != null) {
+            this.preferredPeriod = clean;
+            touch(at);
+        }
+    }
+
+    private void requireAppointment(String field) {
+        if (type != RequestType.APPOINTMENT) {
+            throw new DomainValidationException(field, "só a solicitação de agendamento tem esse campo");
+        }
     }
 
     public void attachTutor(TutorId tutorId, Instant at) {
@@ -107,6 +154,7 @@ public final class ServiceRequest {
                 case SUMMARY -> summary != null;
                 case TUTOR -> tutorId != null;
                 case PET -> petId != null;
+                case REASON -> reason != null;
             };
             if (!present) {
                 missing.add(field);
@@ -206,6 +254,14 @@ public final class ServiceRequest {
 
     public Optional<String> summary() {
         return Optional.ofNullable(summary);
+    }
+
+    public Optional<String> reason() {
+        return Optional.ofNullable(reason);
+    }
+
+    public Optional<String> preferredPeriod() {
+        return Optional.ofNullable(preferredPeriod);
     }
 
     public Optional<RequestOutcome> outcome() {

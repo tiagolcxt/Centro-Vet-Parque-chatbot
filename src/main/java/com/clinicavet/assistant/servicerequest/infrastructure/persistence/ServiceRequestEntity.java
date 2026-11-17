@@ -19,7 +19,7 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Detalhes por tipo em colunas próprias (DA-19); as de agendamento entram na Etapa 5. */
+/** Detalhes por tipo em colunas próprias (DA-19); motivo e preferência do agendamento desde a V4 (Etapa 5). */
 @Entity
 @Table(name = "service_request")
 class ServiceRequestEntity {
@@ -47,6 +47,12 @@ class ServiceRequestEntity {
 
     @Column(name = "summary", length = 500)
     private String summary;
+
+    @Column(name = "reason", length = 300)
+    private String reason;
+
+    @Column(name = "preferred_period", length = 120)
+    private String preferredPeriod;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "outcome", columnDefinition = "VARCHAR(30)")
@@ -77,6 +83,8 @@ class ServiceRequestEntity {
         entity.type = request.type();
         entity.status = request.status();
         entity.summary = request.summary().orElse(null);
+        entity.reason = request.reason().orElse(null);
+        entity.preferredPeriod = request.preferredPeriod().orElse(null);
         entity.outcome = request.outcome().orElse(null);
         entity.outcomeNote = request.outcomeNote().orElse(null);
         entity.createdAt = request.createdAt();
@@ -88,6 +96,6 @@ class ServiceRequestEntity {
     ServiceRequest toDomain() {
         return ServiceRequest.restore(new ServiceRequestId(id), new ConversationId(conversationId),
                 tutorId == null ? null : new TutorId(tutorId), petId == null ? null : new PetId(petId),
-                type, status, summary, outcome, outcomeNote, createdAt, updatedAt, version);
+                type, status, summary, reason, preferredPeriod, outcome, outcomeNote, createdAt, updatedAt, version);
     }
 }

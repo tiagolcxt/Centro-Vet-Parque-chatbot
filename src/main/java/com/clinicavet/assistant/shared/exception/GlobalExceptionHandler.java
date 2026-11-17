@@ -83,8 +83,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception ex) {
         String errorId = UUID.randomUUID().toString();
-        // Só o tipo da exceção: a mensagem pode conter dados pessoais.
-        log.error("Erro inesperado [errorId={}, type={}]", errorId, ex.getClass().getName());
+        // Só o tipo e o ponto de origem no código: a mensagem pode conter dados pessoais.
+        StackTraceElement origin = ex.getStackTrace().length == 0 ? null : ex.getStackTrace()[0];
+        log.error("Erro inesperado [errorId={}, type={}, origem={}]", errorId, ex.getClass().getName(),
+                origin == null ? "-" : origin.getClassName() + "." + origin.getMethodName() + ":" + origin.getLineNumber());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Erro interno. Informe o código errorId ao suporte.");
         problem.setTitle("Erro interno");

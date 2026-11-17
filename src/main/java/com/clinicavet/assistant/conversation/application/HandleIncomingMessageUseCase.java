@@ -94,6 +94,8 @@ public class HandleIncomingMessageUseCase {
     private final TransactionRunner tx;
     private final ConversationSettings settings;
     private final HandoffSettings handoffSettings;
+    private final CustomerDataCollector collector;
+    private final CustomerDataSettings customerData;
     private final Clock clock;
 
     HandleIncomingMessageUseCase(ConversationRepository conversations, MessageRepository messages,
@@ -101,7 +103,8 @@ public class HandleIncomingMessageUseCase {
                                  ContextAssembler contextAssembler, TurnExecutor executor, TurnDecider decider,
                                  ReplyComposer composer, ExplicitHumanRequestDetector humanRequest,
                                  AlertExpressionDetector alerts, TransactionRunner tx, ConversationSettings settings,
-                                 HandoffSettings handoffSettings, Clock clock) {
+                                 HandoffSettings handoffSettings, CustomerDataCollector collector,
+                                 CustomerDataSettings customerData, Clock clock) {
         this.conversations = conversations;
         this.messages = messages;
         this.serviceRequests = serviceRequests;
@@ -115,6 +118,8 @@ public class HandleIncomingMessageUseCase {
         this.tx = tx;
         this.settings = settings;
         this.handoffSettings = handoffSettings;
+        this.collector = collector;
+        this.customerData = customerData;
         this.clock = clock;
     }
 
@@ -204,12 +209,20 @@ public class HandleIncomingMessageUseCase {
             case TurnOutcome.Valid valid -> {
                 AssistantTurn turn = valid.turn();
                 decision = decider.decideValid(ctx, turn);
-                reply = composer.composeValid(plan(decision, turn.possibleEmergency()), turn.reply());
+                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency());
+                reply = composer.composeValid(plan, turn.reply());
                 intent = turn.intent();
                 secondary = turn.secondaryIntents();
                 current.recordIntent(turn.intent());
                 if (turn.knowledgeGap()) {
-                    recordInformationGap(id, customerText, now);
+                    recordInformationGap(current, customerText, now);
+                }
+                // Etapa 5: dados do tutor e do pet, proveniência e pedido de agendamento (ADR-0010, DA-35 a DA-37).
+                CustomerDataCollector.Outcome collected = collector.collect(current, turn, start.recent(),
+                        start.customerMessage(), decision.handoff().handsOff(), now);
+                if (collected.appointmentSubmitted() && !plan.emergency()) {
+                    // Texto do sistema: o modelo não sabe se o registro deu certo e nunca confirma dia nem horário.
+                    reply = reply + "\n\n" + customerData.appointmentRegisteredReply().strip();
                 }
                 failed = false;
             }
@@ -285,6 +298,7 @@ public class HandleIncomingMessageUseCase {
                 .anyMatch(r -> r.type() == RequestType.HUMAN_CONTACT && !r.status().isFinal());
         if (!alreadyOpen) {
             ServiceRequest request = ServiceRequest.open(conversation.id(), RequestType.HUMAN_CONTACT, now);
+            conversation.tutorId().ifPresent(tutor -> request.attachTutor(tutor, now));
             request.describe(truncate("[" + reason.name() + "] " + customerText), now);
             request.submit(Set.of(RequestField.SUMMARY), now);
             serviceRequests.save(request);
@@ -296,7 +310,8 @@ public class HandleIncomingMessageUseCase {
      * {@code ServiceRequest(INFORMATION)} aberta por conversa. Se já houver uma pendente, a nova dúvida é
      * acrescentada ao resumo. Nenhuma notificação: a equipe vê nas listagens.
      */
-    private void recordInformationGap(ConversationId conversationId, String question, Instant now) {
+    private void recordInformationGap(Conversation conversation, String question, Instant now) {
+        ConversationId conversationId = conversation.id();
         Optional<ServiceRequest> open = serviceRequests.findByConversation(conversationId).stream()
                 .filter(r -> r.type() == RequestType.INFORMATION)
                 .filter(r -> r.status() == RequestStatus.COLLECTING || r.status() == RequestStatus.PENDING)
@@ -309,6 +324,7 @@ public class HandleIncomingMessageUseCase {
             return;
         }
         ServiceRequest request = ServiceRequest.open(conversationId, RequestType.INFORMATION, now);
+        conversation.tutorId().ifPresent(tutor -> request.attachTutor(tutor, now));
         request.describe(truncate(question), now);
         request.submit(Set.of(RequestField.SUMMARY), now);
         serviceRequests.save(request);

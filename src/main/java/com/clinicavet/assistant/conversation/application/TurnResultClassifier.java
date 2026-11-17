@@ -4,6 +4,8 @@ import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.TurnSignal;
+import com.clinicavet.assistant.tutor.domain.DataField;
+import com.clinicavet.assistant.tutor.domain.Species;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -47,7 +49,9 @@ public class TurnResultClassifier {
                 || !isArray(root, "secondaryIntents") || !isArray(root, "knowledgeRefs")
                 || !isArray(root, "signals") || !isString(root, "priority")
                 || !isBoolean(root, "knowledgeGap") || !isBoolean(root, "handoffRequested")
-                || !isBoolean(root, "possibleEmergency") || !isBoolean(root, "clinicalUncertainty")) {
+                || !isBoolean(root, "possibleEmergency") || !isBoolean(root, "clinicalUncertainty")
+                || !isObject(root, "extracted") || !isArray(root, "confirmations")
+                || !isObject(root, "appointmentRequest")) {
             return new TurnOutcome.Failed(FailureKind.INVALID, attempt);
         }
         List<String> refs = strings(root.get("knowledgeRefs"));
@@ -66,7 +70,8 @@ public class TurnResultClassifier {
                 root.get("possibleEmergency").asBoolean(),
                 ClinicalPriority.parse(root.get("priority").asString()),
                 modelSignals(signals),
-                root.get("clinicalUncertainty").asBoolean());
+                root.get("clinicalUncertainty").asBoolean(),
+                customer(root));
         return new TurnOutcome.Valid(turn, attempt);
     }
 
@@ -140,6 +145,71 @@ public class TurnResultClassifier {
     private static boolean isArray(JsonNode root, String field) {
         JsonNode node = root.get(field);
         return node != null && node.isArray();
+    }
+
+    /**
+     * v4: dados do tutor. O formato de fora (objeto, lista) é exigido acima; dentro, item com tipo errado ou valor
+     * fora da lista é descartado, sem invalidar o turno (o coletor ainda valida o conteúdo).
+     */
+    private static CustomerUpdate customer(JsonNode root) {
+        JsonNode extracted = root.get("extracted");
+        List<CustomerUpdate.PetMention> pets = new ArrayList<>();
+        JsonNode petNodes = extracted.get("pets");
+        if (petNodes != null && petNodes.isArray()) {
+            for (JsonNode pet : petNodes) {
+                String name = text(pet, "name");
+                if (pet.isObject() && name != null) {
+                    pets.add(new CustomerUpdate.PetMention(name, species(text(pet, "species")),
+                            text(pet, "speciesDescription"), text(pet, "breed"), text(pet, "age"),
+                            pet.path("newPet").isBoolean() && pet.get("newPet").asBoolean()));
+                }
+            }
+        }
+        List<CustomerUpdate.Confirmation> confirmations = new ArrayList<>();
+        for (JsonNode node : root.get("confirmations")) {
+            String field = text(node, "field");
+            dataField(field).ifPresent(f -> confirmations.add(new CustomerUpdate.Confirmation(f, text(node, "petName"))));
+        }
+        JsonNode appointment = root.get("appointmentRequest");
+        return new CustomerUpdate(text(extracted, "tutorName"), pets, confirmations,
+                new CustomerUpdate.AppointmentDraft(text(appointment, "petName"), text(appointment, "reason"),
+                        text(appointment, "preferredPeriod")));
+    }
+
+    /** Texto não vazio, sem espaços nas pontas; senão {@code null}. */
+    private static String text(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.get(field);
+        if (value == null || !value.isString() || value.asString().isBlank()) {
+            return null;
+        }
+        return value.asString().strip();
+    }
+
+    private static Species species(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Species.valueOf(raw.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;   // UNKNOWN ou valor fora da lista
+        }
+    }
+
+    private static Optional<DataField> dataField(String raw) {
+        if (raw == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(DataField.valueOf(raw.toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static boolean isObject(JsonNode root, String field) {
+        JsonNode node = root.get(field);
+        return node != null && node.isObject();
     }
 
     private static boolean isBoolean(JsonNode root, String field) {

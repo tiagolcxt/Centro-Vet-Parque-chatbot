@@ -142,4 +142,38 @@ class ServiceRequestTest {
             }
         }
     }
+
+    @Nested
+    class AppointmentDetails {
+
+        @Test
+        void reasonAndPeriod_areKept_andReasonIsARequirableField() {
+            ServiceRequest request = collecting();
+
+            request.describeReason("  vacina anual ", T0.plusSeconds(1));
+            request.describePreferredPeriod("de manhã", T0.plusSeconds(1));
+            request.describeReason("  ", T0.plusSeconds(2));   // vazio não apaga
+
+            assertThat(request.reason()).contains("vacina anual");
+            assertThat(request.preferredPeriod()).contains("de manhã");
+            assertThat(request.missingFields(EnumSet.of(RequestField.REASON))).isEmpty();
+            assertThat(collecting().missingFields(EnumSet.of(RequestField.REASON))).containsExactly(RequestField.REASON);
+        }
+
+        @Test
+        void onlyAppointment_hasReasonAndPeriod() {
+            ServiceRequest info = ServiceRequest.open(ConversationId.newId(), RequestType.INFORMATION, T0);
+
+            assertThatThrownBy(() -> info.describeReason("vacina", T0))
+                    .isInstanceOf(com.clinicavet.assistant.shared.exception.DomainValidationException.class);
+            assertThatThrownBy(() -> info.describePreferredPeriod("manhã", T0))
+                    .isInstanceOf(com.clinicavet.assistant.shared.exception.DomainValidationException.class);
+        }
+
+        @Test
+        void reasonOverTheLimit_isRejected() {
+            assertThatThrownBy(() -> collecting().describeReason("a".repeat(ServiceRequest.MAX_REASON_LENGTH + 1), T0))
+                    .isInstanceOf(com.clinicavet.assistant.shared.exception.DomainValidationException.class);
+        }
+    }
 }

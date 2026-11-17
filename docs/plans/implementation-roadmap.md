@@ -145,7 +145,7 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 
 ---
 
-## Etapa 4 — Encaminhamento humano e segurança ✅ (concluída em 2026-11-17; aguardando aceite do responsável)
+## Etapa 4 — Encaminhamento humano e segurança ✅ (concluída e aceita pelo responsável em 2026-11-17)
 
 **Objetivo:** garantir o encaminhamento independentemente do modelo, aplicar a **hierarquia de prioridades** (ADR-0018) e tratar possível emergência em qualquer estado, com as operações da equipe. Base: [Diretrizes](../product/diretrizes-de-atendimento.md) e [requisitos RF-D/RN-D](../specs/requisitos-diretrizes.md).
 
@@ -209,7 +209,9 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 
 ---
 
-## Etapa 5 — Coleta de dados e solicitações de agendamento
+## Etapa 5 — Coleta de dados e solicitações de agendamento ✅ (concluída em 2026-11-17; aguardando aceite do responsável)
+
+P-06, P-07, P-08 e P-13 seguem com valores provisórios aprovados em 2026-11-17, e P-15 com regra provisória: só dados fictícios. Regras: [business-rules.md, seção 10](../architecture/business-rules.md#10-coleta-de-dados-e-pedido-de-agendamento-etapa-5).
 
 **Objetivo:** coletar tutor e pet com proveniência e organizar solicitações de agendamento sem fazer o tutor repetir informações.
 
@@ -218,31 +220,32 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 - **P-07** (múltiplos pets);
 - **P-08** (critério de confirmação);
 - **P-13** (dados obrigatórios);
-- **PT-09** (granularidade e correspondência de pets);
-- **PT-12** (criação do tutor).
-- **PT-15** (referência a solicitações anteriores em acompanhamentos).
+- ~~**PT-09**~~ → DA-35 (proveniência por campo; correspondência por nome normalizado);
+- ~~**PT-12**~~ → DA-36 (tutor criado só quando houver dado a guardar);
+- ~~**PT-15**~~ → DA-37 (referência mínima a solicitações em aberto).
 - **P-15** pode seguir com regra provisória que não afirme confirmação.
 
 **Tarefas:**
-1. Migration de proveniência (granularidade conforme PT-09) e de detalhes da solicitação de agendamento (relação com pets conforme P-07).
+1. Migration de proveniência (por campo, DA-35) e de detalhes da solicitação de agendamento (relação com pets conforme P-07).
 2. `AssistantTurn` + `extracted`, `confirmations[]`, `appointmentRequest`; normalização e validação no backend.
 3. Camada 3 (`tutor-context.st`) com status de proveniência; filtro estrito pelo tutor da conversa.
 4. Fluxo `APPOINTMENT`: `COLLECTING` → `submit()` com os obrigatórios de P-13; camada 5 com campos faltantes; regra de solicitações simultâneas conforme P-06.
 5. Regra para "está confirmado?" e para desfecho resolvido por fora (P-15).
 
 **Critérios de aceite:**
-- [ ] Unitários:
+- [x] Unitários (`ProvenanceAndPetMatcherTest`, `CustomerDataNormalizerTest`, `ServiceRequestTest`):
   - transições de proveniência (MENCIONADA → CONFIRMADA só pelo critério de P-08);
   - CADASTRADA nunca vira CONFIRMADA sem confirmação na conversa atual;
   - A_RECONFIRMAR por prazo de validade;
-  - `missingFields()` conforme P-13;
+  - `missingFields()` conforme P-13 (com `REASON`);
   - normalização descarta dados inválidos.
-- [ ] Integração: um pedido de consulta em 3 turnos chega a `PENDING` com os dados corretos, sem a mesma pergunta duas vezes (verificado pelo contexto operacional enviado ao *double*).
-- [ ] Integração: em uma conversa nova do mesmo contato, o cadastro aparece como CADASTRADA ou A_RECONFIRMAR, e nenhum motivo, preferência ou solicitação anterior aparece no contexto.
-- [ ] Integração: dados de outro tutor **nunca** aparecem no contexto (dois contatos com pets de mesmo nome).
-- [ ] IA real (dados fictícios): coleta de pet e motivo; não repete pergunta respondida; "está confirmado?" não afirma confirmação; nenhuma resposta afirma agendamento.
-- [ ] Camadas **U** e **I** de CT-09 e CT-18 passam.
-- [ ] `domain-model.md` e `context-management.md` atualizados; ADR-0010 e ADR-0011 revisados.
+- [x] Integração: um pedido de consulta em 3 turnos chega a `PENDING` com os dados corretos, sem a mesma pergunta duas vezes (verificado pelo contexto operacional enviado ao *double*). (`CustomerDataIT.appointmentInThreeTurns…`)
+- [x] Integração: em uma conversa nova do mesmo contato, o cadastro aparece como CADASTRADA ou A_RECONFIRMAR, e nenhum motivo, preferência ou solicitação anterior aparece no contexto. Pela DA-37, as solicitações em aberto aparecem só com tipo, data e status. (`CustomerDataIT.newConversation…`)
+- [x] Integração: dados de outro tutor **nunca** aparecem no contexto (dois contatos com pets de mesmo nome). (`CustomerDataIT.anotherTutorsData…`)
+- [x] IA real (dados fictícios): coleta de pet e motivo; não repete pergunta respondida; "está confirmado?" não afirma confirmação; nenhuma resposta afirma agendamento. (`CustomerDataAiIT` em 2026-11-17: coleta **10/10**, não repetiu **10/10**, registrou **10/10**, status honesto **10/10**, sem encaminhar **10/10**, 0 respostas proibidas. Repetição das etapas anteriores com o schema v4: memória 10/10, armadilhas 50/50, encaminhamento 40/40, verificações de compatibilidade OK)
+- [x] Camadas **U** e **I** de CT-09 e CT-18 passam. (`CustomerDataIT.ct09…`, `CustomerDataIT.ct18…`)
+- [x] `domain-model.md` e `context-management.md` atualizados; ADR-0010 e ADR-0011 revisados; `business-rules.md` ganhou a seção 10.
+- [x] Extra (pedido do responsável, 2026-11-17): teste adversarial de privacidade com IA real (`PrivacyAiIT`), 7 ataques × 10: **0/70** vazamentos de dados de outro tutor ou do pedido anterior e **0/70** de instruções internas. Os controles de acesso, retenção, transparência e infraestrutura continuam na Etapa 7.
 
 ---
 
@@ -340,6 +343,6 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 | E2 | — (P-09 decidida; requer `OPENAI_API_KEY` para os testes com IA real) | P-05, P-10 |
 | E3 | PT-11 | P-11 (*fixture* fictício) |
 | E4 | PT-02, PT-06, PT-08, PT-10, PT-14 | P-01, P-02, P-12, P-14, P-20 |
-| E5 | P-06, P-07, P-08, P-13, PT-09, PT-12, PT-15 | P-15 |
+| E5 | P-06, P-07, P-08, P-13 | P-15 |
 | E6 | P-10 (definitiva) | — |
 | E7 | P-01, P-02, P-03, P-04, P-05, P-11, P-12, P-14, P-15, P-16, P-17, P-18, P-19, P-20, PT-07 (todas em versão definitiva) | — |

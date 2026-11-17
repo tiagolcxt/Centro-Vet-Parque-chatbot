@@ -63,10 +63,32 @@ class SpringAiAssistantModel implements AssistantModel {
         WORSENING, POST_PROCEDURE_CHANGE
     }
 
-    /** Formato do {@code AssistantTurn} v3 visto pelo modelo: os enums viram listas fechadas no schema. */
+    /** Espécie vista pelo modelo; {@code UNKNOWN} quando o tutor não disse (vira ausência no backend). */
+    enum ModelSpecies { DOG, CAT, OTHER, UNKNOWN }
+
+    /** Campos que o modelo pode marcar como confirmados (P-08 provisório). */
+    enum ModelField { TUTOR_NAME, PET_NAME, PET_SPECIES, PET_BREED, PET_AGE }
+
+    /** Pet citado. Textos vazios significam "não informado" (o modo estrito não aceita campo opcional). */
+    record PetSchema(String name, ModelSpecies species, String speciesDescription, String breed, String age,
+                     boolean newPet) {
+    }
+
+    record ExtractedSchema(String tutorName, List<PetSchema> pets) {
+    }
+
+    record ConfirmationSchema(ModelField field, String petName) {
+    }
+
+    record AppointmentSchema(String petName, String reason, String preferredPeriod) {
+    }
+
+    /** Formato do {@code AssistantTurn} v4 visto pelo modelo: os enums viram listas fechadas no schema. */
     record AssistantTurnSchema(String reply, Intent intent, List<Intent> secondaryIntents, List<String> knowledgeRefs,
                                boolean knowledgeGap, boolean handoffRequested, boolean possibleEmergency,
-                               ClinicalPriority priority, List<ModelSignal> signals, boolean clinicalUncertainty) {
+                               ClinicalPriority priority, List<ModelSignal> signals, boolean clinicalUncertainty,
+                               ExtractedSchema extracted, List<ConfirmationSchema> confirmations,
+                               AppointmentSchema appointmentRequest) {
     }
 
     /** Modo restrito ({@code WAITING_HUMAN}): só sinais, sem texto (ADR-0007, item 4). */
@@ -74,7 +96,7 @@ class SpringAiAssistantModel implements AssistantModel {
                             List<ModelSignal> signals) {
     }
 
-    static final String SCHEMA_NAME = "assistant_turn_v3";
+    static final String SCHEMA_NAME = "assistant_turn_v4";
     static final String RESTRICTED_SCHEMA_NAME = "waiting_human_signals_v1";
     /** DA-28: modo restrito com saída de até 500 tokens e prazo de 15 s, sem nova tentativa. */
     static final int RESTRICTED_MAX_TOKENS = 500;
@@ -155,6 +177,10 @@ class SpringAiAssistantModel implements AssistantModel {
         messages.add(new SystemMessage(request.mode() == AssistantRequest.Mode.RESTRICTED
                 ? templates.waitingHumanMessage() : templates.systemMessage()));
         messages.add(new SystemMessage(templates.clinicContext()));
+        if (request.mode() == AssistantRequest.Mode.MAIN) {
+            // Camada 3 só no modo principal: o modo restrito não usa dados do tutor (minimização).
+            messages.add(new SystemMessage(templates.tutorContext(request.customer())));
+        }
         messages.add(new SystemMessage(templates.operationalContext(request.operational())));
         for (AssistantRequest.HistoryEntry entry : request.history()) {
             messages.add(entry.author() == MessageAuthor.CUSTOMER

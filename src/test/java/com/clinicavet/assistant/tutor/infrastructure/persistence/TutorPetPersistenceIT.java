@@ -74,7 +74,7 @@ class TutorPetPersistenceIT {
         var tutorPets = pets.findByTutor(tutor.id());
 
         assertThat(tutorPets).extracting(Pet::name).containsExactly("Mel", "Pipoca");
-        assertThat(tutorPets.get(0).species()).isEqualTo(Species.DOG);
+        assertThat(tutorPets.get(0).species()).contains(Species.DOG);
         assertThat(tutorPets.get(0).breed()).contains("SRD");
         assertThat(tutorPets.get(0).ageDescription()).contains("uns 3 anos");
         assertThat(tutorPets.get(1).speciesDescription()).contains("coelho");

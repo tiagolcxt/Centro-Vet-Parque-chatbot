@@ -33,7 +33,7 @@ A proposta original só criava conversas por `POST` explícito e não definia qu
 
 - **Conversa perpétua por contato:** acumula estado de atendimentos diferentes; rejeitada.
 - **Job agendado para encerrar conversas inativas:** mais um mecanismo; encerraria `WAITING_HUMAN` não atendidas, escondendo-as da equipe. Rejeitada no MVP.
-- **Mostrar solicitações anteriores em aberto no contexto da conversa nova:** evitaria duplicidade, mas mistura atendimentos. Fica para avaliação junto com P-06.
+- **Mostrar solicitações anteriores em aberto no contexto da conversa nova:** avaliada como PT-15 e aprovada em forma mínima (DA-37, abaixo).
 - **Nova conversa a cada mensagem após X minutos, independentemente do status:** perderia o vínculo com o encaminhamento em andamento.
 
 ## Consequências
@@ -41,3 +41,11 @@ A proposta original só criava conversas por `POST` explícito e não definia qu
 - Um tutor que volta depois do prazo, com uma solicitação anterior ainda `PENDING`, pode gerar uma solicitação duplicada. A equipe vê as duas. É aceito no MVP.
 - O comportamento definitivo depende dos prazos (P-05). Até lá, só testes e desenvolvimento com valores provisórios.
 - Regras para várias solicitações na mesma conversa: **P-06**.
+
+## Revisão (2026-11-17): DA-37 (PT-15, opção A)
+
+A linha "Solicitações da conversa anterior" da tabela do item 7 passa a ter uma exceção mínima:
+- A camada operacional de uma conversa nova lista até **3** solicitações do mesmo tutor em `PENDING` ou `IN_PROGRESS`, só com **tipo, data de abertura e status**, marcadas como "atendimento anterior — não reutilizar dados".
+- Não entram resumo, motivo, sintomas, preferências, mensagens nem solicitações encerradas.
+- O assistente pode reconhecer que existe um pedido em aberto, sem afirmar andamento nem prazo, e oferece encaminhar (resolve o risco R-29).
+- A conversa nova nunca altera a solicitação anterior. O filtro é sempre pelo tutor vinculado à conversa.

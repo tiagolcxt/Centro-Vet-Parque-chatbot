@@ -19,8 +19,8 @@ Formato: contexto, decisão, alternativas consideradas, consequências. Os IDs d
 | [0006](ADR-0006-testcontainers.md) | Testcontainers com MySQL como estratégia única de teste de persistência | Aceito | DA-05 | — |
 | [0007](ADR-0007-encaminhamento-humano-e-emergencia.md) | Encaminhamento humano e tratamento de possível emergência | Aceito, com pendências | DA-11, DA-25, DA-30, DA-31 | P-01, P-02, P-12, P-14, P-20 |
 | [0008](ADR-0008-validacao-de-respostas-e-fontes.md) | Validação de respostas e rastreamento de fontes institucionais | Aceito | DA-12, DA-26, DA-28, DA-29 | — |
-| [0009](ADR-0009-ciclo-de-vida-da-conversa.md) | Ciclo de vida da conversa e expiração por inatividade | Aceito, com pendências | DA-13 | P-05, P-06 |
-| [0010](ADR-0010-proveniencia-dados-tutor-pet.md) | Proveniência das informações de tutor e pet | Aceito, com pendências | DA-14 | P-08, PT-09, PT-12 |
+| [0009](ADR-0009-ciclo-de-vida-da-conversa.md) | Ciclo de vida da conversa e expiração por inatividade | Aceito, com pendências | DA-13, DA-37 | P-05, P-06 |
+| [0010](ADR-0010-proveniencia-dados-tutor-pet.md) | Proveniência das informações de tutor e pet | Aceito, com pendências | DA-14, DA-35, DA-36 | P-08 |
 | [0011](ADR-0011-servicerequest-separado-da-conversa.md) | ServiceRequest separado da conversa; solicitação ≠ agendamento | Aceito, com pendências | DA-07, DA-34 | P-15 |
 | [0012](ADR-0012-autenticacao.md) | Autenticação: API Key em testes controlados, autenticação individual para dados reais | Aceito, com pendências | DA-06 | P-17, PT-07 |
 | [0013](ADR-0013-repositorio-e-versionamento.md) | Repositório Git próprio e política de não versionamento | Aceito | DA-09, DA-20 | — |

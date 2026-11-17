@@ -30,7 +30,7 @@ class PetEntity {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "species", columnDefinition = "VARCHAR(10)", nullable = false)
+    @Column(name = "species", columnDefinition = "VARCHAR(10)")
     private Species species;
 
     @Column(name = "species_description", length = 80)
@@ -57,7 +57,7 @@ class PetEntity {
         entity.id = pet.id().value();
         entity.tutorId = pet.tutorId().value();
         entity.name = pet.name();
-        entity.species = pet.species();
+        entity.species = pet.species().orElse(null);
         entity.speciesDescription = pet.speciesDescription().orElse(null);
         entity.breed = pet.breed().orElse(null);
         entity.ageDescription = pet.ageDescription().orElse(null);

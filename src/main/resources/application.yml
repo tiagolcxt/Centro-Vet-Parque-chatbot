@@ -87,6 +87,15 @@ assistant:
         [PENDENTE: orientação aprovada pela clínica (P-01)] Se houver piora ou qualquer sinal de risco, procure
         atendimento veterinário imediatamente.
       overdue-placeholder: "[PENDENTE: orientação para quando a equipe não responde no prazo (P-02)]"
+  customer-data:
+    # PROVISÓRIO (P-08): por quanto tempo uma confirmação feita em outra conversa vale como CADASTRADA. Depois,
+    # o dado aparece como A_RECONFIRMAR. Valor de desenvolvimento, sem decisão da clínica.
+    registered-validity: 365d
+    # PROVISÓRIO (P-10): texto do sistema quando a solicitação de agendamento fica registrada (PENDING). Não
+    # confirma dia nem horário e não promete contato (DA-07, ADR-0007).
+    appointment-registered-reply: >-
+      Sua solicitação de agendamento ficou registrada para a equipe da clínica. O dia e o horário só valem depois
+      de confirmados pela equipe.
   security:
     # X-Api-Key de /api/** (ADR-0012). Só no .env ou em variável de ambiente; sem ela, a aplicação não sobe.
     api-key: ${ASSISTANT_API_KEY:}

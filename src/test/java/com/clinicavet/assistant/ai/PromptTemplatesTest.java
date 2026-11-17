@@ -3,6 +3,9 @@ package com.clinicavet.assistant.ai;
 import com.clinicavet.assistant.clinicknowledge.infrastructure.KnowledgeFileLoader;
 import com.clinicavet.assistant.conversation.application.AssistantRequest;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
+import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
+import com.clinicavet.assistant.servicerequest.domain.RequestType;
+import com.clinicavet.assistant.tutor.domain.ProvenanceStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 
@@ -16,7 +19,7 @@ class PromptTemplatesTest {
     private final PromptTemplates templates = new PromptTemplates(
             new ClassPathResource("prompts/system-message.st"), new ClassPathResource("prompts/waiting-human.st"),
             new ClassPathResource("prompts/operational-context.st"),
-            new ClassPathResource("prompts/clinic-context.st"),
+            new ClassPathResource("prompts/clinic-context.st"), new ClassPathResource("prompts/tutor-context.st"),
             KnowledgeFileLoader.parse(read("config/clinic-knowledge.ficticia.yml"), "ficticia"));
 
     private static String read(String path) {
@@ -54,7 +57,51 @@ class PromptTemplatesTest {
                 .endsWith("</estado_do_atendimento>")
                 .contains("em atendimento pelo assistente")
                 .contains("segunda-feira, 16/11/2026, 09:05")
+                .contains("Solicitações desta conversa:\n(nenhuma)")
                 .doesNotContain("##");
+    }
+
+    @Test
+    void operationalContext_listsRequests_withMissingFields_andPreviousOnlyByTypeDateAndStatus() {
+        var collecting = new AssistantRequest.RequestView(RequestType.APPOINTMENT, RequestStatus.COLLECTING, "Mel",
+                "vacina", null, java.util.List.of("nome do tutor", "espécie do pet"));
+        var pending = new AssistantRequest.RequestView(RequestType.APPOINTMENT, RequestStatus.PENDING, "Thor",
+                "banho", "manhã", java.util.List.of());
+        var info = new AssistantRequest.RequestView(RequestType.INFORMATION, RequestStatus.PENDING, null, null, null,
+                java.util.List.of());
+        var previous = new AssistantRequest.PreviousRequest(RequestType.APPOINTMENT, RequestStatus.IN_PROGRESS,
+                java.time.LocalDate.of(2026, 11, 2));
+
+        String rendered = templates.operationalContext(new AssistantRequest.OperationalContext(ConversationStatus.OPEN,
+                ZonedDateTime.of(2026, 11, 16, 9, 5, 0, 0, ZoneId.of("America/Sao_Paulo")),
+                java.util.List.of(collecting, pending, info), java.util.List.of(previous)));
+
+        assertThat(rendered)
+                .contains("- Pedido de agendamento em coleta, ainda NÃO registrado. Pet: Mel; motivo: vacina; "
+                        + "preferência: não informado. Falta: nome do tutor; espécie do pet.")
+                .contains("- Pedido de agendamento registrado para a equipe (aguardando a equipe). Pet: Thor; "
+                        + "motivo: banho; preferência: manhã. Dia e horário ainda não confirmados pela equipe.")
+                .contains("- Pedido de informação para a equipe (aguardando a equipe)")
+                .contains("- Pedido de agendamento aberto em 02/11/2026 (em andamento com a equipe) — atendimento "
+                        + "anterior, não reutilizar dados");
+    }
+
+    @Test
+    void tutorContext_showsEachFieldWithItsProvenanceStatus() {
+        var f = (java.util.function.BiFunction<String, ProvenanceStatus, AssistantRequest.CustomerContext.FieldView>)
+                AssistantRequest.CustomerContext.FieldView::new;
+        var customer = new AssistantRequest.CustomerContext(f.apply("Ana", ProvenanceStatus.CONFIRMED), java.util.List.of(
+                new AssistantRequest.CustomerContext.PetView(f.apply("Mel", ProvenanceStatus.REGISTERED),
+                        f.apply("gato", ProvenanceStatus.REGISTERED), null, f.apply("3 anos", ProvenanceStatus.TO_RECONFIRM)),
+                new AssistantRequest.CustomerContext.PetView(f.apply("Thor", ProvenanceStatus.MENTIONED), null, null, null)));
+
+        String rendered = templates.tutorContext(customer);
+
+        assertThat(rendered).isEqualTo("<cliente>\nTutor: Ana [CONFIRMADA]\nPets:\n"
+                + "- Mel [CADASTRADA]; espécie: gato [CADASTRADA]; idade: 3 anos [A_RECONFIRMAR]\n"
+                + "- Thor [MENCIONADA]; espécie: não informada\n</cliente>");
+        assertThat(templates.tutorContext(AssistantRequest.CustomerContext.NONE))
+                .isEqualTo("<cliente>\n(nenhum dado do tutor registrado)\n</cliente>");
     }
 
     @Test

@@ -105,3 +105,8 @@ O `SpringAiAssistantModelIT` aponta o adaptador real para um servidor HTTP local
 - O prazo de 15 s do modo restrito é aplicado à **resposta**, com um `Future` e `get(15 s)`: passado o prazo, entra o fail-safe. A requisição HTTP segue até o read-timeout geral (30 s) e é descartada. Um cliente HTTP próprio evitaria isso; não foi necessário no MVP.
 - Saída de até 500 tokens (`maxCompletionTokens` só nas opções do modo restrito) e nenhuma nova tentativa.
 - O schema principal passou a `assistant_turn_v3`. Com o enum de intenção usado em dois campos, o gerador põe a definição em `$defs` e referencia por `$ref`; o modo estrito da OpenAI aceitou (testes com IA real da Etapa 4 e repetição dos das Etapas 2 e 3).
+
+### Complemento (Etapa 5, 2026-11-17): schema v4
+
+- O schema principal passou a `assistant_turn_v4`, com três objetos aninhados (`extracted` com a lista `pets`, a lista `confirmations` e `appointmentRequest`) e dois enums novos (espécie com `UNKNOWN`, campo confirmável). O modo estrito exige todos os campos; "não informado" vai como texto vazio. A OpenAI aceitou o schema (testes com IA real da Etapa 5 e repetição dos das Etapas 2 a 4).
+- A camada 3 (`<cliente>`) é mais uma mensagem `system`, só no modo principal.

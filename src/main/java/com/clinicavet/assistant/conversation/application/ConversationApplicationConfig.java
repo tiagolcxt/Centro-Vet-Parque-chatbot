@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties({ConversationSettings.class, HandoffSettings.class})
+@EnableConfigurationProperties({ConversationSettings.class, HandoffSettings.class, CustomerDataSettings.class})
 class ConversationApplicationConfig {
 
     @Bean

@@ -89,7 +89,24 @@ public class ResponseValidator {
         request.history().stream()
                 .filter(entry -> entry.author() == MessageAuthor.CUSTOMER)
                 .forEach(entry -> echo.addAll(FactExtractor.extract(entry.content())));
-        List<Fact> operational = operationalFacts(request.operational().localNow());
+        // Etapa 5: detalhes de solicitações desta conversa e dados do cadastro vieram do tutor (eco).
+        request.operational().requests().forEach(r -> {
+            if (r.reason() != null) {
+                echo.addAll(FactExtractor.extract(r.reason()));
+            }
+            if (r.preferredPeriod() != null) {
+                echo.addAll(FactExtractor.extract(r.preferredPeriod()));
+            }
+        });
+        request.customer().pets().forEach(p -> {
+            if (p.age() != null) {
+                echo.addAll(FactExtractor.extract(p.age().value()));
+            }
+        });
+        List<Fact> operational = new ArrayList<>(operationalFacts(request.operational().localNow()));
+        // DA-37: a data de abertura de uma solicitação anterior pode ser citada.
+        request.operational().previousRequests()
+                .forEach(r -> operational.add(new Fact(Fact.Type.DATE, DAY_MONTH.format(r.openedOn()))));
 
         for (Fact fact : FactExtractor.extract(turn.reply())) {
             boolean echoed = contains(echo, fact);

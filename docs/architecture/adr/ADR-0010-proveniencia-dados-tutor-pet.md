@@ -1,6 +1,6 @@
 # ADR-0010 — Proveniência das informações de tutor e pet
 
-- **Status:** Aceito, com pendências (P-08, PT-09, PT-12)
+- **Status:** Aceito, com pendência (P-08, valor provisório na Etapa 5). PT-09 → DA-35 e PT-12 → DA-36 (2026-11-17); implementado na Etapa 5
 - **Data:** 2026-11-11
 - **Decisão:** DA-14
 
@@ -28,8 +28,8 @@ O briefing exige não fazer o tutor repetir informações e, ao mesmo tempo, nã
 ## Pendências ligadas
 
 - **P-08:** critério para considerar uma informação confirmada (ex.: o assistente repete e o tutor concorda explicitamente?), prazo de validade de `CADASTRADA` e quais status são exigidos para registrar uma solicitação.
-- **PT-09:** granularidade da proveniência (por registro × por campo) e regra de correspondência de pets (variações de nome, dois pets com o mesmo nome). Recomendação da proposta: por registro, por simplicidade. Não aprovada.
-- **PT-12:** momento de criação do registro do tutor (no primeiro contato × só quando houver dado a guardar). A segunda opção favorece a minimização de dados.
+- ~~**PT-09**~~ → **DA-35** (ver "Decisões complementares").
+- ~~**PT-12**~~ → **DA-36** (ver "Decisões complementares").
 
 ## Alternativas consideradas
 
@@ -41,3 +41,27 @@ O briefing exige não fazer o tutor repetir informações e, ao mesmo tempo, nã
 
 - O contexto do tutor/pet é renderizado com o status de cada informação, e o prompt instrui como agir em cada status.
 - A detecção de confirmação depende de metadados do modelo e de uma regra do backend, a definir em P-08. É uma fonte de erro a medir na Etapa 6.
+
+## Decisões complementares (2026-11-17)
+
+**DA-35 — Granularidade e correspondência de pets (PT-09, opção A).**
+- A proveniência é **por campo**, numa tabela própria: `subject` (`TUTOR`/`PET`), `subject_id`, `field` (nome, telefone, espécie, raça, idade), `status`, `conversation_id`, `confirmed_at`, `updated_at`. Um campo duvidoso não rebaixa o registro inteiro.
+- `MENCIONADA` e `CONFIRMADA` valem só para a conversa gravada em `conversation_id`. Numa conversa nova, `CADASTRADA` ou `A_RECONFIRMAR` é **calculado** a partir de `confirmed_at` e do prazo de validade (P-08), sem gravar nada.
+- Correspondência de pets: só entre os pets do tutor da conversa, por igualdade do nome normalizado (minúsculas, sem acento, espaços colapsados). Nome sem correspondência, dois pets com o mesmo nome ou espécie divergente → o assistente pergunta, e o pet não é vinculado até a resposta. Sem similaridade aproximada no MVP: um erro de correspondência misturaria dados de animais diferentes.
+
+**DA-36 — Criação do tutor (PT-12, opção A).**
+- O `Tutor` só é criado no primeiro turno em que o backend aceita um dado normalizado de tutor ou pet; a conversa é vinculada nesse momento. Contato que só tira dúvidas não gera cadastro (minimização).
+- Se o contato já tem cadastro, a conversa nova é vinculada na abertura, pelo identificador do canal.
+
+## Implementação (Etapa 5, 2026-11-17)
+
+- Migration V4: tabela `data_provenance` (único por `subject` + `subject_id` + `field`; status `MENTIONED` ou `CONFIRMED`; `confirmed_at` obrigatório quando `CONFIRMED`). Espécie do pet passou a opcional.
+- Domínio: `Provenance` (`mention`, `confirm`, `statusFor`), `ProvenanceStatus`, `DataField`, `DataSubject`, `NameKey`, `PetMatcher`.
+- Aplicação: `CustomerDataCollector` (normalização, tutor, pets, proveniência, confirmação, agendamento), `CustomerDataNormalizer`, `AppointmentRequirements`; camada 3 montada pelo `ContextAssembler` só com o tutor vinculado à conversa.
+- **P-08 provisório:**
+  - confirmação = a mensagem anterior do assistente repetiu o valor gravado e o tutor concordou (o modelo marca e o backend confere; discordância anula);
+  - validade de CADASTRADA = 365 dias (`assistant.customer-data.registered-validity`);
+  - registrar um agendamento exige nome e espécie do pet confirmados na conversa atual.
+- O assistente não coleta telefone (o contato vem do canal).
+- Detalhes e tabelas de decisão: [business-rules.md, seção 10](../business-rules.md#10-coleta-de-dados-e-pedido-de-agendamento-etapa-5).
+- Testes: `ProvenanceAndPetMatcherTest`, `CustomerDataNormalizerTest`, `CustomerDataIT` e `CustomerDataAiIT`.

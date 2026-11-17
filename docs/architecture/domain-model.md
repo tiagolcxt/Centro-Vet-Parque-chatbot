@@ -1,6 +1,6 @@
 # Modelo de domínio — estado implementado
 
-> Reflete o código ao fim da **Etapa 4** (2026-11-17). A Etapa 2 mudou a persistência (V2); a Etapa 3 acrescentou o módulo `clinicknowledge`; a Etapa 4 acrescentou prioridade clínica, encaminhamento, metadados do turno, registro de mudanças de prioridade e desfecho da solicitação (V3). Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
+> Reflete o código ao fim da **Etapa 5** (2026-11-17). A Etapa 2 mudou a persistência (V2); a Etapa 3 acrescentou o módulo `clinicknowledge`; a Etapa 4 acrescentou prioridade clínica, encaminhamento, metadados do turno, registro de mudanças de prioridade e desfecho da solicitação (V3); a Etapa 5 acrescentou proveniência por campo, espécie opcional e detalhes do pedido de agendamento (V4). Regras de coleta: [business-rules.md, seção 10](business-rules.md#10-coleta-de-dados-e-pedido-de-agendamento-etapa-5).
 
 ## Agregados
 
@@ -8,10 +8,11 @@
 |---|---|---|
 | **Conversation** | `OPEN` ⇄ `WAITING_HUMAN` → `CLOSED` (final). **E4:** encaminhar exige motivo (`HandoffReason`) e grava o momento; devolver ao assistente limpa os dois. Prioridade clínica (`ClinicalPriority`, P6 ao abrir) independente do status: `raisePriority` só sobe; `changePriorityByStaff` é o único jeito de baixar. Oferta de atendimento humano registrada (uma por conversa). Encerramento por equipe (`CLOSED_BY_STAFF`) ou expiração (`EXPIRED`). Expiração = `now > lastActivityAt + prazo(status)`, com prazos sem valor padrão (P-05). Nunca troca de tutor. A atividade nunca volta no tempo. Estado encerrado sempre tem motivo e data | `conversation` |
 | **Message** | Imutável. **E4:** a do assistente carrega `AssistantMetadata` (resposta segura ou não, prioridade efetiva, origem, sinais, intenções secundárias). Autor `CUSTOMER` ou `ASSISTANT`; só o assistente registra intenção. Conteúdo obrigatório, até 10.000 caracteres (limite de armazenamento; o limite de entrada é 2.000 caracteres, DA-28) | `message` |
-| **Tutor** | Identificado pelo contato do canal (`ContactIdentity`), único por canal. Nome e telefone opcionais. `lastSeenAt` só avança | `tutor` |
+| **Tutor** | Identificado pelo contato do canal (`ContactIdentity`), único por canal. Nome e telefone opcionais (o assistente não coleta telefone). `lastSeenAt` só avança. **E5:** criado só quando há dado a guardar (DA-36) | `tutor` |
 | **PriorityChange** | Registro imutável de mudança de prioridade pela equipe: anterior, novo, nota, autor, momento (H4) | `priority_change` |
-| **Pet** | Vinculado a um tutor. Nome obrigatório. `OTHER` exige descrição da espécie; `DOG`/`CAT` não aceitam descrição. Raça e idade em texto livre | `pet` |
-| **ServiceRequest** | `COLLECTING → PENDING → IN_PROGRESS → RESOLVED`; `CANCELLED` a partir de qualquer estado não final. **E4:** resolver e cancelar exigem desfecho (`RequestOutcome`, DA-34); `OTHER` exige observação. `submit()` recebe o conjunto de campos exigidos (`SUMMARY`, `TUTOR`, `PET`) e recusa listando os ausentes; o conjunto real por tipo é P-13. Sem data/hora confirmada (ADR-0011) | `service_request` |
+| **Pet** | Vinculado a um tutor. Nome obrigatório. **E5:** espécie opcional (o tutor pode dizer o nome antes); quando informada, `OTHER` exige descrição e `DOG`/`CAT` não aceitam descrição. Raça e idade em texto livre. `PetMatcher` faz a correspondência por nome normalizado (`NameKey`) entre os pets de um tutor (DA-35) | `pet` |
+| **Provenance** | **E5.** Um registro por campo do cadastro (`DataField`: nome do tutor; nome, espécie, raça e idade do pet). Grava só `MENTIONED` ou `CONFIRMED`, com a conversa e o momento da última confirmação; `statusFor(conversa)` calcula `REGISTERED` ou `TO_RECONFIRM` para as outras conversas. Valor alterado apaga a confirmação (ADR-0010, DA-35) | `data_provenance` |
+| **ServiceRequest** | `COLLECTING → PENDING → IN_PROGRESS → RESOLVED`; `CANCELLED` a partir de qualquer estado não final. **E4:** resolver e cancelar exigem desfecho (`RequestOutcome`, DA-34); `OTHER` exige observação. `submit()` recebe o conjunto de campos exigidos (`SUMMARY`, `TUTOR`, `PET`, `REASON`) e recusa listando os ausentes. **E5:** motivo (até 300) e preferência de dia ou período (até 120, texto livre) só no tipo `APPOINTMENT`; o que mais é exigido para registrar o agendamento (confirmação, nome do tutor) fica em `AppointmentRequirements`, na aplicação (P-13 e P-08 provisórios). Sem data/hora confirmada (ADR-0011) | `service_request` |
 
 `Intent` tem as 11 intenções do briefing; valor externo desconhecido vira `OTHER`.
 
@@ -25,6 +26,8 @@ erDiagram
     CONVERSATION ||--o{ SERVICE_REQUEST : origina
     TUTOR |o--o{ SERVICE_REQUEST : "referente a"
     PET |o--o{ SERVICE_REQUEST : "referente a"
+    TUTOR ||--o{ DATA_PROVENANCE : "campos de"
+    PET ||--o{ DATA_PROVENANCE : "campos de"
 ```
 
 ## Escolhas feitas na implementação
@@ -73,6 +76,18 @@ Escolhas da Etapa 4 (aguardam o aceite da etapa):
 | I-23 | Em falha do modelo, prioridade e encaminhamento ainda mudam pelos detectores; intenção e coleta não | Falha da IA não pode atrasar emergência nem pedido de humano (H8, ADR-0007) |
 | I-24 | Sinais e intenções secundárias gravados como listas de códigos em colunas de texto | Só para auditoria e métricas; sem consulta por sinal no MVP |
 
+Escolhas da Etapa 5 (aguardam o aceite da etapa):
+
+| # | Escolha | Motivo |
+|---|---|---|
+| I-25 | `data_provenance` com `subject` + `subject_id` sem chave estrangeira para `tutor`/`pet` (só para `conversation`) | Um registro serve aos dois tipos; os sujeitos nunca são apagados no MVP (retenção é P-03) |
+| I-26 | CADASTRADA e A_RECONFIRMAR são calculados, não gravados | O status depende de quem lê (a conversa) e do tempo; gravar exigiria rotina de atualização |
+| I-27 | Espécie do pet passou a opcional (V4) | O tutor diz "é para a Mel" antes da espécie; o pedido só é registrado com espécie |
+| I-28 | Nome só é aceito se aparece numa mensagem do tutor desta conversa (ou já está no cadastro dele) | Barra nome inventado pelo modelo ou copiado da resposta do assistente |
+| I-29 | A confirmação exige que a mensagem anterior do assistente contenha o valor gravado | A marcação do modelo sozinha não basta (P-08 provisório); verificável no backend |
+| I-30 | O aviso de pedido registrado é texto do sistema, não do modelo | O modelo não sabe se o registro deu certo; o texto nunca confirma dia nem horário |
+| I-31 | Referência a solicitações anteriores (DA-37) consultada pelo contato (`channel` + `external_contact_id`), não pelo tutor | Pedidos de informação e de atendimento podem existir antes do cadastro; contato e tutor são 1:1 |
+
 ## Ainda não modelado (por etapa)
 
-- E5: proveniência de tutor/pet (ADR-0010), detalhes de agendamento (motivo, preferência), regra de várias solicitações (P-06) e vários pets (P-07).
+- Valores definitivos de P-06, P-07, P-08 e P-13 (hoje provisórios, só com dados fictícios).

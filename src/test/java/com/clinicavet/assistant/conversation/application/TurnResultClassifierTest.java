@@ -14,7 +14,8 @@ class TurnResultClassifierTest {
 
     private static final String TAIL = ",\"secondaryIntents\":[],\"knowledgeRefs\":[],\"knowledgeGap\":false"
             + ",\"handoffRequested\":false,\"possibleEmergency\":false,\"priority\":\"P6_RELATIONSHIP\""
-            + ",\"signals\":[],\"clinicalUncertainty\":false}";
+            + ",\"signals\":[],\"clinicalUncertainty\":false,\"extracted\":{\"tutorName\":\"\",\"pets\":[]}"
+            + ",\"confirmations\":[],\"appointmentRequest\":{\"petName\":\"\",\"reason\":\"\",\"preferredPeriod\":\"\"}}";
 
     private final TurnResultClassifier classifier = new TurnResultClassifier();
 

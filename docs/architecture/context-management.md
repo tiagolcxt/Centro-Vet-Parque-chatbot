@@ -1,6 +1,6 @@
 # Gestão de contexto — o que vai ao modelo a cada mensagem
 
-> Reflete o código ao fim da **Etapa 4 — Encaminhamento humano e segurança** (2026-11-17). Camadas implementadas: **1** (identidade; ou o modo restrito em `WAITING_HUMAN`), **2** (institucional, com a lista de alerta), **4** (conversa) e parte da **5** (operacional). A camada 3 (tutor e pet) entra na Etapa 5. Regras de encaminhamento e prioridade: [business-rules.md](business-rules.md).
+> Reflete o código ao fim da **Etapa 5 — Coleta de dados e solicitações de agendamento** (2026-11-17). As cinco camadas estão implementadas: **1** (identidade; ou o modo restrito em `WAITING_HUMAN`), **2** (institucional, com a lista de alerta), **3** (tutor e pet, com proveniência), **4** (conversa) e **5** (operacional, com solicitações). Coleta e agendamento: [business-rules.md, seção 10](business-rules.md#10-coleta-de-dados-e-pedido-de-agendamento-etapa-5). Regras de encaminhamento e prioridade: [business-rules.md](business-rules.md).
 > Desenho completo: [proposta, seção 4.2](../plans/etapa-0-analise-e-proposta.md). Decisões: ADR-0002, ADR-0003, ADR-0004, ADR-0008, ADR-0015, ADR-0016, DA-29.
 
 ## Princípio
@@ -13,15 +13,16 @@ Nada fica só em memória. A cada mensagem, a aplicação **reconstrói o contex
 |---|---|---|---|---|
 | 1 | `system` | Identidade, idioma, limites, regra de segurança e formato da resposta | 1 | `prompts/system-message.st` |
 | 2 | `system` | `<dados_da_clinica>`: um item da base por linha, `[chave] valor` | 2 | `prompts/clinic-context.st` + base YAML |
-| 3 | `system` | `<estado_do_atendimento>`: status da conversa e data/hora local da clínica | 5 | `prompts/operational-context.st` + `Conversation` + `Clock` |
-| 4…n | `user` / `assistant` | Mensagens anteriores **da conversa atual**, em ordem | 4 | Tabela `message` |
+| 3 | `system` | `<cliente>`: tutor vinculado à conversa e seus pets, cada campo com o status de proveniência. **Só no modo principal** | 3 | `prompts/tutor-context.st` + `tutor`, `pet`, `data_provenance` |
+| 4 | `system` | `<estado_do_atendimento>`: status, data/hora local, solicitações desta conversa e atendimentos anteriores em aberto (DA-37) | 5 | `prompts/operational-context.st` + `Conversation` + `service_request` + `Clock` |
+| 5…n | `user` / `assistant` | Mensagens anteriores **da conversa atual**, em ordem | 4 | Tabela `message` |
 | n+1 | `user` | A mensagem que o tutor acabou de enviar | 4 | Requisição |
 
 As mensagens do tutor (anteriores e atual) vão delimitadas por `<mensagem_do_cliente>…</mensagem_do_cliente>`. Se o tutor escrever essas marcas no texto, elas são removidas antes do envio, para que ele não consiga "fechar" o bloco e escrever fora dele. O prompt de sistema manda tratar o conteúdo delimitado como dado, nunca como instrução.
 
-**Dois modos** (ADR-0007, item 4): em `OPEN`, o modo principal, com a mensagem 1 = `system-message.st`; em `WAITING_HUMAN`, o **modo restrito**, com a mensagem 1 = `waiting-human.st`, saída só de sinais (`possibleEmergency`, `explicitHumanRequest`, `priority`, `signals`), uma chamada, 500 tokens, 15 s. As demais mensagens são iguais nos dois modos.
+**Dois modos** (ADR-0007, item 4): em `OPEN`, o modo principal, com a mensagem 1 = `system-message.st`; em `WAITING_HUMAN`, o **modo restrito**, com a mensagem 1 = `waiting-human.st`, saída só de sinais (`possibleEmergency`, `explicitHumanRequest`, `priority`, `signals`), uma chamada, 500 tokens, 15 s. No modo restrito a camada 3 não é enviada (minimização); as demais mensagens são iguais nos dois modos.
 
-No modo principal, a resposta pedida é o `AssistantTurn` v3, com JSON Schema **estrito** (`assistant_turn_v3`):
+No modo principal, a resposta pedida é o `AssistantTurn` v4, com JSON Schema **estrito** (`assistant_turn_v4`):
 
 | Campo | Uso |
 |---|---|
@@ -32,6 +33,11 @@ No modo principal, a resposta pedida é o `AssistantTurn` v3, com JSON Schema **
 | `secondaryIntents` | Até 2 intenções a mais (E4, DA-33). Contam para encaminhamento e pisos de prioridade |
 | `handoffRequested`, `possibleEmergency` | Sugestões de encaminhamento e de possível emergência (E4). O backend decide |
 | `priority`, `signals`, `clinicalUncertainty` | Sugestão de nível e sinais (E4, ADR-0018). Incerteza clínica impõe piso P2 |
+| `extracted` | Nome do tutor e pets citados pelo tutor nesta conversa (E5): nome, espécie (`DOG`, `CAT`, `OTHER`, `UNKNOWN`), descrição da espécie, raça, idade e `newPet`. Normalizado e conferido pelo backend (seção 10 de business-rules) |
+| `confirmations` | Campos que o tutor confirmou neste turno (E5). Só valem se a mensagem anterior do assistente repetiu o valor gravado (P-08 provisório) |
+| `appointmentRequest` | Pet, motivo e preferência do pedido de agendamento (E5). Nunca data/hora confirmada |
+
+No modo estrito todos os campos são obrigatórios; texto vazio significa "não informado". Dentro de `extracted`, `confirmations` e `appointmentRequest`, item com tipo errado ou valor fora da lista é descartado sem invalidar o turno.
 
 ## Camada 1 — identidade e comportamento
 
@@ -91,15 +97,36 @@ Montada por `ContextAssembler` e `HistoryWindow`, sem `ChatMemory` do Spring AI 
 | `assistant.conversation.history-token-budget` | 4.000 | DA-28 |
 | `assistant.conversation.max-customer-message-length` | 2.000 caracteres | DA-28 |
 
-**Limite conhecido:** informação livre dita fora da janela se perde, porque não há resumo (ADR-0004). Os dados estruturados de tutor e pet passam a sobreviver à janela a partir da Etapa 5. A Etapa 6 mede quantas conversas passam da janela.
+**Limite conhecido:** informação livre dita fora da janela se perde, porque não há resumo (ADR-0004). Os dados estruturados de tutor e pet (camada 3) e os do pedido de agendamento (camada 5) sobrevivem à janela. A Etapa 6 mede quantas conversas passam da janela.
 
-## Camada 5 — operacional (parte da Etapa 2)
+## Camada 3 — tutor e pet (Etapa 5)
+
+Bloco `<cliente>`, montado pelo `ContextAssembler` a partir do **tutor vinculado à conversa** (o vínculo vem do contato do canal, nunca de texto digitado). Sem tutor vinculado: `(nenhum dado do tutor registrado)`.
+
+```
+<cliente>
+Tutor: Ana [CONFIRMADA]
+Pets:
+- Mel [CADASTRADA]; espécie: gato [CADASTRADA]; idade: 3 anos [A_RECONFIRMAR]
+- Thor [MENCIONADA]; espécie: não informada
+</cliente>
+```
+
+- O status de cada campo é calculado **para esta conversa** (DA-35): MENCIONADA ou CONFIRMADA se aconteceu nela; senão CADASTRADA (confirmada em outra conversa há no máximo `assistant.customer-data.registered-validity`, provisório 365 dias, P-08) ou A_RECONFIRMAR.
+- Até 10 pets. Nunca motivo, sintomas ou preferências (ADR-0010, item 3).
+- Os valores passaram pela normalização (sem `< > { } [ ]` nem quebra de linha), então não abrem nem fecham blocos.
+
+## Camada 5 — operacional
 
 Bloco `<estado_do_atendimento>`:
 - **status** da conversa, em texto (`em atendimento pelo assistente`, `sinalizada para revisão da equipe`);
-- **data e hora local** da clínica, no fuso `America/Sao_Paulo`, com dia da semana em português (ex.: `segunda-feira, 16/11/2026, 09:05`).
+- **data e hora local** da clínica, no fuso `America/Sao_Paulo`, com dia da semana em português (ex.: `segunda-feira, 16/11/2026, 09:05`);
+- **solicitações desta conversa** (E5): pedido de agendamento em coleta, com pet, motivo, preferência e o que **falta** (ex.: `Falta: nome do tutor; espécie do pet.`); registrado (`aguardando a equipe` / `em andamento com a equipe`, com "Dia e horário ainda não confirmados pela equipe"); encerrado (só "Você não sabe o desfecho"); pedidos de informação e de atendimento só com tipo e status;
+- **atendimentos anteriores em aberto** (DA-37): até 3 solicitações `PENDING` ou `IN_PROGRESS` de outras conversas do mesmo contato, só com **tipo, data de abertura e status**, marcadas "atendimento anterior, não reutilizar dados". O validador aceita a data de abertura na resposta.
 
-A prioridade, o motivo do encaminhamento e o atraso **não** vão ao modelo: são decisões do backend, e o modelo não deve ser influenciado pelo nível anterior ao sugerir o do turno. O status já indica quando a conversa está com a equipe. A solicitação em andamento entra na Etapa 5.
+O "Falta" é o mesmo cálculo que decide o registro (`AppointmentRequirements`), então o modelo só pergunta o que de fato falta.
+
+A prioridade, o motivo do encaminhamento e o atraso **não** vão ao modelo: são decisões do backend, e o modelo não deve ser influenciado pelo nível anterior ao sugerir o do turno. O status já indica quando a conversa está com a equipe.
 
 ## Do resultado do modelo ao que é gravado
 
@@ -126,6 +153,8 @@ A partir da Etapa 4, antes do modelo rodam os detectores determinísticos (pedid
 Na falha, a mensagem do tutor continua gravada e o **estado da conversa não muda**: a intenção corrente fica como estava e a única atividade registrada é a da mensagem do tutor. A resposta segura é gravada como mensagem do assistente sem intenção, porque foi o que o tutor recebeu. O texto dela é provisório (P-10) e fica em `assistant.conversation.fallback-reply`. A resposta da API indica `fallback: true`.
 
 **Concorrência (DA-21):** se outra mensagem chegou ou a conversa foi alterada durante a chamada ao modelo, a transação 2 percebe pela versão da conversa ou pela última mensagem gravada. O turno é descartado com `409` e `messageRecorded: true`. A mensagem do tutor fica gravada, sem resposta, e entra no histórico do turno seguinte.
+
+**Dados do tutor e agendamento (Etapa 5):** num turno válido, ainda na transação 2, o `CustomerDataCollector` aplica `extracted`, `confirmations` e `appointmentRequest` (regras na [seção 10 de business-rules](business-rules.md#10-coleta-de-dados-e-pedido-de-agendamento-etapa-5)). Quando o pedido passa a `PENDING`, o backend acrescenta o texto do sistema `assistant.customer-data.appointment-registered-reply` (provisório, P-10), que não confirma dia nem horário. Em falha do modelo, nada é coletado.
 
 **Lacuna de conhecimento (ADR-0008, item 4):** num turno válido com `knowledgeGap = true`, a transação 2 cria uma `ServiceRequest(INFORMATION)` em `PENDING`, com a pergunta do tutor no resumo (até 500 caracteres). Se a conversa já tem uma pendente, a nova pergunta é acrescentada ao mesmo resumo. Ninguém é notificado: a equipe verá os pedidos nas listagens da Etapa 4.
 
@@ -180,6 +209,9 @@ O validador não reprovou nenhuma resposta, nem na primeira tentativa. É uma am
 ## O que não vai ao modelo
 
 - Mensagens de outras conversas, inclusive anteriores do mesmo contato.
+- Dados de outro tutor: as consultas do cadastro são sempre pelo tutor vinculado à conversa (teste com dois contatos com pets de mesmo nome).
+- Motivo, preferência, resumo e desfecho de solicitações de outras conversas (DA-37: só tipo, data e status das abertas).
+- Telefone do tutor: o assistente não coleta (o contato vem do canal).
 - Identificador do contato (`externalContactId`), ids internos e versão.
 - Textos internos da base (`approved-texts`).
 - Nenhum dado real: até a Etapa 7, só dados fictícios (DA-17).

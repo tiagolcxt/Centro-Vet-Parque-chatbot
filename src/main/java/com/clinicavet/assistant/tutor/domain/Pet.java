@@ -10,7 +10,8 @@ import java.util.Optional;
 
 /**
  * Animal de um tutor. Agregado próprio, vinculado ao tutor por {@link TutorId}.
- * Idade é guardada como texto, do jeito que o tutor informou ("uns 3 anos").
+ * Idade é guardada como texto, do jeito que o tutor informou ("uns 3 anos"). A espécie pode faltar: o tutor
+ * às vezes diz o nome antes ("é para a Mel"); a solicitação de agendamento exige a espécie (P-13 provisório).
  */
 public final class Pet {
 
@@ -67,7 +68,6 @@ public final class Pet {
     }
 
     private void applySpecies(Species species, String description) {
-        Objects.requireNonNull(species, "species");
         String normalized = Texts.optional("speciesDescription", description, MAX_TEXT_LENGTH);
         if (species == Species.OTHER && normalized == null) {
             throw new DomainValidationException("speciesDescription", "obrigatória quando a espécie é OTHER");
@@ -91,8 +91,8 @@ public final class Pet {
         return name;
     }
 
-    public Species species() {
-        return species;
+    public Optional<Species> species() {
+        return Optional.ofNullable(species);
     }
 
     public Optional<String> speciesDescription() {

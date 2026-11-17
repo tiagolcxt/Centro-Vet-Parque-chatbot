@@ -115,13 +115,14 @@ class SpringAiAssistantModelIT {
         JsonNode messages = sent.path("messages");
         List<String> roles = new ArrayList<>();
         messages.forEach(m -> roles.add(m.path("role").asString()));
-        assertThat(roles).containsExactly("system", "system", "system", "user", "assistant", "user");
+        assertThat(roles).containsExactly("system", "system", "system", "system", "user", "assistant", "user");
         assertThat(messages.get(1).path("content").asString()).startsWith("<dados_da_clinica>");
-        assertThat(messages.get(2).path("content").asString()).contains("<estado_do_atendimento>", "16/11/2026");
-        assertThat(messages.get(3).path("content").asString())
+        assertThat(messages.get(2).path("content").asString()).startsWith("<cliente>");
+        assertThat(messages.get(3).path("content").asString()).contains("<estado_do_atendimento>", "16/11/2026");
+        assertThat(messages.get(4).path("content").asString())
                 .isEqualTo("<mensagem_do_cliente>\nMeu gato se chama Mingau.\n</mensagem_do_cliente>");
-        assertThat(messages.get(4).path("content").asString()).isEqualTo("Que nome bonito!");
-        assertThat(messages.get(5).path("content").asString()).contains("Qual é o nome do meu gato?");
+        assertThat(messages.get(5).path("content").asString()).isEqualTo("Que nome bonito!");
+        assertThat(messages.get(6).path("content").asString()).contains("Qual é o nome do meu gato?");
     }
 
     @Test

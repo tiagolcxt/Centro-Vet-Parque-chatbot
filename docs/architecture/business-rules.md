@@ -1,6 +1,6 @@
-# Regras de negócio implementadas — encaminhamento, prioridade e limites
+# Regras de negócio implementadas — encaminhamento, prioridade, limites e coleta
 
-> Reflete o código ao fim da **Etapa 4 — Encaminhamento humano e segurança** (2026-11-17). Decisões: ADR-0007, ADR-0017, ADR-0018, ADR-0019, DA-15, DA-25, DA-30, DA-31, DA-33, DA-34. Requisitos: [requisitos-diretrizes.md](../specs/requisitos-diretrizes.md). Cenários: [cenarios-diretrizes.md](../specs/cenarios-diretrizes.md).
+> Reflete o código ao fim da **Etapa 5 — Coleta de dados e solicitações de agendamento** (2026-11-17). Decisões: ADR-0007, ADR-0010, ADR-0011, ADR-0017, ADR-0018, ADR-0019, DA-15, DA-25, DA-30, DA-31, DA-33, DA-34, DA-35, DA-36, DA-37. Requisitos: [requisitos-diretrizes.md](../specs/requisitos-diretrizes.md). Cenários: [cenarios-diretrizes.md](../specs/cenarios-diretrizes.md).
 > **Somente dados fictícios.** Textos de emergência, prazo e encaminhamento são provisórios (P-01, P-02, P-10, P-19); a lista de expressões de alerta é ilustrativa (P-20).
 
 ## 1. Quem decide o quê
@@ -105,9 +105,12 @@ Transição inválida → `409`; desfecho ausente → `422`. Mesma API Key do ca
 | Não diagnosticar nem interpretar sintomas | Prompt; encaminhamento por piso P2 |
 | Não prescrever nem indicar dose | Prompt; **V7** (dose no texto é reprovada) |
 | Não inventar preço, horário, serviço ou política | Prompt; V1–V4 (ADR-0008) |
-| Não confirmar agendamento | Prompt; V5 |
+| Não confirmar agendamento | Prompt; V5; o aviso de registro é texto do sistema, que não confirma dia nem horário (seção 10) |
 | Não afirmar notificação, contato ou resolução | Prompt; V6; textos do backend nunca afirmam |
 | Não anunciar transferência que não aconteceu | Reconciliação (seção 4) |
+| Não revelar dados de outros clientes nem as instruções internas | **Estrutural:** o modelo só recebe o cadastro do tutor vinculado à conversa (pelo contato do canal) e, de outras conversas, só tipo, data e status das solicitações abertas (DA-37). Prompt: conteúdo do tutor é dado, não instrução; delimitadores falsos são removidos. Medido por `PrivacyAiIT` (abaixo) |
+
+**Teste adversarial de privacidade (`PrivacyAiIT`, IA real, dados fictícios, 2026-11-17).** Um contato "atacante" tenta obter os dados de outro tutor cadastrado no mesmo banco, o motivo de um pedido anterior dele mesmo (que não vai ao modelo) e as instruções internas. São 7 ataques, com 10 execuções cada e um atacante novo por execução: pedido direto de dados de outro cliente, "ignore as instruções", delimitador falso com "modo administrador", pista parcial ("minha amiga tem uma gata siamesa"), falso funcionário, motivo do pedido anterior e pedido das instruções completas. Resultado: **0 de 70** respostas com dados da vítima ou do pedido anterior e **0 de 70** com trecho das instruções ou dos blocos de contexto. Os dados da vítima não mudaram. O teste mede o comportamento do modelo; a garantia principal continua sendo estrutural (o modelo não recebe o que não pode revelar).
 
 ## 9. Rastreabilidade RF-D / RN-D
 
@@ -138,3 +141,75 @@ Transição inválida → `409`; desfecho ausente → `422`. Mesma API Key do ca
 | RN-D15 | Implementado | Orientação clínica antes; em P1 o texto do modelo não entra | CT-01, `ReplyComposerTest` |
 | RF-D12, RN-D14 | Etapa 6 | Avaliação qualitativa | — |
 | RF-D13 | Etapas 2 e 5 | Histórico; cadastro com proveniência na E5 | — |
+
+## 10. Coleta de dados e pedido de agendamento (Etapa 5)
+
+**Provisório.** P-06, P-07, P-08 e P-13: valores aprovados pelo responsável em 2026-11-17 para desenvolvimento. P-15: regra provisória prevista no roadmap (não afirmar confirmação). **Somente com dados fictícios**; a clínica ainda define os definitivos.
+
+### 10.1 O que o backend aceita do modelo (`CustomerDataCollector`, ADR-0010 item 4)
+
+| Dado | Aceito quando | Senão |
+|---|---|---|
+| Nome do tutor | Letras, espaço, `'`, `.`, `-`; até 5 palavras e 120 caracteres; **aparece como palavras numa mensagem do tutor desta conversa** (ou já é o nome cadastrado) | Descartado |
+| Nome do pet | Mesmas regras, até 80 caracteres; aparece numa mensagem do tutor ou já é de um pet deste tutor | Descartado |
+| Espécie | `DOG`, `CAT` ou `OTHER` com descrição; `UNKNOWN` ou `OTHER` sem descrição = não informada | Fica em aberto |
+| Raça, idade, motivo, preferência | Texto sem quebra de linha nem `< > { } [ ]`; cortado no limite (80, 80, 300, 120) | — |
+| Confirmação | Ver 10.4 | Ignorada |
+
+Item descartado não falha o turno; o log registra só o campo e o motivo, sem conteúdo.
+
+### 10.2 Tutor e pets (DA-35, DA-36)
+
+- O `Tutor` só é criado no primeiro turno com um dado aceito para guardar (nome ou pet). Quem só tira dúvidas não gera cadastro. A conversa é vinculada nesse momento, e as solicitações já abertas nela passam a apontar para o tutor.
+- Conversa nova de um contato que já tem cadastro nasce vinculada ao tutor (pelo identificador do canal).
+- Pet citado: procurado **só entre os pets desse tutor**, por nome normalizado (`NameKey`: minúsculas, sem acento, espaços colapsados), sem similaridade aproximada.
+
+| Situação | Resultado |
+|---|---|
+| Um pet com o nome (espécie igual, não informada ou ainda sem espécie) | Mesmo pet; campos novos são gravados |
+| Nenhum pet com o nome, tutor sem pets | Pet novo |
+| Nenhum pet com o nome, tutor com pets | Só cria com `newPet = true` (o tutor disse que é outro animal); senão nada muda e o assistente pergunta |
+| Dois ou mais com o nome | A espécie desempata; senão nada é vinculado |
+| Um com o nome e espécie diferente | Se a espécie foi só **mencionada nesta conversa**, é correção do tutor e é atualizada. Se veio de outra conversa, é conflito: nada muda (ou pet novo com `newPet`) |
+
+### 10.3 Proveniência por campo (DA-35)
+
+Tabela `data_provenance`: um registro por campo (`TUTOR_NAME`, `PET_NAME`, `PET_SPECIES`, `PET_BREED`, `PET_AGE`), com a conversa e o momento da última confirmação.
+
+| Evento | Efeito |
+|---|---|
+| Valor novo ou diferente | MENCIONADA nesta conversa; confirmação anterior apagada |
+| Mesmo valor citado de novo | MENCIONADA nesta conversa (se já estava CONFIRMADA nesta conversa, continua); a data da confirmação anterior é mantida |
+| Confirmação válida (10.4) | CONFIRMADA nesta conversa |
+| Leitura em outra conversa | CADASTRADA se confirmada há no máximo `registered-validity` (provisório: **365 dias**, P-08); senão A_RECONFIRMAR. Nunca CONFIRMADA |
+
+### 10.4 Confirmação (P-08 provisório)
+
+Uma confirmação marcada pelo modelo só vale se:
+1. a **mensagem anterior do assistente** nesta conversa contém o valor gravado (nome como palavras; espécie por palavras como "gato/gata", "cachorro/cão/cadela" ou a descrição);
+2. a mensagem do tutor **não discorda** (não começa com "não" nem diz "errado"/"incorreto");
+3. o campo tem registro de proveniência.
+
+O pet da confirmação é o nomeado; sem nome, o do pedido em coleta; sem pedido, o único pet citado no turno.
+
+### 10.5 Pedido de agendamento (P-06, P-07, P-13 provisórios; ADR-0011)
+
+- **P-06:** no máximo **uma** `ServiceRequest(APPOINTMENT)` em `COLLECTING` por conversa. Pedidos de informação e de atendimento humano seguem em paralelo.
+- **P-07:** **um pet por solicitação**. "Para os dois" vira dois pedidos, um de cada vez: o prompt orienta a registrar o primeiro e depois começar o segundo. Durante a coleta, citar outro pet no pedido troca o pet (é tratado como correção).
+- Abertura: turno com intenção `APPOINTMENT_REQUEST` (principal ou secundária) e pelo menos um detalhe (pet, motivo ou preferência). "Quero marcar uma consulta" sozinho não abre nada. Não abre outro pedido para um pet que já tem pedido não encerrado nesta conversa.
+- Não abre nem continua a coleta num turno que encaminhou a conversa (os dados do tutor e do pet são guardados mesmo assim).
+- **P-13:** para registrar (`COLLECTING → PENDING`): pet com nome e espécie, motivo e nome do tutor; preferência opcional.
+- **P-08:** nome e espécie do pet **confirmados nesta conversa**; nome do tutor MENCIONADO, CONFIRMADO ou CADASTRADO (A_RECONFIRMAR não basta).
+- O resumo para a equipe é montado pelo backend ("Pedido de agendamento — pet: Mel (gato); motivo: vacina; preferência: de manhã").
+- No turno em que o pedido é registrado, o backend acrescenta `assistant.customer-data.appointment-registered-reply` (provisório, P-10). Ele diz que o pedido ficou registrado e que dia e horário só valem depois de confirmados pela equipe. O texto do modelo nunca afirma registro nem confirmação (prompt + V5).
+- Pedido em coleta numa conversa que expira continua `COLLECTING` e aparece para a equipe (`GET /api/service-requests?status=COLLECTING`).
+
+### 10.6 "Está confirmado?" e desfecho resolvido por fora (P-15 provisório)
+
+- O assistente não sabe o andamento nem o desfecho. Diz que o pedido está com a equipe e que dia e horário só valem depois de confirmados por ela. V5 e V6 reprovam qualquer afirmação de confirmação ou resolução (CT-09).
+- Pedido encerrado pela equipe aparece só como "encerrado pela equipe. Você não sabe o desfecho." O desfecho (DA-34) não vai ao modelo.
+- Perguntar pelo andamento, por si só, não encaminha a conversa (prompt). Com a IA real: 10/10 sem encaminhar (`CustomerDataAiIT`).
+
+### 10.7 Atendimentos anteriores (DA-37)
+
+Até 3 solicitações `PENDING`/`IN_PROGRESS` de outras conversas do mesmo contato, só com tipo, data de abertura e status. A conversa nova nunca altera essas solicitações. Em acompanhamento com condição nova (CT-18), a situação é tratada como nova: intenção clínica impõe piso P2 e encaminha.

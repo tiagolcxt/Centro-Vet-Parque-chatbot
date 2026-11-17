@@ -57,11 +57,14 @@ class ServiceRequestController {
     }
 
     record ServiceRequestResponse(UUID id, UUID conversationId, RequestType type, RequestStatus status, String summary,
+                                  UUID tutorId, UUID petId, String reason, String preferredPeriod,
                                   RequestOutcome outcome, String outcomeNote, Instant createdAt, Instant updatedAt) {
 
         static ServiceRequestResponse from(ServiceRequest r) {
             return new ServiceRequestResponse(r.id().value(), r.conversationId().value(), r.type(), r.status(),
-                    r.summary().orElse(null), r.outcome().orElse(null), r.outcomeNote().orElse(null),
+                    r.summary().orElse(null), r.tutorId().map(t -> t.value()).orElse(null),
+                    r.petId().map(p -> p.value()).orElse(null), r.reason().orElse(null), r.preferredPeriod().orElse(null),
+                    r.outcome().orElse(null), r.outcomeNote().orElse(null),
                     r.createdAt(), r.updatedAt());
         }
     }

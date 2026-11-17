@@ -1,6 +1,6 @@
 # ADR-0011 — ServiceRequest separado da conversa; solicitação ≠ agendamento
 
-- **Status:** Aceito, com pendências (P-15). PT-08 decidida em 2026-11-17 (DA-34)
+- **Status:** Aceito, com pendências (P-15, provisório na Etapa 5). PT-08 decidida em 2026-11-17 (DA-34); revisado na Etapa 5
 - **Data:** 2026-11-11
 - **Decisão:** DA-07
 
@@ -47,3 +47,14 @@ A proposta original tinha um único `PATCH /api/service-requests/{id}` que tamb�
 
 - A equipe faz duas ações quando quer resolver a solicitação e encerrar a conversa. É mais explícito e um pouco mais trabalhoso sem um painel.
 - A separação conceitual fica garantida pelo próprio modelo de dados, não só por instrução ao modelo de IA.
+
+## Revisão (Etapa 5, 2026-11-17): pedido de agendamento
+
+Com valores **provisórios** de P-06, P-07 e P-13 (só dados fictícios). Regras completas: [business-rules.md, seção 10.5](../business-rules.md#105-pedido-de-agendamento-p-06-p-07-p-13-provisórios-adr-0011).
+- Colunas próprias (DA-19, migration V4): `reason` (até 300) e `preferred_period` (até 120, texto livre). Uma CHECK impede esses campos fora do tipo `APPOINTMENT`. Continua **sem data/hora confirmada**.
+- `RequestField.REASON` passa a poder ser exigido no `submit()`.
+- Uma solicitação de agendamento em coleta por conversa (P-06); um pet por solicitação (P-07).
+- Registro (`PENDING`) só com pet (nome e espécie), motivo e nome do tutor (P-13), e com nome e espécie do pet confirmados na conversa (P-08 provisório).
+- O aviso de registro ao tutor é texto do sistema e diz que dia e horário só valem depois de confirmados pela equipe.
+- **P-15 (provisório):** o assistente não lê o desfecho; pedido encerrado aparece ao modelo só como "encerrado pela equipe". Ele não afirma confirmação nem resolução (V5, V6).
+- A resposta da equipe (`GET /api/service-requests`) passou a trazer `tutorId`, `petId`, `reason` e `preferredPeriod`.
