@@ -22,5 +22,14 @@ public enum ItemType {
     /** Lista de intervalos {@code HH:mm-HH:mm}; lista vazia = fechado. */
     HOURS,
     /** Lista de textos (ex.: expressões de alerta, ADR-0019). Lista vazia não é aceita: use null. */
-    TEXT_LIST
+    TEXT_LIST,
+    /** Data {@code "aaaa-mm-dd"} (valor: {@code LocalDate}). */
+    DATE,
+    /**
+     * Dias especiais (feriados, fechamentos): mapa {@code "aaaa-mm-dd": [intervalos]}; {@code []} = fechado no dia
+     * (valor: {@code SortedMap<LocalDate, List<String>>}).
+     */
+    SPECIAL_DAYS,
+    /** Preço por variação (porte, pelagem): mapa {@code rótulo: centavos} (valor: {@code Map<String, Long>}). */
+    PRICE_TABLE
 }

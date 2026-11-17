@@ -45,7 +45,7 @@ class KnowledgeFileLoaderTest {
         assertThat(knowledge.item("services.banho-e-tosa.price-cents")).map(KnowledgeItem::isKnown).contains(false);
         assertThat(knowledge.item("hours.holidays")).map(KnowledgeItem::display).contains(KnowledgeItem.UNKNOWN_TEXT);
         assertThat(knowledge.pricesDisclosed()).isTrue();
-        assertThat(knowledge.resolve("services.consulta")).hasSize(5);
+        assertThat(knowledge.resolve("services.consulta")).hasSize(9);
         assertThat(knowledge.resolve("services.acupuntura")).isEmpty();
         assertThat(knowledge.resolve("approved-texts.emergency-policy")).as("texto interno não é fonte").isEmpty();
     }
@@ -85,7 +85,7 @@ class KnowledgeFileLoaderTest {
 
     @Test
     void missingSection_isRejected() {
-        String withoutPolicies = FICTITIOUS.replaceAll("(?s)policies:.*?\\n\\n", "");
+        String withoutPolicies = FICTITIOUS.replaceAll("(?ms)^policies:.*?\\n\\n", "");
         assertThat(problemsOf(withoutPolicies)).anyMatch(p -> p.startsWith("policies: chave obrigatória ausente"));
     }
 
@@ -141,9 +141,65 @@ class KnowledgeFileLoaderTest {
     void everyProblemIsListedAtOnce() {
         String broken = FICTITIOUS.replace("price-cents: 15000", "price-cents: \"x\"")
                 .replace("  holidays: null\n", "")
-                .replace("sunday: []", "sunday: [\"fechado\"]");
+                .replaceFirst("sunday: \\[\\]", "sunday: [\"fechado\"]");   // só o da clínica
 
         assertThat(problemsOf(broken)).hasSize(3);
+    }
+
+    @Test
+    void newTypes_areRead_andRendered() {
+        ClinicKnowledge knowledge = KnowledgeFileLoader.parse(FICTITIOUS
+                .replace("  holidays: null\n", "  holidays:\n    \"2026-12-25\": []\n    \"2026-11-20\": [\"08:00-12:00\"]\n"),
+                "teste");
+
+        assertThat(knowledge.item("services.tosa-higienica.price-by-size")).map(KnowledgeItem::display)
+                .contains("pequeno: R$ 40,00; médio: R$ 50,00; grande: R$ 65,00");
+        assertThat(knowledge.item("hours.holidays")).map(KnowledgeItem::display)
+                .contains("20/11/2026: 08:00–12:00; 25/12/2026: fechado");
+        assertThat(knowledge.item("review.reviewed-at")).map(KnowledgeItem::display).contains("17/11/2026");
+        assertThat(knowledge.promptItems()).noneMatch(i -> i.key().startsWith("review."));
+        assertThat(knowledge.validUntil("services")).contains(java.time.LocalDate.of(2027, 12, 31));
+    }
+
+    @Test
+    void newTypes_areValidated() {
+        assertThat(problemsOf(FICTITIOUS.replace("  holidays: null\n", "  holidays:\n    \"25/12\": []\n")))
+                .singleElement().asString().startsWith("hours.holidays: data \"25/12\" fora do formato");
+        assertThat(problemsOf(FICTITIOUS.replace("      pequeno: 4000", "      pequeno: \"R$ 40\"")))
+                .singleElement().asString().startsWith("services.tosa-higienica.price-by-size: cada linha");
+        assertThat(problemsOf(FICTITIOUS.replace("    services: \"2027-12-31\"", "    services: \"31/12/2027\"")))
+                .singleElement().asString().startsWith("review.valid-until.services: data deve estar no formato");
+        assertThat(problemsOf(FICTITIOUS.replace("    faq: \"2027-12-31\"\n", "")))
+                .containsExactly("review.valid-until.faq: chave obrigatória ausente (use null para DESCONHECIDO)");
+    }
+
+    @Test
+    void expiredSection_isTreatedAsUnknown_fromTheDayAfterTheDate() {
+        String yaml = FICTITIOUS.replace("    services: \"2027-12-31\"", "    services: \"2026-11-30\"")
+                .replace("    hours: \"2027-12-31\"", "    hours: \"2026-11-30\"");
+        java.time.ZoneId zone = java.time.ZoneId.of("America/Sao_Paulo");
+        ClinicKnowledge onTheDate = KnowledgeFileLoader.parse(yaml, "teste",
+                java.time.Clock.fixed(java.time.Instant.parse("2026-12-01T02:59:00Z"), zone));   // 30/11, 23:59 local
+        ClinicKnowledge dayAfter = onTheDate.withClock(
+                java.time.Clock.fixed(java.time.Instant.parse("2026-12-01T03:00:00Z"), zone));   // 01/12, 00:00 local
+
+        assertThat(onTheDate.item("services.consulta.price-cents")).map(KnowledgeItem::isKnown).contains(true);
+        assertThat(onTheDate.expiredSections()).isEmpty();
+        assertThat(dayAfter.expiredSections()).containsExactlyInAnyOrder("services", "hours");
+        assertThat(dayAfter.unknownCollections()).contains("services");
+        assertThat(dayAfter.resolve("services.consulta")).isEmpty();
+        assertThat(dayAfter.item("hours.saturday")).map(KnowledgeItem::isKnown).contains(false);
+        assertThat(dayAfter.item("identification.phone")).map(KnowledgeItem::isKnown).contains(true);
+        assertThat(dayAfter.item("triage.alert-expressions-p1")).map(KnowledgeItem::isKnown).contains(true);
+    }
+
+    @Test
+    void sectionsWithKnownItems_andNoValidity_areReported() {
+        ClinicKnowledge knowledge = KnowledgeFileLoader.parse(
+                FICTITIOUS.replace("    payment: \"2027-12-31\"", "    payment: null"), "teste");
+
+        assertThat(knowledge.sectionsWithoutValidity()).containsExactly("payment");
+        assertThat(KnowledgeFileLoader.parse(EXAMPLE, "example").sectionsWithoutValidity()).isEmpty();
     }
 
     @Test

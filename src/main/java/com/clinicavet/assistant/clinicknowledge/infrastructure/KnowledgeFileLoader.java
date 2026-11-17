@@ -8,9 +8,17 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.YAMLException;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.TreeMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,12 +41,18 @@ public final class KnowledgeFileLoader {
     private static final Pattern HANDLE = Pattern.compile("@[A-Za-z0-9_.]{2,30}");
     private static final Pattern ZIP = Pattern.compile("\\d{5}-?\\d{3}");
     private static final Pattern PHONE_CHARS = Pattern.compile("[\\d\\s()+.-]+");
+    private static final Pattern DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final Pattern INTERVAL = Pattern.compile("([01]\\d|2[0-3]):([0-5]\\d)-([01]\\d|2[0-3]):([0-5]\\d)");
 
     private KnowledgeFileLoader() {
     }
 
     public static ClinicKnowledge parse(String yaml, String source) {
+        return parse(yaml, source, Clock.systemUTC());
+    }
+
+    /** @param clock relógio usado na validade das seções (o da aplicação, no fuso da clínica) */
+    public static ClinicKnowledge parse(String yaml, String source, Clock clock) {
         List<String> problems = new ArrayList<>();
         Object root;
         try {
@@ -55,6 +69,7 @@ public final class KnowledgeFileLoader {
 
         List<KnowledgeItem> items = new ArrayList<>();
         Set<String> unknownCollections = new HashSet<>();
+        Map<String, LocalDate> validUntil = new LinkedHashMap<>();
         checkKeys("(raiz)", rootMap, new LinkedHashSet<>(KnowledgeSchema.TOP_LEVEL), problems);
 
         for (String section : KnowledgeSchema.TOP_LEVEL) {
@@ -64,6 +79,8 @@ public final class KnowledgeFileLoader {
             Object value = rootMap.get(section);
             if (KnowledgeSchema.COLLECTION_ENTRIES.containsKey(section)) {
                 readCollection(section, value, items, unknownCollections, problems);
+            } else if (section.equals("review")) {
+                readReview(value, items, validUntil, problems);
             } else {
                 readSection(section, value, KnowledgeSchema.SECTIONS.get(section), items, problems);
             }
@@ -71,7 +88,49 @@ public final class KnowledgeFileLoader {
         if (!problems.isEmpty()) {
             throw new KnowledgeValidationException(source, problems);
         }
-        return new ClinicKnowledge(items, unknownCollections);
+        return new ClinicKnowledge(items, unknownCollections, validUntil, clock);
+    }
+
+    /**
+     * {@code review}: data e responsável da revisão e, em {@code valid-until}, o "válido até" de cada seção de
+     * {@link ClinicKnowledge#VALIDATED_SECTIONS} ({@code null} = sem prazo; a inicialização avisa).
+     */
+    private static void readReview(Object value, List<KnowledgeItem> items, Map<String, LocalDate> validUntil,
+                                   List<String> problems) {
+        Map<String, ItemType> fields = KnowledgeSchema.SECTIONS.get("review");
+        if (!(value instanceof Map<?, ?> map)) {
+            problems.add("review: deve conter as chaves " + fields.keySet() + " e " + KnowledgeSchema.VALID_UNTIL);
+            return;
+        }
+        Set<String> expected = new LinkedHashSet<>(fields.keySet());
+        expected.add(KnowledgeSchema.VALID_UNTIL);
+        checkKeys("review", map, expected, problems);
+        fields.forEach((field, type) -> {
+            if (map.containsKey(field)) {
+                Object raw = map.get(field);
+                items.add(new KnowledgeItem("review." + field, type,
+                        raw == null ? null : convert("review." + field, type, raw, problems)));
+            }
+        });
+        if (!map.containsKey(KnowledgeSchema.VALID_UNTIL)) {
+            return;
+        }
+        String prefix = "review." + KnowledgeSchema.VALID_UNTIL;
+        Object raw = map.get(KnowledgeSchema.VALID_UNTIL);
+        if (!(raw instanceof Map<?, ?> dates)) {
+            problems.add(prefix + ": deve ter uma data (ou null) para cada seção " + ClinicKnowledge.VALIDATED_SECTIONS);
+            return;
+        }
+        checkKeys(prefix, dates, new LinkedHashSet<>(ClinicKnowledge.VALIDATED_SECTIONS), problems);
+        for (String section : ClinicKnowledge.VALIDATED_SECTIONS) {
+            Object date = dates.get(section);
+            if (date != null) {
+                Object parsed = convert(prefix + "." + section, ItemType.DATE, date, problems);
+                if (parsed instanceof LocalDate d) {
+                    validUntil.put(section, d);
+                }
+            }
+        }
     }
 
     private static void readSection(String prefix, Object value, Map<String, ItemType> fields,
@@ -156,22 +215,50 @@ public final class KnowledgeFileLoader {
                 problems.add(key + ": deve ser uma lista não vazia de textos entre aspas (até 200 caracteres cada) ou null");
             }
             case HOURS -> {
-                if (raw instanceof List<?> list) {
-                    List<String> intervals = new ArrayList<>();
-                    for (Object interval : list) {
-                        String text = String.valueOf(interval).strip();
-                        var m = INTERVAL.matcher(text);
-                        if (!(interval instanceof String) || !m.matches()) {
-                            problems.add(key + ": horário fora do formato \"HH:mm-HH:mm\" (ex.: \"08:00-18:00\")");
-                        } else if (text.substring(0, 5).compareTo(text.substring(6)) >= 0) {
-                            problems.add(key + ": o fim do intervalo deve ser depois do início (" + text + ")");
-                        } else {
-                            intervals.add(text);
+                return intervals(key, raw, problems);
+            }
+            case DATE -> {
+                LocalDate date = date(raw);
+                if (date != null) {
+                    return date;
+                }
+                problems.add(key + ": data deve estar no formato \"aaaa-mm-dd\", entre aspas (ex.: \"2026-12-25\")");
+            }
+            case SPECIAL_DAYS -> {
+                if (raw instanceof Map<?, ?> map) {
+                    TreeMap<LocalDate, List<String>> days = new TreeMap<>();
+                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        LocalDate date = date(entry.getKey());
+                        if (date == null) {
+                            problems.add(key + ": data \"" + entry.getKey() + "\" fora do formato \"aaaa-mm-dd\"");
+                            continue;
+                        }
+                        List<String> intervals = intervals(key + "." + date, entry.getValue(), problems);
+                        if (intervals != null) {
+                            days.put(date, intervals);
                         }
                     }
-                    return List.copyOf(intervals);
+                    return Collections.unmodifiableSortedMap(days);
                 }
-                problems.add(key + ": deve ser uma lista de intervalos \"HH:mm-HH:mm\" ([] = fechado) ou null");
+                problems.add(key + ": deve ser um mapa \"aaaa-mm-dd\": [intervalos] ([] = fechado) ou null");
+            }
+            case PRICE_TABLE -> {
+                if (raw instanceof Map<?, ?> map && !map.isEmpty()) {
+                    Map<String, Long> table = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        String label = String.valueOf(entry.getKey()).strip();
+                        Object cents = entry.getValue();
+                        if (label.isEmpty() || label.length() > 40 || !(cents instanceof Number n)
+                                || cents instanceof Double || cents instanceof Float || n.longValue() < 0) {
+                            problems.add(key + ": cada linha deve ser rótulo (até 40 caracteres): centavos, sem aspas"
+                                    + " (ex.: pequeno: 6000)");
+                        } else {
+                            table.put(label, n.longValue());
+                        }
+                    }
+                    return Collections.unmodifiableMap(table);
+                }
+                problems.add(key + ": deve ser um mapa rótulo: centavos (ex.: pequeno: 6000) ou null");
             }
             default -> {
                 if (!(raw instanceof String text)) {
@@ -184,6 +271,41 @@ public final class KnowledgeFileLoader {
                     return value;
                 }
                 problems.add(key + ": " + error);
+            }
+        }
+        return null;
+    }
+
+    /** Lista de intervalos {@code HH:mm-HH:mm}, ou {@code null} com o problema registrado. */
+    private static List<String> intervals(String key, Object raw, List<String> problems) {
+        if (!(raw instanceof List<?> list)) {
+            problems.add(key + ": deve ser uma lista de intervalos \"HH:mm-HH:mm\" ([] = fechado) ou null");
+            return null;
+        }
+        List<String> intervals = new ArrayList<>();
+        for (Object interval : list) {
+            String text = String.valueOf(interval).strip();
+            if (!(interval instanceof String) || !INTERVAL.matcher(text).matches()) {
+                problems.add(key + ": horário fora do formato \"HH:mm-HH:mm\" (ex.: \"08:00-18:00\")");
+            } else if (text.substring(0, 5).compareTo(text.substring(6)) >= 0) {
+                problems.add(key + ": o fim do intervalo deve ser depois do início (" + text + ")");
+            } else {
+                intervals.add(text);
+            }
+        }
+        return List.copyOf(intervals);
+    }
+
+    /** Data "aaaa-mm-dd" (texto, ou data que o YAML já converteu), ou {@code null}. */
+    private static LocalDate date(Object raw) {
+        if (raw instanceof Date d) {
+            return d.toInstant().atZone(ZoneOffset.UTC).toLocalDate();
+        }
+        if (raw instanceof String s && DATE.matcher(s.strip()).matches()) {
+            try {
+                return LocalDate.parse(s.strip());
+            } catch (DateTimeParseException e) {
+                return null;
             }
         }
         return null;

@@ -1,29 +1,50 @@
 # Base institucional da clínica: modelo VERSIONADO (ADR-0003). Nenhum dado aqui: tudo null.
+# Guia de cada campo, com classe de informação e riscos: docs/product/modelo-informacoes-clinica.md
 #
 # Como usar:
 #   1. Copie para config/clinic-knowledge.yml (não versionado) e preencha com os dados aprovados pela clínica (P-11).
 #   2. Aponte a aplicação para ele: ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.yml
 #
 # Regras (a aplicação não sobe se alguma for violada; a mensagem diz a chave e o problema):
-#   - TODAS as chaves abaixo devem existir. null = DESCONHECIDO: o assistente diz que não sabe.
+#   - TODAS as chaves abaixo devem existir. null = DESCONHECIDO: o assistente diz que não sabe e indica a recepção.
 #   - Não crie chaves novas: chave desconhecida é erro.
-#   - Textos, telefones, e-mails, sites e CEP entre aspas.
+#   - Textos, telefones, e-mails, sites, CEP e datas entre aspas. Datas no formato "aaaa-mm-dd".
 #   - Horários: lista de intervalos "HH:mm-HH:mm"; [] = fechado no dia. Ex.: ["08:00-12:00", "14:00-18:00"]
 #   - Preço: número inteiro de centavos, sem aspas. Ex.: 15000 = R$ 150,00.
 #   - Preços só vão ao assistente se payment.prices-disclosed for true.
 #   - services e faq: ids em minúsculas com hífen (ex.: vacina-v10). A coleção inteira pode ser null.
 #     Em cada serviço, name é obrigatório; em cada pergunta frequente, question é obrigatória.
+#   - VALIDADE: em review.valid-until, a data até quando cada seção vale. Passada a data, a seção inteira passa a
+#     DESCONHECIDA (o assistente para de informar) até a revisão. null = sem prazo (a inicialização avisa).
+
+# Revisão: quem revisou e até quando cada seção vale.
+review:
+  reviewed-at: null            # "2026-11-17"
+  reviewed-by: null            # função de quem responde pela informação, ex.: "Gerência"
+  valid-until:
+    identification: null       # sugestão: 6 meses
+    hours: null                # sugestão: até o fim do ano (feriados) ou até a próxima mudança
+    emergency: null
+    services: null             # preços: sugestão de 1 mês
+    petshop-hours: null
+    petshop: null
+    payment: null
+    policies: null
+    faq: null
 
 identification:
   name: null
   address: null
+  location-reference: null     # ex.: "Em frente à praça central"
+  access: null                 # estacionamento, acessibilidade
   zip-code: null
-  phone: null
+  phone: null                  # TELEFONE DA RECEPÇÃO: é o próximo passo de todo encaminhamento
   whatsapp: null
   email: null
   website: null
   instagram: null
 
+# Horário da clínica. É a base para "aberta agora" e para o próximo passo ("ligue para a recepção").
 hours:
   monday: null
   tuesday: null
@@ -32,28 +53,59 @@ hours:
   friday: null
   saturday: null
   sunday: null
+  # Feriados e fechamentos com data: "aaaa-mm-dd": [intervalos] ([] = fechado). Manda sobre o dia da semana.
+  # Ex.:  "2026-12-25": []
+  #       "2026-11-20": ["08:00-12:00"]
   holidays: null
-  after-hours: null
   twenty-four-hours: null
+
+# Emergência (P-01). Texto orientativo aprovado fica em approved-texts.emergency-policy.
+emergency:
+  attended: null               # ex.: "Sim, no horário de funcionamento"
+  after-hours-referral: null   # onde procurar fora do horário: nome, endereço e telefone
 
 # Exemplo de entrada (não descomente sem dados reais aprovados):
 #   consulta:
 #     name: "Consulta clínica"
 #     offered: true
 #     description: null
+#     species: "Cães e gatos"
+#     booking: "Com agendamento"          # ou "Por ordem de chegada"
+#     duration: "30 minutos"
 #     price-cents: null
-#     price-note: null
+#     price-by-size: null                 # ex.: { pequeno: 6000, medio: 8000, grande: 10000 }
+#     price-note: null                    # ex.: "a partir de", "por dose", "sob avaliação"
 services: null
+
+# Horário do petshop e do banho e tosa (se igual ao da clínica, repita os mesmos intervalos).
+petshop-hours:
+  monday: null
+  tuesday: null
+  wednesday: null
+  thursday: null
+  friday: null
+  saturday: null
+  sunday: null
+
+petshop:
+  grooming-requirements: null  # exigências do banho e tosa, ex.: "Vacinas em dia"
+  pickup-delivery: null        # leva e traz
+  boarding: null               # hotel ou creche
+  products: null               # categorias de produtos (sem estoque: o assistente não informa disponibilidade)
+  orders: null                 # retirada ou entrega de compras
 
 payment:
   prices-disclosed: null
   methods: null
   installments: null
+  health-plans: null           # planos de saúde pet ou convênios aceitos
+  estimates: null              # política de orçamento
 
 policies:
   scheduling: null
   cancellation: null
   no-show: null
+  transport: null              # caixa de transporte, guia, animais agressivos
 
 # Exemplo de entrada:
 #   documentos-consulta:
@@ -64,6 +116,7 @@ faq: null
 # Expressões de alerta aprovadas pela EQUIPE VETERINÁRIA (P-20, ADR-0019). Uma correspondência na mensagem do
 # tutor impõe prioridade mínima P1 ou P2 e encaminha. Só eleva, nunca rebaixa, não diagnostica. A ausência de
 # correspondência NÃO significa situação leve. Escreva em minúsculas; acentos e espaços extras são ignorados.
+# Sem validade: vencer esta lista tiraria uma proteção.
 triage:
   alert-expressions-p1: null
   alert-expressions-p2: null

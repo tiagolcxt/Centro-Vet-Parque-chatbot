@@ -14,7 +14,7 @@ class ClinicKnowledgeConfigTest {
 
     @Test
     void missingFile_stopsStartup_withHowToFix() {
-        assertThatThrownBy(() -> config.clinicKnowledge(loader, "file:config/nao-existe.yml"))
+        assertThatThrownBy(() -> config.clinicKnowledge(loader, java.time.Clock.systemUTC(), "file:config/nao-existe.yml"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("config/nao-existe.yml")
                 .hasMessageContaining("ASSISTANT_KNOWLEDGE_FILE");
@@ -22,7 +22,7 @@ class ClinicKnowledgeConfigTest {
 
     @Test
     void versionedFiles_load() {
-        assertThat(config.clinicKnowledge(loader, "file:config/clinic-knowledge.example.yml").promptItems()).isNotEmpty();
-        assertThat(config.clinicKnowledge(loader, "file:config/clinic-knowledge.ficticia.yml").pricesDisclosed()).isTrue();
+        assertThat(config.clinicKnowledge(loader, java.time.Clock.systemUTC(), "file:config/clinic-knowledge.example.yml").promptItems()).isNotEmpty();
+        assertThat(config.clinicKnowledge(loader, java.time.Clock.systemUTC(), "file:config/clinic-knowledge.ficticia.yml").pricesDisclosed()).isTrue();
     }
 }

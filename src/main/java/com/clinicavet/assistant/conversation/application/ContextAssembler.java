@@ -1,5 +1,7 @@
 package com.clinicavet.assistant.conversation.application;
 
+import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
+import com.clinicavet.assistant.clinicknowledge.domain.OpeningHours;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.Message;
@@ -48,11 +50,12 @@ class ContextAssembler {
     private final ProvenanceRepository provenance;
     private final ServiceRequestRepository serviceRequests;
     private final Duration validity;
+    private final ClinicKnowledge knowledge;
     private final Clock clock;
 
     ContextAssembler(ConversationSettings settings, TokenEstimator tokens, TutorRepository tutors, PetRepository pets,
                      ProvenanceRepository provenance, ServiceRequestRepository serviceRequests,
-                     CustomerDataSettings customerData, Clock clock) {
+                     CustomerDataSettings customerData, ClinicKnowledge knowledge, Clock clock) {
         this.settings = settings;
         this.tokens = tokens;
         this.tutors = tutors;
@@ -60,6 +63,7 @@ class ContextAssembler {
         this.provenance = provenance;
         this.serviceRequests = serviceRequests;
         this.validity = customerData.registeredValidity();
+        this.knowledge = knowledge;
         this.clock = clock;
     }
 
@@ -91,8 +95,9 @@ class ContextAssembler {
                 .map(r -> new AssistantRequest.PreviousRequest(r.type(), r.status(),
                         r.createdAt().atZone(clock.getZone()).toLocalDate()))
                 .toList();
+        ZonedDateTime localNow = ZonedDateTime.ofInstant(now, clock.getZone());
         AssistantRequest.OperationalContext operational = new AssistantRequest.OperationalContext(
-                conversation.status(), ZonedDateTime.ofInstant(now, clock.getZone()), requests, previousRequests);
+                conversation.status(), localNow, OpeningHours.at(knowledge, localNow), requests, previousRequests);
         return new AssistantRequest(AssistantRequest.Mode.MAIN, customer, operational, history, current.content());
     }
 

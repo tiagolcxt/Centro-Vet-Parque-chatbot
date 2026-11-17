@@ -97,6 +97,24 @@ class PromptTemplatesTest {
     }
 
     @Test
+    void opening_isDescribedFromTheBackendCalculation() {
+        var zone = ZoneId.of("America/Sao_Paulo");
+        var next = ZonedDateTime.of(2026, 11, 19, 8, 0, 0, 0, zone);
+        var open = new com.clinicavet.assistant.clinicknowledge.domain.OpeningHours.Status(
+                com.clinicavet.assistant.clinicknowledge.domain.OpeningHours.State.OPEN, false,
+                java.util.Optional.of(java.time.LocalTime.of(18, 0)), java.util.Optional.empty(), false);
+        var closed = new com.clinicavet.assistant.clinicknowledge.domain.OpeningHours.Status(
+                com.clinicavet.assistant.clinicknowledge.domain.OpeningHours.State.CLOSED, false,
+                java.util.Optional.empty(), java.util.Optional.of(next), true);
+
+        assertThat(PromptTemplates.opening(open)).isEqualTo("aberta agora, até 18:00");
+        assertThat(PromptTemplates.opening(closed)).isEqualTo("fechada agora; abre quinta-feira, 19/11, às 08:00 "
+                + "(feriados não cadastrados: em feriado, a recepção confirma)");
+        assertThat(PromptTemplates.opening(com.clinicavet.assistant.clinicknowledge.domain.OpeningHours.Status.unknown(true)))
+                .startsWith("horário de hoje não cadastrado");
+    }
+
+    @Test
     void tutorContext_showsEachFieldWithItsProvenanceStatus() {
         var f = (java.util.function.BiFunction<String, ProvenanceStatus, AssistantRequest.CustomerContext.FieldView>)
                 AssistantRequest.CustomerContext.FieldView::new;

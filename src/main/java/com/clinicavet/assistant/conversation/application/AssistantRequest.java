@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.application;
 
+import com.clinicavet.assistant.clinicknowledge.domain.OpeningHours;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
@@ -92,21 +93,28 @@ public record AssistantRequest(Mode mode, CustomerContext customer, OperationalC
     }
 
     /**
-     * Camada 5 (operacional): status, data/hora local da clínica, solicitações desta conversa e referência mínima
+     * Camada 5 (operacional): status, data/hora local da clínica, se a clínica está aberta agora (calculado pelo backend
+ * a partir da base, {@link OpeningHours}), solicitações desta conversa e referência mínima
      * às solicitações em aberto de conversas anteriores do mesmo contato (DA-37).
      */
-    public record OperationalContext(ConversationStatus status, ZonedDateTime localNow, List<RequestView> requests,
-                                     List<PreviousRequest> previousRequests) {
+    public record OperationalContext(ConversationStatus status, ZonedDateTime localNow, OpeningHours.Status opening,
+                                     List<RequestView> requests, List<PreviousRequest> previousRequests) {
 
         public OperationalContext {
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(localNow, "localNow");
+            opening = opening == null ? OpeningHours.Status.unknown(true) : opening;
             requests = List.copyOf(requests);
             previousRequests = List.copyOf(previousRequests);
         }
 
         public OperationalContext(ConversationStatus status, ZonedDateTime localNow) {
-            this(status, localNow, List.of(), List.of());
+            this(status, localNow, null, List.of(), List.of());
+        }
+
+        public OperationalContext(ConversationStatus status, ZonedDateTime localNow, List<RequestView> requests,
+                                  List<PreviousRequest> previousRequests) {
+            this(status, localNow, null, requests, previousRequests);
         }
     }
 

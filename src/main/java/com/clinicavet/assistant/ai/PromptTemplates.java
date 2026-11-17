@@ -2,6 +2,7 @@ package com.clinicavet.assistant.ai;
 
 import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
 import com.clinicavet.assistant.clinicknowledge.domain.KnowledgeItem;
+import com.clinicavet.assistant.clinicknowledge.domain.OpeningHours;
 import com.clinicavet.assistant.conversation.application.AssistantRequest;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
@@ -34,10 +35,13 @@ class PromptTemplates {
     private static final DateTimeFormatter LOCAL_DATE_TIME =
             DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy, HH:mm", Locale.of("pt", "BR"));
     private static final DateTimeFormatter DAY_MONTH_YEAR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
+    private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("HH:mm");
 
     private final String systemMessage;
     private final String operationalContext;
-    private final String clinicContext;
+    private final String clinicTemplate;
+    private final ClinicKnowledge knowledge;
     private final String waitingHumanMessage;
     private final String tutorContext;
 
@@ -51,15 +55,16 @@ class PromptTemplates {
         this.waitingHumanMessage = read(waitingHuman);
         this.operationalContext = read(operationalContext);
         this.tutorContext = read(tutorContext);
-        this.clinicContext = renderClinic(read(clinicTemplate), knowledge);
+        this.clinicTemplate = read(clinicTemplate);
+        this.knowledge = knowledge;
     }
 
     /**
-     * Camada 2: uma linha por item, `[chave] valor`, com DESCONHECIDO explícito (ADR-0003). Fixa durante a
-     * execução (a base só muda com reinício), por isso é montada uma vez.
+     * Camada 2: uma linha por item, `[chave] valor`, com DESCONHECIDO explícito (ADR-0003). Montada a cada turno:
+     * uma seção vencida passa a DESCONHECIDO sem reiniciar a aplicação.
      */
     String clinicContext() {
-        return clinicContext;
+        return renderClinic(clinicTemplate, knowledge);
     }
 
     private static String renderClinic(String template, ClinicKnowledge knowledge) {
@@ -93,6 +98,7 @@ class PromptTemplates {
         return render(operationalContext, Map.of(
                 "status", describe(context.status()),
                 "agora", LOCAL_DATE_TIME.format(context.localNow()),
+                "funcionamento", opening(context.opening()),
                 "solicitacoes", requests(context.requests()),
                 "anteriores", previous(context.previousRequests())));
     }
@@ -135,6 +141,21 @@ class PromptTemplates {
             case REGISTERED -> "CADASTRADA";
             case TO_RECONFIRM -> "A_RECONFIRMAR";
         } + "]";
+    }
+
+    /** "Aberta agora até 18:00" / "Fechada agora; abre quinta-feira, 19/11, às 08:00" / horário não cadastrado. */
+    static String opening(OpeningHours.Status status) {
+        String text = switch (status.state()) {
+            case OPEN -> status.twentyFourHours() ? "aberta agora (atendimento 24 horas)"
+                    : "aberta agora" + status.closesAt().map(t -> ", até " + HOUR.format(t)).orElse("");
+            case CLOSED -> "fechada agora" + status.nextOpening()
+                    .map(n -> "; abre " + OpeningHours.dayName(n.getDayOfWeek()) + ", " + DAY_MONTH.format(n)
+                            + ", às " + HOUR.format(n))
+                    .orElse("; próxima abertura não cadastrada");
+            case UNKNOWN -> "horário de hoje não cadastrado: não diga se está aberta ou fechada";
+        };
+        return status.holidaysUnknown() && status.state() != OpeningHours.State.UNKNOWN
+                ? text + " (feriados não cadastrados: em feriado, a recepção confirma)" : text;
     }
 
     private static String requests(List<AssistantRequest.RequestView> requests) {

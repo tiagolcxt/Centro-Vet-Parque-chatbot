@@ -1,6 +1,7 @@
 package com.clinicavet.assistant.conversation.application.validation;
 
 import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
+import com.clinicavet.assistant.clinicknowledge.domain.OpeningHours;
 import com.clinicavet.assistant.clinicknowledge.domain.KnowledgeItem;
 import com.clinicavet.assistant.conversation.application.AssistantRequest;
 import com.clinicavet.assistant.conversation.application.AssistantTurn;
@@ -104,6 +105,14 @@ public class ResponseValidator {
             }
         });
         List<Fact> operational = new ArrayList<>(operationalFacts(request.operational().localNow()));
+        // Funcionamento calculado pelo backend: fim do horário de hoje e próxima abertura podem ser citados.
+        OpeningHours.Status opening = request.operational().opening();
+        opening.closesAt().ifPresent(t -> operational.add(new Fact(Fact.Type.TIME, HOUR_MINUTE.format(t))));
+        opening.nextOpening().ifPresent(n -> {
+            operational.add(new Fact(Fact.Type.TIME, HOUR_MINUTE.format(n)));
+            operational.add(new Fact(Fact.Type.DATE, DAY_MONTH.format(n)));
+            operational.add(new Fact(Fact.Type.WEEKDAY, DAY_NAMES.get(n.getDayOfWeek())));
+        });
         // DA-37: a data de abertura de uma solicitação anterior pode ser citada.
         request.operational().previousRequests()
                 .forEach(r -> operational.add(new Fact(Fact.Type.DATE, DAY_MONTH.format(r.openedOn()))));

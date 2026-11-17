@@ -56,7 +56,7 @@ As regras do prompt são a primeira barreira. A segunda é o validador (abaixo),
 
 ## Camada 2 — informações institucionais
 
-Fonte: arquivo YAML indicado em `ASSISTANT_KNOWLEDGE_FILE` (ADR-0003). Lido e validado **uma vez, na inicialização**: arquivo ausente, YAML malformado, chave ausente, chave desconhecida ou valor fora do tipo impedem a aplicação de subir, com a lista de problemas.
+Fonte: arquivo YAML indicado em `ASSISTANT_KNOWLEDGE_FILE` (ADR-0003). Lido e validado **uma vez, na inicialização**: arquivo ausente, YAML malformado, chave ausente, chave desconhecida ou valor fora do tipo impedem a aplicação de subir, com a lista de problemas. **Desde a DA-39**, o bloco é montado a cada turno: uma seção cuja validade (`review.valid-until`) passou vira DESCONHECIDA sem reiniciar. Campos e classes de informação: [modelo-informacoes-clinica.md](../product/modelo-informacoes-clinica.md).
 
 | Arquivo | Versionado? | Uso |
 |---|---|---|
@@ -121,6 +121,7 @@ Pets:
 Bloco `<estado_do_atendimento>`:
 - **status** da conversa, em texto (`em atendimento pelo assistente`, `sinalizada para revisão da equipe`);
 - **data e hora local** da clínica, no fuso `America/Sao_Paulo`, com dia da semana em português (ex.: `segunda-feira, 16/11/2026, 09:05`);
+- **clínica aberta ou fechada agora** (DA-39), calculado pelo backend a partir do horário da base (`OpeningHours`): "aberta agora, até 18:00", "fechada agora; abre quinta-feira, 19/11, às 08:00" ou "horário de hoje não cadastrado"; com aviso quando os feriados não estão cadastrados. O validador aceita esses horários e datas na resposta;
 - **solicitações desta conversa** (E5): pedido de agendamento em coleta, com pet, motivo, preferência e o que **falta** (ex.: `Falta: nome do tutor; espécie do pet.`); registrado (`aguardando a equipe` / `em andamento com a equipe`, com "Dia e horário ainda não confirmados pela equipe"); encerrado (só "Você não sabe o desfecho"); pedidos de informação e de atendimento só com tipo e status;
 - **atendimentos anteriores em aberto** (DA-37): até 3 solicitações `PENDING` ou `IN_PROGRESS` de outras conversas do mesmo contato, só com **tipo, data de abertura e status**, marcadas "atendimento anterior, não reutilizar dados". O validador aceita a data de abertura na resposta.
 
