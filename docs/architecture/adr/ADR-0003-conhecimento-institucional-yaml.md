@@ -1,6 +1,6 @@
 # ADR-0003 — Conhecimento institucional em YAML tipado e validado
 
-- **Status:** Aceito, com pendências (P-11)
+- **Status:** Aceito, com pendências (P-11: conteúdo real). Implementado na Etapa 3, com o desvio descrito no fim
 - **Data:** 2026-11-11
 - **Decisão:** DA-03
 
@@ -30,3 +30,13 @@ O assistente precisa de informações confiáveis da clínica (identificação, 
 - Alterar informações exige editar o YAML e reiniciar a aplicação. A edição é feita por quem mantém o sistema, não pela clínica.
 - Critério para reavaliar (não é decisão agora): base institucional acima de ~3–4 mil tokens, ou necessidade de edição pela própria clínica.
 - O arquivo com dados reais da clínica **não é versionado** (ADR-0013).
+
+## Implementação (Etapa 3, 2026-11-16)
+
+- **Desvio do item 1:** o arquivo não é lido por `@ConfigurationProperties`. O binding do Spring não distingue chave ausente de chave `null`, e o item 3 exige tratar as duas de forma diferente. O arquivo é lido com SnakeYAML (`SafeConstructor`, sem chaves duplicadas) e conferido contra um esquema próprio (`KnowledgeSchema`), que gera os itens tipados. O resultado pedido pelo ADR se mantém: estrutura tipada, chaves estáveis e fail-fast. A importação via `spring.config.import` também foi trocada pela propriedade `assistant.knowledge.location` (`ASSISTANT_KNOWLEDGE_FILE`).
+- **Arquivos:** `config/clinic-knowledge.example.yml` (versionado, tudo `null`, padrão), `config/clinic-knowledge.ficticia.yml` (versionado, clínica inventada para testes) e `config/clinic-knowledge.yml` (dados reais, fora do Git).
+- **Esquema:** seções fixas `identification`, `hours`, `payment`, `policies`, `approved-texts` e coleções `services.<id>` e `faq.<id>`, com ids escolhidos pela clínica. Chaves e tipos em [context-management.md](../context-management.md#camada-2--informações-institucionais).
+- **Formatos (item 5):** preço inteiro em centavos (`price-cents`) com observação separada (`price-note`); horários como lista de intervalos `HH:mm-HH:mm`, `[]` = fechado; telefone, e-mail, site, `@perfil` e CEP validados.
+- **Preços divulgáveis (P-11):** `payment.prices-disclosed`. Se não for `true`, os preços são tratados como DESCONHECIDO e nenhum valor em dinheiro é autorizado (DA-29).
+- **Coleção inteira desconhecida:** `services: null` ou `faq: null` é aceito e aparece no prompt como uma linha DESCONHECIDO.
+- **Erros cobertos por teste** (`KnowledgeFileLoaderTest`): YAML malformado, chave duplicada, chave ausente (item e seção), chave desconhecida, preço não numérico ou decimal, horário fora do formato ou invertido, telefone, CEP, perfil e booleano inválidos, id de entrada inválido, nome de serviço `null`. Todos os problemas são listados de uma vez.

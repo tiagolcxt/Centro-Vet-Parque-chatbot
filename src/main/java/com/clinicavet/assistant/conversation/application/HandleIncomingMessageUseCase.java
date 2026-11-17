@@ -7,6 +7,11 @@ import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
+import com.clinicavet.assistant.servicerequest.domain.RequestField;
+import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
+import com.clinicavet.assistant.servicerequest.domain.RequestType;
+import com.clinicavet.assistant.servicerequest.domain.ServiceRequest;
+import com.clinicavet.assistant.servicerequest.domain.ServiceRequestRepository;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
 import com.clinicavet.assistant.shared.exception.ConcurrentTurnException;
 import com.clinicavet.assistant.shared.exception.DomainValidationException;
@@ -20,6 +25,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Um turno de conversa (proposta 5.1, Etapa 2).
@@ -55,6 +61,7 @@ public class HandleIncomingMessageUseCase {
 
     private final ConversationRepository conversations;
     private final MessageRepository messages;
+    private final ServiceRequestRepository serviceRequests;
     private final ConversationLifecycle lifecycle;
     private final ContextAssembler contextAssembler;
     private final TurnExecutor executor;
@@ -63,11 +70,12 @@ public class HandleIncomingMessageUseCase {
     private final Clock clock;
 
     HandleIncomingMessageUseCase(ConversationRepository conversations, MessageRepository messages,
-                                 ConversationLifecycle lifecycle, ContextAssembler contextAssembler,
-                                 TurnExecutor executor, TransactionRunner tx, ConversationSettings settings,
+                                 ServiceRequestRepository serviceRequests, ConversationLifecycle lifecycle,
+                                 ContextAssembler contextAssembler, TurnExecutor executor, TransactionRunner tx, ConversationSettings settings,
                                  Clock clock) {
         this.conversations = conversations;
         this.messages = messages;
+        this.serviceRequests = serviceRequests;
         this.lifecycle = lifecycle;
         this.contextAssembler = contextAssembler;
         this.executor = executor;
@@ -140,6 +148,9 @@ public class HandleIncomingMessageUseCase {
                 current.registerActivity(now);
                 Conversation saved = conversations.save(current);
                 messages.save(Message.fromAssistant(id, turn.reply(), turn.intent(), now));
+                if (turn.knowledgeGap()) {
+                    recordInformationGap(id, start.customerMessage().content(), now);
+                }
                 yield new Result(id, start.newConversation(), turn.reply(), saved.status(),
                         Optional.of(turn.intent()), false);
             }
@@ -151,5 +162,33 @@ public class HandleIncomingMessageUseCase {
                 yield new Result(id, start.newConversation(), reply, current.status(), Optional.empty(), true);
             }
         };
+    }
+
+    /**
+     * Lacuna de conhecimento vira pedido de informação para a equipe (ADR-0008, item 4): uma
+     * {@code ServiceRequest(INFORMATION)} aberta por conversa. Se já houver uma pendente, a nova dúvida é
+     * acrescentada ao resumo. Nenhuma notificação: a equipe vê nas listagens (ADR-0007, Etapa 4).
+     */
+    private void recordInformationGap(ConversationId conversationId, String question, Instant now) {
+        Optional<ServiceRequest> open = serviceRequests.findByConversation(conversationId).stream()
+                .filter(r -> r.type() == RequestType.INFORMATION)
+                .filter(r -> r.status() == RequestStatus.COLLECTING || r.status() == RequestStatus.PENDING)
+                .findFirst();
+        if (open.isPresent()) {
+            ServiceRequest request = open.get();
+            String previous = request.summary().orElse("");
+            request.describe(truncate(previous.isEmpty() ? question : previous + " | " + question), now);
+            serviceRequests.save(request);
+            return;
+        }
+        ServiceRequest request = ServiceRequest.open(conversationId, RequestType.INFORMATION, now);
+        request.describe(truncate(question), now);
+        request.submit(Set.of(RequestField.SUMMARY), now);
+        serviceRequests.save(request);
+    }
+
+    private static String truncate(String text) {
+        int max = ServiceRequest.MAX_SUMMARY_LENGTH;
+        return text.length() <= max ? text : text.substring(0, max - 1) + "…";
     }
 }

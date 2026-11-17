@@ -1,16 +1,17 @@
 # Visão geral da arquitetura — estado implementado
 
-> Reflete o código ao fim da **Etapa 2 — Conversação** (2026-11-16). A arquitetura-alvo completa está na [proposta técnica](../plans/etapa-0-analise-e-proposta.md). O que vai ao modelo está em [context-management.md](context-management.md).
+> Reflete o código ao fim da **Etapa 3 — Conhecimento institucional** (2026-11-16). A arquitetura-alvo completa está na [proposta técnica](../plans/etapa-0-analise-e-proposta.md). O que vai ao modelo está em [context-management.md](context-management.md).
 
 ## O que existe
 
-| Camada | Implementado (E1 + E2) | Ainda não existe |
+| Camada | Implementado (E1 a E3) | Ainda não existe |
 |---|---|---|
 | HTTP | `ConversationController` (3 rotas), filtro `X-Api-Key`, `GlobalExceptionHandler` (ProblemDetail) | Rotas da equipe e de solicitações (E4) |
-| Aplicação | `OpenConversationUseCase`, `HandleIncomingMessageUseCase` (duas transações), `ConversationLifecycle`, `ContextAssembler` + `HistoryWindow`, `TurnExecutor` (1 nova tentativa), `TurnResultClassifier`; portas `AssistantModel` e `TokenEstimator` | Validador de fontes (E3), detector de pedido humano e `HandoffPolicy` (E4) |
+| Aplicação | `OpenConversationUseCase`, `HandleIncomingMessageUseCase` (duas transações), `ConversationLifecycle`, `ContextAssembler` + `HistoryWindow`, `TurnExecutor` (1 nova tentativa), `TurnResultClassifier`, `ResponseValidator` (V1–V7) com `FactExtractor` e `ExpressionRules`; lacuna → `ServiceRequest(INFORMATION)`; portas `AssistantModel` e `TokenEstimator` | Detector de pedido humano, `HandoffPolicy` e `ReplyComposer` (E4) |
 | Domínio | `Conversation`, `Message`, `Intent`, `ConversationExpirationPolicy`, `Tutor`, `Pet`, `ServiceRequest` e as portas de repositório | Prioridade clínica, encaminhamento (E4), proveniência (E5) |
 | Persistência | Flyway `V1` e `V2` (unicidade da conversa ativa), entidades JPA, adaptadores com lock pessimista e paginação | Colunas de E4 e E5 |
-| IA | `SpringAiAssistantModel` (`ChatClient`, JSON Schema estrito, sem tools), `PromptTemplates` (`system-message.st`, `operational-context.st`), `JTokkitTokenEstimator` | Base institucional (E3), modo restrito `waiting-human.st` (E4) |
+| Base institucional | `ClinicKnowledge` (domínio), `KnowledgeFileLoader` + `KnowledgeSchema` (YAML validado na inicialização) | Conteúdo real (P-11, Etapa 7) |
+| IA | `SpringAiAssistantModel` (`ChatClient`, JSON Schema estrito `assistant_turn_v2`, sem tools), `PromptTemplates` (`system-message.st`, `clinic-context.st`, `operational-context.st`), `JTokkitTokenEstimator` | Modo restrito `waiting-human.st` (E4) |
 
 ## API (Etapa 2)
 
@@ -33,10 +34,14 @@ com.clinicavet.assistant
 │   ├── api                    ConversationController e DTOs (package-private)
 │   ├── application            casos de uso, ciclo de vida, montagem do contexto, classificação,
 │   │                          novas tentativas; portas AssistantModel e TokenEstimator; ConversationSettings
+│   │   └── validation         ResponseValidator, FactExtractor, Fact, ExpressionRules
 │   ├── domain                 Conversation, ConversationStatus, CloseReason, ConversationExpirationPolicy,
 │   │                          Message, MessageAuthor, Intent, ids, ConversationRepository, MessageRepository
 │   └── infrastructure/persistence   ConversationEntity, MessageEntity, Spring Data, adaptadores JPA
 ├── ai                         SpringAiAssistantModel, PromptTemplates, JTokkitTokenEstimator (package-private)
+├── clinicknowledge
+│   ├── domain                 ClinicKnowledge, KnowledgeItem, ItemType
+│   └── infrastructure         KnowledgeFileLoader, KnowledgeSchema, ClinicKnowledgeConfig
 ├── tutor
 │   ├── domain                 Tutor, Pet, Species, ids, TutorRepository, PetRepository
 │   └── infrastructure/persistence
@@ -63,6 +68,7 @@ Regras verificáveis no código:
 |---|---|---|
 | `ASSISTANT_API_KEY` (≥ 32 caracteres) | `.env` ou variável de ambiente | A aplicação não sobe |
 | `OPENAI_API_KEY` | `.env` ou variável de ambiente | A aplicação sobe; toda chamada falha com 401 e o tutor recebe a resposta segura |
+| `ASSISTANT_KNOWLEDGE_FILE` | `.env` ou variável de ambiente (opcional) | Usa `config/clinic-knowledge.example.yml` (tudo DESCONHECIDO). Arquivo inválido: a aplicação não sobe |
 | `assistant.conversation.*` | `application.yml` | A aplicação não sobe. Prazos de expiração **provisórios** (P-05) e texto da resposta segura **provisório** (P-10) |
 
 ## Tecnologia efetivamente usada

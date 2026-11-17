@@ -1,6 +1,6 @@
 # Modelo de domínio — estado implementado
 
-> Reflete o código ao fim da **Etapa 2** (2026-11-16). O domínio não mudou na Etapa 2; mudaram a persistência (V2) e as escolhas de implementação abaixo. Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
+> Reflete o código ao fim da **Etapa 3** (2026-11-16). A Etapa 2 mudou a persistência (V2); a Etapa 3 acrescentou o módulo `clinicknowledge` (base institucional) e o uso de `ServiceRequest(INFORMATION)`. Evoluções planejadas: encaminhamento e prioridade (E4), proveniência e detalhes de agendamento (E5).
 
 ## Agregados
 
@@ -39,7 +39,7 @@ Decisões de detalhe tomadas na Etapa 1, sem ADR próprio por serem locais e rev
 | I-05 | O banco tem **`CHECK`** para valores de enum e para a consistência de conversa encerrada | Defesa em profundidade contra escrita fora da aplicação; um enum novo exige migration |
 | I-06 | Mensagens com o mesmo instante (mesmo microssegundo) não têm ordem garantida entre si | Improvável na prática; se for um problema, uma coluna de sequência resolve |
 
-Escolhas da Etapa 2 (aguardam o aceite da etapa):
+Escolhas da Etapa 2 (aceitas com a etapa em 2026-11-16):
 
 | # | Escolha | Motivo |
 |---|---|---|
@@ -52,6 +52,15 @@ Escolhas da Etapa 2 (aguardam o aceite da etapa):
 | I-13 | Corpo inválido (Bean Validation) → **422**; JSON malformado e parâmetro de consulta inválido → **400** | DM-11 pede 422 para entrada inválida; os outros dois são erros de protocolo |
 | I-14 | Sem `ASSISTANT_API_KEY`, ou com menos de 32 caracteres, a aplicação **não sobe** | Evita subir com a API aberta por esquecimento (ADR-0012) |
 | I-15 | Em `WAITING_HUMAN`, o turno ainda segue o fluxo normal | O modo restrito é da Etapa 4; até lá, nada coloca conversas nesse status |
+
+Escolhas da Etapa 3 (aguardam o aceite da etapa):
+
+| # | Escolha | Motivo |
+|---|---|---|
+| I-16 | **Uma `ServiceRequest(INFORMATION)` pendente por conversa**; uma nova lacuna acrescenta a pergunta ao resumo (separadas por barra vertical, até 500 caracteres) | Evita um pedido por mensagem; a equipe vê todas as dúvidas da conversa juntas. Exigência de `submit()` para esse tipo: só `SUMMARY` (P-13 ainda pendente) |
+| I-17 | O pedido de informação só é criado em turno **válido**. Turno com falha não cria nada | "Estado não muda" na falha (ADR-0002); a resposta segura não afirma lacuna |
+| I-18 | A base institucional é um objeto de domínio imutável (`ClinicKnowledge`), carregado uma vez | Mudança na base exige reinício (ADR-0003); o prompt da camada 2 é montado uma vez |
+| I-19 | Preço com `payment.prices-disclosed` diferente de `true` é tratado como DESCONHECIDO na carga | Uma regra só, no domínio, vale para o prompt e para o validador (P-11, DA-29) |
 
 ## Ainda não modelado (por etapa)
 

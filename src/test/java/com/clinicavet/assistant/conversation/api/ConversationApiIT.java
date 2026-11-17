@@ -225,7 +225,7 @@ class ConversationApiIT {
         void historyIsStoredInOrder_withIntentOnAssistantMessages() {
             String id = api.openConversation(newContact());
             model.thenReply("Olá! Como posso ajudar?", "GREETING")
-                    .thenReply("Não tenho essa informação disponível.", "CLINIC_INFORMATION");
+                    .thenTurn("Não tenho essa informação disponível.", "CLINIC_INFORMATION", List.of(), true);
 
             ApiClient.Response first = api.sendMessage(id, "Oi");
             ApiClient.Response second = api.sendMessage(id, "Que horas vocês abrem?");

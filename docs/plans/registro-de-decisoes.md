@@ -1,7 +1,7 @@
 # Registro de decisões
 
 > Fonte única de verdade sobre **o que foi decidido, o que foi mantido e o que está em aberto**.
-> Atualizado em 2026-11-11 (PT-01, PT-03, PT-04 e PT-05 decididas; Diretrizes de Atendimento incorporadas como DA-22 a DA-26), após a [revisão técnica](etapa-0-revisao-tecnica.md) e a consolidação de decisões pelo responsável pelo projeto.
+> Atualizado em 2026-11-16 (P-09 → DA-28; PT-11 → DA-29). Antes, em 2026-11-11: PT-01, PT-03, PT-04 e PT-05 decididas; Diretrizes de Atendimento incorporadas como DA-22 a DA-26, após a [revisão técnica](etapa-0-revisao-tecnica.md) e a consolidação de decisões pelo responsável pelo projeto.
 > Uma recomendação da revisão **só** aparece como decisão se foi aprovada explicitamente; as demais estão na seção 4.
 
 **Convenções:**
@@ -45,6 +45,7 @@
 | DA-26 | **Validação V6 ampliada**: reprova notificação inexistente, promessa de contato ou retorno sem processo aprovado e afirmação de solicitação resolvida | Diretrizes 1.3, 1.4 | 0008 |
 | DA-27 | **Lista de expressões de alerta** aprovada pela equipe veterinária usada como **verificação determinística** que impõe piso P1/P2: só eleva a prioridade, nunca rebaixa, não diagnostica; ausência de correspondência não significa situação leve | PT-13, decidida em 2026-11-11 (opção A) | 0019 |
 | DA-28 | **Modelo e parâmetros** (ADR-0016): `gpt-6-luna`; `reasoning_effort` `low` (principal e modo restrito); `temperature` não enviada; saída máx. 2.000 / 500 tokens; histórico 20 mensagens + 4.000 tokens; mensagem do tutor até 2.000 caracteres; timeout 30 s / 15 s; no máximo 1 nova tentativa por turno (recusa não repete; modo restrito sem retry); testes com IA 10×, aprovação ≥ 9/10, proibidos 0/10 | P-09, aprovada em 2026-11-16 | 0016 |
+| DA-29 | **Lista do validador** (ADR-0008, seção 3): formatos ampliados (dinheiro, horário, "24 horas", dias, datas, telefone, e-mail/site/@perfil, CEP, desconto e parcelamento, prazos); contexto operacional (data/hora) como fonte autorizada; expressões de V5 e V6 em arquivo versionado, com texto normalizado e regra de negação (até 3 palavras); **V7 nova: doses de medicamento reprovadas** (eco do tutor permitido) | PT-11, aprovada em 2026-11-16 (opção A + doses) | 0008 |
 
 ## 2. Decisões mantidas da proposta original
 
@@ -108,7 +109,7 @@
 | PT-08 | Registro do **desfecho** da solicitação | `resolutionNote` (texto) × enum de desfecho × nada no MVP | 4 | Contrato do `PATCH /api/service-requests/{id}` |
 | PT-09 | Granularidade da proveniência e correspondência de pets | Por registro (recomendado na proposta) × por campo; regra para variações de nome e homônimos | 5 | Migration de proveniência; *upsert* de pet |
 | PT-10 | Lista inicial de expressões de **pedido explícito de humano** | A propor no início da Etapa 4, revisada pelo responsável (e pela clínica, se desejar) | 4 | Detector determinístico |
-| PT-11 | Lista final de **formatos detectados** e expressões de confirmação/notificação da validação | Lista inicial no ADR-0008 | 3 | Escopo de cobertura do validador e dos testes |
+| PT-11 | ~~Lista do validador~~ | **Decidida → DA-29** (opção A + doses) | — | — |
 | PT-12 | Momento de criação do registro do tutor | No primeiro contato × só quando houver dado do tutor/pet a guardar (minimização) | 5 | Regra de criação de `Tutor` |
 | PT-13 | ~~Lista de expressões de alerta~~ | **Decidida → DA-27** (opção A) | — | — |
 | PT-14 | **Limiares de conversa improdutiva** (falhas consecutivas, repetição da mesma pergunta, mensagens repetidas do tutor) | A propor no início da Etapa 4 | Entrada da 4 | Detector `UNPRODUCTIVE_CONVERSATION` |

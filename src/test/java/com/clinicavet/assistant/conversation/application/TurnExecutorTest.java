@@ -1,5 +1,7 @@
 package com.clinicavet.assistant.conversation.application;
 
+import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
+import com.clinicavet.assistant.conversation.application.validation.ResponseValidator;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** DA-28: no máximo uma nova tentativa por turno; recusa e erro permanente não se repetem. */
 class TurnExecutorTest {
 
-    private static final String VALID = "{\"reply\":\"Oi!\",\"intent\":\"GREETING\"}";
+    private static final String VALID = "{\"reply\":\"Oi!\",\"intent\":\"GREETING\",\"knowledgeRefs\":[],\"knowledgeGap\":false}";
     private static final AssistantRequest REQUEST = new AssistantRequest(
             new AssistantRequest.OperationalContext(ConversationStatus.OPEN,
                     ZonedDateTime.of(2026, 11, 16, 9, 0, 0, 0, ZoneId.of("America/Sao_Paulo"))),
@@ -35,7 +37,8 @@ class TurnExecutorTest {
         ConversationSettings settings = new ConversationSettings(
                 new ConversationSettings.Expiration(Duration.ofMinutes(30), Duration.ofHours(2)),
                 20, 4000, 2000, Duration.ZERO, "fallback");
-        return new TurnExecutor(model, new TurnResultClassifier(), settings, Clock.systemUTC()).execute(REQUEST);
+        return new TurnExecutor(model, new TurnResultClassifier(),
+                new ResponseValidator(ClinicKnowledge.empty()), settings, Clock.systemUTC()).execute(REQUEST);
     }
 
     private static Supplier<ModelReply> failWith(AssistantModelException.Kind kind) {
@@ -46,7 +49,7 @@ class TurnExecutorTest {
 
     @Test
     void validFirstAnswer_singleCall() {
-        assertThat(run()).isEqualTo(new TurnOutcome.Valid(new AssistantTurn("Oi!", Intent.GREETING), 1));
+        assertThat(run()).isEqualTo(new TurnOutcome.Valid(AssistantTurn.simple("Oi!", Intent.GREETING), 1));
         assertThat(calls).isEqualTo(1);
     }
 
@@ -74,6 +77,16 @@ class TurnExecutorTest {
         script.add(failWith(AssistantModelException.Kind.TRANSIENT));
 
         assertThat(run()).isEqualTo(new TurnOutcome.Failed(FailureKind.TECHNICAL_TRANSIENT, 2));
+    }
+
+    @Test
+    void responseRejectedByTheValidator_isInconsistent_andRetriedOnce() {
+        String inventedPrice = "{\"reply\":\"A consulta custa R$ 200.\",\"intent\":\"PRICE_INQUIRY\",\"knowledgeRefs\":[],\"knowledgeGap\":false}";
+        script.add(() -> ModelReply.of(inventedPrice, "STOP"));
+        script.add(() -> ModelReply.of(inventedPrice, "STOP"));
+
+        assertThat(run()).isEqualTo(new TurnOutcome.Failed(FailureKind.INCONSISTENT, 2));
+        assertThat(calls).isEqualTo(2);
     }
 
     @Test

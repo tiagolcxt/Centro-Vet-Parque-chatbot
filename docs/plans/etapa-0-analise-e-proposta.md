@@ -299,7 +299,8 @@ Todos em UTF-8 explícito **[DM-05]**.
   - V4: resposta institucional sem fonte;
   - V5: ausência de confirmação de agendamento;
   - V6: ausência de afirmação de notificação.
-- Os formatos detectados estão listados no ADR-0008 (lista final: **PT-11**).
+  - V7: ausência de dose de medicamento (DA-29).
+- Os formatos detectados estão listados no ADR-0008 (lista final: DA-29).
 - **Não há garantia absoluta.** Os limites conhecidos estão documentados no ADR-0008 (valores por extenso, afirmações sem valor detectável, valor correto aplicado ao assunto errado, paráfrases).
 - Testes desde a introdução (E3): conjunto versionado de respostas aprovadas e reprovadas e avaliação inicial com IA real e base fictícia.
 

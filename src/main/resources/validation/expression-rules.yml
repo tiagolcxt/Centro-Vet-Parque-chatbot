@@ -1,0 +1,73 @@
+# Expressões reprovadas na resposta do assistente (ADR-0008, V5 e V6; lista aprovada na DA-29).
+#
+# - Os padrões são expressões regulares aplicadas ao texto em minúsculas, SEM acentos e com espaços
+#   normalizados. Escreva-os assim: "esta" (não "está"), "solicitacao" (não "solicitação").
+# - Regra de negação: uma ocorrência com "nao" ou "nunca" até 3 palavras antes NÃO é reprovada
+#   ("ainda nao esta confirmado" passa).
+# - Toda mudança aqui precisa de caso de teste em ResponseValidatorTest.
+# - V6b: textos aprovados com processo real de retorno (P-14) entram em "allowed". Hoje: nenhum.
+
+rules:
+  # V5 — confirmação de agendamento
+  - id: v5-consulta-marcada
+    check: V5
+    pattern: '\bconsulta (esta|foi|ficou) (marcada|agendada|confirmada|reservada)\b'
+  - id: v5-agendamento-confirmado
+    check: V5
+    pattern: '\bagendamento (esta |foi |ficou )?(confirmado|feito|marcado|realizado)\b'
+  - id: v5-ja-marquei
+    check: V5
+    pattern: '\b(marquei|agendei|reservei|confirmei)\b'
+  - id: v5-esta-tudo-marcado
+    check: V5
+    pattern: '\b(esta|ficou) (tudo )?(marcado|agendado|confirmado)\b'
+  - id: v5-horario-reservado
+    check: V5
+    pattern: '\b(horario|vaga) (esta |foi |ficou )?(reservad[oa]|garantid[oa]|confirmad[oa])\b'
+  - id: v5-combinado
+    check: V5
+    pattern: '\bfica(mos)? combinad[oa]s?\b'
+  - id: v5-esperamos-voce
+    check: V5
+    pattern: '\besperamos (voce|voces|por voce)\b'
+
+  # V6a — dizer que avisou alguém
+  - id: v6a-avisei
+    check: V6
+    pattern: '\b(avisei|notifiquei|repassei|encaminhei|transferi)\b'
+  - id: v6a-equipe-avisada
+    check: V6
+    pattern: '\bequipe (ja )?(foi|esta) (avisada|notificada|ciente|informada)\b'
+  - id: v6a-ja-esta-ciente
+    check: V6
+    pattern: '\bja (esta|estao) cientes?\b'
+  - id: v6a-mensagem-encaminhada
+    check: V6
+    pattern: '\b(mensagem|solicitacao|conversa|duvida|pergunta) (foi|esta sendo) (encaminhada|transferida|repassada|enviada)\b'
+
+  # V6b — prometer contato ou retorno
+  - id: v6b-vao-ligar
+    check: V6
+    pattern: '\b(vao|vai|ira|irao) (te |lhe )?(ligar|retornar|entrar em contato|chamar)\b'
+  - id: v6b-retornaremos
+    check: V6
+    pattern: '\b(retornaremos|entraremos em contato|entrarao em contato|entrara em contato|daremos retorno)\b'
+  - id: v6b-aguarde-contato
+    check: V6
+    pattern: '\baguarde (o |nosso |o nosso )?(contato|retorno|ligacao)\b'
+
+  # V6c — dizer que resolveu
+  - id: v6c-resolvido
+    check: V6
+    pattern: '\b(esta|ficou|foi) (tudo )?(resolvido|solucionado)\b'
+  - id: v6c-tudo-certo
+    check: V6
+    pattern: '\b(esta|ficou) tudo certo\b(?! ?\?)'
+  - id: v6c-problema-resolvido
+    check: V6
+    pattern: '\bproblema (resolvido|solucionado)\b'
+  - id: v6c-solicitacao-concluida
+    check: V6
+    pattern: '\bsolicitacao (foi|esta) (concluida|resolvida|atendida|finalizada)\b'
+
+allowed: []

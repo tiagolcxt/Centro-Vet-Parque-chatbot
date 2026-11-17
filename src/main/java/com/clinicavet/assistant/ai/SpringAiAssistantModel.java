@@ -50,11 +50,11 @@ import java.util.regex.Pattern;
 @Component
 class SpringAiAssistantModel implements AssistantModel {
 
-    /** Formato do {@code AssistantTurn} v1 visto pelo modelo: o enum vira lista fechada no schema. */
-    record AssistantTurnSchema(String reply, Intent intent) {
+    /** Formato do {@code AssistantTurn} v2 visto pelo modelo: o enum vira lista fechada no schema. */
+    record AssistantTurnSchema(String reply, Intent intent, List<String> knowledgeRefs, boolean knowledgeGap) {
     }
 
-    static final String SCHEMA_NAME = "assistant_turn_v1";
+    static final String SCHEMA_NAME = "assistant_turn_v2";
     private static final String OPEN_TAG = "<mensagem_do_cliente>";
     private static final String CLOSE_TAG = "</mensagem_do_cliente>";
     private static final Pattern DELIMITER = Pattern.compile("(?i)<\\s*/?\\s*mensagem_do_cliente\\s*>");
@@ -95,6 +95,7 @@ class SpringAiAssistantModel implements AssistantModel {
     List<Message> toMessages(AssistantRequest request) {
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(templates.systemMessage()));
+        messages.add(new SystemMessage(templates.clinicContext()));
         messages.add(new SystemMessage(templates.operationalContext(request.operational())));
         for (AssistantRequest.HistoryEntry entry : request.history()) {
             messages.add(entry.author() == MessageAuthor.CUSTOMER

@@ -58,6 +58,10 @@ assistant:
   time-zone: America/Sao_Paulo
   ai:
     model: gpt-6-luna                      # ADR-0016 / DA-28; trocar de modelo é só configuração
+  knowledge:
+    # Base institucional (ADR-0003). Padrão: o modelo todo null (o assistente não sabe nada da clínica).
+    # Desenvolvimento: ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml (dados fictícios).
+    location: ${ASSISTANT_KNOWLEDGE_FILE:file:config/clinic-knowledge.example.yml}
   security:
     # X-Api-Key de /api/** (ADR-0012). Só no .env ou em variável de ambiente; sem ela, a aplicação não sobe.
     api-key: ${ASSISTANT_API_KEY:}

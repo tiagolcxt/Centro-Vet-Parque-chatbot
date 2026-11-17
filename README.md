@@ -6,7 +6,7 @@ Primeira camada de atendimento de uma clínica veterinária: conversa com tutore
 
 ## Estado atual
 
-**Etapa 2 — Conversação concluída** (aguardando aceite). Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido, ciclo de vida da conversa e tratamento de falhas. O assistente **ainda não conhece nenhuma informação da clínica** (Etapa 3) e não encaminha para a equipe (Etapa 4). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
+**Etapa 3 — Conhecimento institucional concluída** (aguardando aceite). Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido e ciclo de vida, base institucional em YAML validada na inicialização e um validador que barra valores sem fonte, confirmação de agendamento, promessas sem processo e doses. Dúvidas que a base não responde viram pedidos de informação para a equipe. Ainda não há encaminhamento humano (Etapa 4). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
 
 ## Pré-requisitos
 
@@ -26,6 +26,7 @@ No `.env`, defina:
 | `MYSQL_*` | Senhas do banco de desenvolvimento (`compose.yml`) |
 | `ASSISTANT_API_KEY` | Chave exigida no cabeçalho `X-Api-Key`. Pelo menos 32 caracteres aleatórios (`openssl rand -hex 32`). Sem ela, a aplicação não sobe |
 | `OPENAI_API_KEY` | Chave da OpenAI. Sem ela, a aplicação sobe, mas toda mensagem recebe a resposta segura padrão |
+| `ASSISTANT_KNOWLEDGE_FILE` | Base institucional. Opcional: sem ela, vale o modelo todo `null` e o assistente não sabe nada da clínica. Para desenvolver, `file:config/clinic-knowledge.ficticia.yml` (clínica inventada) |
 
 O `.env` não é versionado. As credenciais só existem nele (e, fora do desenvolvimento, em variáveis de ambiente).
 

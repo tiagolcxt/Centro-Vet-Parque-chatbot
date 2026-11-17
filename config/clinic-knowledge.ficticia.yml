@@ -1,0 +1,66 @@
+# ============================================================================================
+# DADOS FICTÍCIOS — clínica inventada para desenvolvimento e testes (ADR-0003, item 8; DA-17).
+# Nada aqui descreve a clínica real. Nunca usar com tutores reais.
+# Itens null de propósito: perguntas-armadilha (preço não cadastrado, feriado desconhecido).
+# ============================================================================================
+
+identification:
+  name: "Clínica Veterinária Exemplo Fictícia"
+  address: "Rua Fictícia, 100, Bairro Exemplo, Cidade Fictícia"
+  zip-code: "01000-000"
+  phone: "(11) 3000-1000"
+  whatsapp: "(11) 90000-1000"
+  email: "contato@clinica-ficticia.example"
+  website: "www.clinica-ficticia.example"
+  instagram: "@clinicaficticia"
+
+hours:
+  monday: ["08:00-18:00"]
+  tuesday: ["08:00-18:00"]
+  wednesday: ["08:00-18:00"]
+  thursday: ["08:00-18:00"]
+  friday: ["08:00-18:00"]
+  saturday: ["08:00-12:00"]
+  sunday: []
+  holidays: null
+  after-hours: null
+  twenty-four-hours: false
+
+services:
+  consulta:
+    name: "Consulta clínica"
+    offered: true
+    description: "Consulta com médico-veterinário clínico geral."
+    price-cents: 15000
+    price-note: null
+  vacina-v10:
+    name: "Vacina V10 para cães"
+    offered: true
+    description: null
+    price-cents: 9000
+    price-note: "por dose"
+  banho-e-tosa:
+    name: "Banho e tosa"
+    offered: true
+    description: null
+    price-cents: null
+    price-note: null
+
+payment:
+  prices-disclosed: true
+  methods: "Dinheiro, Pix e cartão de débito ou crédito."
+  installments: null
+
+policies:
+  scheduling: "Agendamentos são confirmados pela equipe da clínica."
+  cancellation: "Pedimos aviso de cancelamento com 24 horas de antecedência."
+  no-show: null
+
+faq:
+  documentos-consulta:
+    question: "O que levar na consulta?"
+    answer: "A carteira de vacinação do animal, se houver."
+
+approved-texts:
+  emergency-policy: null
+  direct-contact: null

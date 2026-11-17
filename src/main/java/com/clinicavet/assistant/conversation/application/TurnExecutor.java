@@ -1,18 +1,21 @@
 package com.clinicavet.assistant.conversation.application;
 
+import com.clinicavet.assistant.conversation.application.validation.ResponseValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 
 /**
- * Chama o modelo e classifica a resposta, com no máximo uma nova tentativa por turno (DA-28), só
- * para falhas repetíveis: timeout, erro transitório, resposta truncada, inválida ou inconsistente.
- * Recusa e erro permanente não são repetidos.
+ * Chama o modelo, classifica e valida a resposta por fontes (ADR-0008), com no máximo uma nova
+ * tentativa por turno (DA-28), só para falhas repetíveis: timeout, erro transitório, resposta truncada,
+ * inválida ou inconsistente (reprovada pelo validador). Recusa e erro permanente não são repetidos.
  * <p>
- * O log tem só metadados (resultado, latência, tokens, modelo), nunca conteúdo (DM-12).
+ * O log tem só metadados (resultado, códigos das violações, latência, tokens, modelo), nunca conteúdo
+ * (DM-12).
  */
 @Component
 class TurnExecutor {
@@ -23,12 +26,15 @@ class TurnExecutor {
 
     private final AssistantModel model;
     private final TurnResultClassifier classifier;
+    private final ResponseValidator validator;
     private final Duration backoff;
     private final Clock clock;
 
-    TurnExecutor(AssistantModel model, TurnResultClassifier classifier, ConversationSettings settings, Clock clock) {
+    TurnExecutor(AssistantModel model, TurnResultClassifier classifier, ResponseValidator validator,
+                 ConversationSettings settings, Clock clock) {
         this.model = model;
         this.classifier = classifier;
+        this.validator = validator;
         this.backoff = settings.retryBackoff();
         this.clock = clock;
     }
@@ -47,10 +53,17 @@ class TurnExecutor {
         try {
             ModelReply reply = model.respond(request);
             TurnOutcome outcome = classifier.classify(reply, attempt);
+            List<ResponseValidator.Violation> violations = List.of();
+            if (outcome instanceof TurnOutcome.Valid valid) {
+                violations = validator.validate(valid.turn(), request);
+                if (!violations.isEmpty()) {
+                    outcome = new TurnOutcome.Failed(FailureKind.INCONSISTENT, attempt);
+                }
+            }
             log.info("Chamada ao modelo [tentativa={}, resultado={}, finishReason={}, modelo={}, "
-                            + "tokensEntrada={}, tokensSaida={}, ms={}]",
+                            + "tokensEntrada={}, tokensSaida={}, violacoes={}, ms={}]",
                     attempt, describe(outcome), reply.finishReason(), reply.model(),
-                    reply.inputTokens(), reply.outputTokens(), elapsedMillis(start));
+                    reply.inputTokens(), reply.outputTokens(), violations, elapsedMillis(start));
             return outcome;
         } catch (AssistantModelException e) {
             FailureKind kind = switch (e.kind()) {

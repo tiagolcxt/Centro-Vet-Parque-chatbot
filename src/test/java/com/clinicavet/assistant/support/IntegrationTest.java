@@ -11,7 +11,8 @@ import java.lang.annotation.Target;
 /**
  * Teste de integração com MySQL real (Testcontainers) e servidor HTTP real em porta aleatória. Exige
  * Docker em execução. Usa o {@link FakeAssistantModel} e o {@link TestClock}: nunca chama a OpenAI nem
- * usa dados reais (DA-17). Prazos de expiração de teste explícitos (P-05 ainda pendente).
+ * usa dados reais (DA-17). Prazos de expiração de teste explícitos (P-05 ainda pendente) e base
+ * institucional fictícia ({@code config/clinic-knowledge.ficticia.yml}).
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
@@ -19,7 +20,8 @@ import java.lang.annotation.Target;
         "assistant.security.api-key=" + IntegrationTest.API_KEY,
         "assistant.conversation.expiration.open=30m",
         "assistant.conversation.expiration.waiting-human=2h",
-        "assistant.conversation.retry-backoff=0s"
+        "assistant.conversation.retry-backoff=0s",
+        "assistant.knowledge.location=file:config/clinic-knowledge.ficticia.yml"
 })
 @Import({TestcontainersConfiguration.class, TestDoublesConfiguration.class})
 public @interface IntegrationTest {

@@ -1,5 +1,7 @@
 package com.clinicavet.assistant.ai;
 
+import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
+import com.clinicavet.assistant.clinicknowledge.domain.KnowledgeItem;
 import com.clinicavet.assistant.conversation.application.AssistantRequest;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import org.springframework.ai.chat.prompt.PromptTemplate;
@@ -11,6 +13,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,11 +34,39 @@ class PromptTemplates {
 
     private final String systemMessage;
     private final String operationalContext;
+    private final String clinicContext;
 
     PromptTemplates(@Value("classpath:prompts/system-message.st") Resource systemMessage,
-                    @Value("classpath:prompts/operational-context.st") Resource operationalContext) {
+                    @Value("classpath:prompts/operational-context.st") Resource operationalContext,
+                    @Value("classpath:prompts/clinic-context.st") Resource clinicTemplate,
+                    ClinicKnowledge knowledge) {
         this.systemMessage = read(systemMessage);
         this.operationalContext = read(operationalContext);
+        this.clinicContext = renderClinic(read(clinicTemplate), knowledge);
+    }
+
+    /**
+     * Camada 2: uma linha por item, `[chave] valor`, com DESCONHECIDO explícito (ADR-0003). Fixa durante a
+     * execução (a base só muda com reinício), por isso é montada uma vez.
+     */
+    String clinicContext() {
+        return clinicContext;
+    }
+
+    private static String renderClinic(String template, ClinicKnowledge knowledge) {
+        List<String> lines = new ArrayList<>();
+        for (KnowledgeItem item : knowledge.promptItems()) {
+            lines.add("[" + item.key() + "] " + item.display());
+        }
+        for (String collection : ClinicKnowledge.COLLECTIONS) {
+            if (knowledge.unknownCollections().contains(collection)) {
+                lines.add("[" + collection + "] " + KnowledgeItem.UNKNOWN_TEXT);
+            }
+        }
+        if (lines.isEmpty()) {
+            lines.add("(nenhuma informação cadastrada)");
+        }
+        return new PromptTemplate(template).render(Map.of("itens", String.join("\n", lines)));
     }
 
     /** Camada 1: identidade e comportamento. Texto fixo, sem dados da clínica. */

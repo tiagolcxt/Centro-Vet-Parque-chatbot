@@ -29,7 +29,18 @@ public final class FakeAssistantModel implements AssistantModel {
     }
 
     public static String turnJson(String reply, String intent) {
-        return "{\"reply\":\"" + reply.replace("\"", "\\\"") + "\",\"intent\":\"" + intent + "\"}";
+        return turnJson(reply, intent, List.of(), false);
+    }
+
+    /** JSON do AssistantTurn v2 (Etapa 3). */
+    public static String turnJson(String reply, String intent, List<String> refs, boolean gap) {
+        String refsJson = String.join(",", refs.stream().map(r -> "\"" + r + "\"").toList());
+        return "{\"reply\":\"" + reply.replace("\"", "\\\"") + "\",\"intent\":\"" + intent
+                + "\",\"knowledgeRefs\":[" + refsJson + "],\"knowledgeGap\":" + gap + "}";
+    }
+
+    public synchronized FakeAssistantModel thenTurn(String reply, String intent, List<String> refs, boolean gap) {
+        return then(request -> ModelReply.of(turnJson(reply, intent, refs, gap), "STOP"));
     }
 
     public synchronized FakeAssistantModel thenReply(String reply, String intent) {

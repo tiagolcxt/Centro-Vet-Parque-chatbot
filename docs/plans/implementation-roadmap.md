@@ -68,7 +68,7 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 
 ---
 
-## Etapa 2 — Conversação ✅ (concluída em 2026-11-16; aguardando aceite do responsável)
+## Etapa 2 — Conversação ✅ (concluída em 2026-11-16; aceita pelo responsável em 2026-11-16)
 
 **Objetivo:** conversar via API com o modelo, com histórico persistido, ciclo de vida da conversa e tratamento de falhas, ainda sem conhecimento institucional.
 
@@ -106,35 +106,42 @@ Proposta, revisão técnica e consolidação de decisões concluídas. Saída: o
 
 ---
 
-## Etapa 3 — Conhecimento institucional e proteção contra informação inventada
+## Etapa 3 — Conhecimento institucional e proteção contra informação inventada ✅ (concluída em 2026-11-16; aguardando aceite do responsável)
 
 **Objetivo:** responder dúvidas institucionais **apenas** a partir da base, tratando o desconhecido, com validação por fontes testada desde a introdução.
 
 **Pré-requisitos (entrada):**
-- **PT-11** (lista de formatos e expressões do validador).
+- ~~PT-11~~ decidida: lista do validador e V7 (doses) (DA-29, ADR-0008).
 - **P-11** não bloqueia: a etapa usa um *fixture* **fictício**. O conteúdo real entra na Etapa 7.
 
 **Tarefas:**
 1. YAML tipado com chaves estáveis, `null` = DESCONHECIDO e validação fail-fast na inicialização (ADR-0003). Arquivo de exemplo versionado todo `null`; *fixture* fictício para testes.
 2. `clinic-context.st` (camada 2).
 3. `AssistantTurn` + `knowledgeRefs[]` e `knowledgeGap`.
-4. Validador V1–V6 (ADR-0008), integrado à classificação do resultado (inconsistente → falha).
+4. Validador V1–V7 (ADR-0008, DA-29), integrado à classificação do resultado (inconsistente → falha).
 5. `knowledgeGap` → `ServiceRequest(INFORMATION)`.
 6. Documentar em `context-management.md` os formatos cobertos e os limites conhecidos.
 
+**Desvios e achados da implementação:**
+- A base é lida com SnakeYAML e um esquema próprio, e não por `@ConfigurationProperties`: o Spring não distingue chave ausente de `null` (ADR-0003, implementação).
+- Sem configurar nada, a aplicação usa `config/clinic-knowledge.example.yml` (tudo `null`): o assistente declara lacuna para qualquer informação da clínica. Para desenvolver, `ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml`.
+- Escolhas de detecção dentro da lista da DA-29 (acento em "às", abreviações de dia, preposição nos prazos) estão no ADR-0008, implementação.
+
 **Critérios de aceite:**
-- [ ] A inicialização falha com mensagem clara para: YAML malformado, chave obrigatória ausente, chave desconhecida, tipo inválido (preço não numérico, horário fora do formato).
-- [ ] Testes unitários do validador com o conjunto versionado de respostas. **Para cada formato e para cada verificação V1–V6, há ao menos um caso aprovado e um reprovado**, incluindo:
+- [x] A inicialização falha com mensagem clara para: YAML malformado, chave obrigatória ausente, chave desconhecida, tipo inválido (preço não numérico, horário fora do formato). (`KnowledgeFileLoaderTest`, `ClinicKnowledgeConfigTest`; lista todos os problemas de uma vez)
+- [x] Testes unitários do validador com o conjunto versionado de respostas (`ResponseValidatorTest`, `FactExtractorTest`). **Para cada formato e para cada verificação V1–V7, há ao menos um caso aprovado e um reprovado**, incluindo:
   - preço citado sem fonte;
   - fonte `DESCONHECIDO` citada;
   - eco da preferência do tutor aprovado;
   - "sua consulta está marcada" reprovado;
   - "já avisei a equipe", "a equipe vai te ligar" (sem processo aprovado) e "já está resolvido" reprovados (V6 ampliada, DA-26);
   - resposta institucional sem fonte reprovada.
-- [ ] Integração: lacuna de conhecimento cria `ServiceRequest(INFORMATION)`; resposta reprovada gera a resposta segura e não altera o estado.
-- [ ] IA real com o *fixture* fictício e o **conjunto inicial de perguntas-armadilha** (preço não cadastrado, serviço inexistente, feriado desconhecido, pedido de confirmação): nenhuma resposta aprovada contém valor não autorizado; as respostas sobre itens desconhecidos declaram lacuna. O resultado (aprovações e reprovações por cenário) é registrado.
-- [ ] A taxa de reprovação do validador nos cenários de IA real é medida e registrada (linha de base para a Etapa 6).
-- [ ] ADR-0003 e ADR-0008 revisados com os formatos efetivamente implementados.
+  - dose de medicamento reprovada; eco da dose dita pelo tutor aprovado (V7);
+  - frase negada ("ainda não está confirmado") aprovada;
+- [x] Integração: lacuna de conhecimento cria `ServiceRequest(INFORMATION)`; resposta reprovada gera a resposta segura e não altera o estado. (`KnowledgeTurnIT`)
+- [x] IA real com o *fixture* fictício e o **conjunto inicial de perguntas-armadilha** (preço não cadastrado, serviço inexistente, feriado desconhecido, pedido de confirmação): nenhuma resposta aprovada contém valor não autorizado; as respostas sobre itens desconhecidos declaram lacuna. O resultado (aprovações e reprovações por cenário) é registrado. (`KnowledgeTrapsAiIT`: **50/50** corretas em 2026-11-16, tabela em [context-management.md](../architecture/context-management.md#validação-por-fontes-adr-0008-da-29))
+- [x] A taxa de reprovação do validador nos cenários de IA real é medida e registrada (linha de base para a Etapa 6): **0 de 50** respostas reprovadas.
+- [x] ADR-0003 e ADR-0008 revisados com os formatos efetivamente implementados (seção "Implementação" de cada um).
 
 ---
 

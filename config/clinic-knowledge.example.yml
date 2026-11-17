@@ -1,0 +1,67 @@
+# Base institucional da clínica: modelo VERSIONADO (ADR-0003). Nenhum dado aqui: tudo null.
+#
+# Como usar:
+#   1. Copie para config/clinic-knowledge.yml (não versionado) e preencha com os dados aprovados pela clínica (P-11).
+#   2. Aponte a aplicação para ele: ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.yml
+#
+# Regras (a aplicação não sobe se alguma for violada; a mensagem diz a chave e o problema):
+#   - TODAS as chaves abaixo devem existir. null = DESCONHECIDO: o assistente diz que não sabe.
+#   - Não crie chaves novas: chave desconhecida é erro.
+#   - Textos, telefones, e-mails, sites e CEP entre aspas.
+#   - Horários: lista de intervalos "HH:mm-HH:mm"; [] = fechado no dia. Ex.: ["08:00-12:00", "14:00-18:00"]
+#   - Preço: número inteiro de centavos, sem aspas. Ex.: 15000 = R$ 150,00.
+#   - Preços só vão ao assistente se payment.prices-disclosed for true.
+#   - services e faq: ids em minúsculas com hífen (ex.: vacina-v10). A coleção inteira pode ser null.
+#     Em cada serviço, name é obrigatório; em cada pergunta frequente, question é obrigatória.
+
+identification:
+  name: null
+  address: null
+  zip-code: null
+  phone: null
+  whatsapp: null
+  email: null
+  website: null
+  instagram: null
+
+hours:
+  monday: null
+  tuesday: null
+  wednesday: null
+  thursday: null
+  friday: null
+  saturday: null
+  sunday: null
+  holidays: null
+  after-hours: null
+  twenty-four-hours: null
+
+# Exemplo de entrada (não descomente sem dados reais aprovados):
+#   consulta:
+#     name: "Consulta clínica"
+#     offered: true
+#     description: null
+#     price-cents: null
+#     price-note: null
+services: null
+
+payment:
+  prices-disclosed: null
+  methods: null
+  installments: null
+
+policies:
+  scheduling: null
+  cancellation: null
+  no-show: null
+
+# Exemplo de entrada:
+#   documentos-consulta:
+#     question: "O que levar na consulta?"
+#     answer: null
+faq: null
+
+# Textos aprovados que o sistema insere nas respostas (não vão ao assistente como informação):
+approved-texts:
+  emergency-policy: null     # P-01
+  direct-contact: null       # P-02
