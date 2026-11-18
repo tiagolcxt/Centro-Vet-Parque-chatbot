@@ -102,6 +102,13 @@ public final class ClinicKnowledge {
         if (exact != null) {
             return List.of(exact);
         }
+        if (!ref.contains(".")) {
+            // Seção inteira (ex.: "hours"), para quando a resposta resume várias linhas dela (DA-41).
+            List<KnowledgeItem> section = items.values().stream().filter(i -> section(i.key()).equals(ref)).toList();
+            if (!section.isEmpty()) {
+                return section;
+            }
+        }
         if (ref.chars().filter(c -> c == '.').count() == 1 && COLLECTIONS.contains(section(ref))) {
             List<KnowledgeItem> entry = new ArrayList<>();
             items.forEach((key, item) -> {

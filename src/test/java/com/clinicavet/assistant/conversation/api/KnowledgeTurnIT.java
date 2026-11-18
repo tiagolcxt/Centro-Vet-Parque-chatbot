@@ -109,7 +109,8 @@ class KnowledgeTurnIT {
         ApiClient.Response response = api.sendMessage(id, "Quanto custa o banho e tosa?");
 
         assertThat(response.body().path("fallback").asBoolean()).isTrue();
-        assertThat(response.body().path("reply").asString()).isEqualTo(settings.fallbackReply().strip());
+        assertThat(response.body().path("reply").asString()).startsWith(settings.fallbackReply().strip())
+                    .contains("ligue para a recepção");   // DA-41: a resposta segura indica a recepção
         assertThat(model.requests().size() - callsBefore).isEqualTo(2);
         assertThat(conversations.findById(new ConversationId(UUID.fromString(id))).orElseThrow().currentIntent())
                 .contains(Intent.GREETING);

@@ -215,7 +215,11 @@ public class HandleIncomingMessageUseCase {
                 decision = decider.decideValid(ctx, turn);
                 // Lacuna de informação (ADR-0008) também termina com o próximo passo: o pedido de informação está
                 // registrado, e o tutor sabe como falar com a equipe (DA-40).
-                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency(), turn.knowledgeGap());
+                // Sem repetir (DA-41): se a resposta anterior já indicou a recepção, lacuna e pedido registrado não
+                // repetem o aviso nem o telefone. O pedido continua registrado para a equipe. Transferência, pedido
+                // explícito e emergência sempre trazem o próximo passo.
+                boolean recentlyGuided = alreadyGaveNextStep(start);
+                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency(), turn.knowledgeGap(), recentlyGuided, false);
                 reply = composer.composeValid(plan, turn.reply());
                 intent = turn.intent();
                 secondary = turn.secondaryIntents();
@@ -242,7 +246,7 @@ public class HandleIncomingMessageUseCase {
                 // Falha: intenção e coleta não mudam (ADR-0002). Prioridade e encaminhamento ainda podem mudar,
                 // porque vêm dos detectores determinísticos (H8, ADR-0007).
                 decision = decider.decideFailure(ctx, failure.kind() == FailureKind.TRANSFER_WITHOUT_HANDOFF);
-                reply = composer.composeFailure(plan(decision, false, false), settings.fallbackReply(),
+                reply = composer.composeFailure(plan(decision, false, false, false, true), settings.fallbackReply(),
                         current.clinicalPriority());
                 failed = true;
             }
@@ -321,10 +325,28 @@ public class HandleIncomingMessageUseCase {
                 failed, saved.clinicalPriority(), saved.handoffReason());
     }
 
-    private ReplyComposer.Plan plan(TurnDecider.Decision decision, boolean possibleEmergency, boolean knowledgeGap) {
+    /** A última resposta do assistente nesta conversa já trouxe o próximo passo de agora? */
+    private boolean alreadyGaveNextStep(TurnStart start) {
+        Optional<String> step = nextStep.text();
+        return step.isPresent() && start.previous().stream()
+                .filter(m -> m.author() == MessageAuthor.ASSISTANT)
+                .reduce((a, b) -> b)
+                .map(m -> m.content().contains(step.get()))
+                .orElse(false);
+    }
+
+    /**
+     * @param recentlyGuided a resposta anterior já trouxe o próximo passo: pedido registrado e lacuna não o repetem
+     * @param failure        turno com falha: a resposta segura sempre traz o próximo passo
+     */
+    private ReplyComposer.Plan plan(TurnDecider.Decision decision, boolean possibleEmergency, boolean knowledgeGap,
+                                    boolean recentlyGuided, boolean failure) {
+        boolean mustGuide = failure || decision.handoff().handsOff() || decision.explicitRequest() || possibleEmergency;
+        boolean register = (decision.handoff().registers() || knowledgeGap) && !recentlyGuided;
+        String step = mustGuide || register ? nextStep.text().orElse(null) : null;
         return new ReplyComposer.Plan(decision.priority().turnLevel(), possibleEmergency, decision.explicitRequest(),
-                decision.handoff().handsOff(), decision.handoff().registers() || knowledgeGap, decision.handoff().offerHuman(),
-                nextStep.text().orElse(null), nextStep.emergencyWhenClosed().orElse(null));
+                decision.handoff().handsOff(), register, decision.handoff().offerHuman(), step,
+                nextStep.emergencyWhenClosed().orElse(null));
     }
 
     private static AssistantMetadata metadata(boolean failed, PriorityPolicy.Assessment priority, Set<TurnSignal> signals,

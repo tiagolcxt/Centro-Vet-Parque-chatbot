@@ -128,9 +128,9 @@ public class ResponseValidator {
             boolean nonInstitutional = echoed || contains(operational, fact);
             if (!nonInstitutional && !contains(fromKnowledge, fact)) {
                 violations.add(new Violation("V2", fact.type().name()));   // V2: valor não autorizado
-            } else if (turn.knowledgeGap() && !nonInstitutional) {
-                violations.add(new Violation("V3", fact.type().name()));   // V3: lacuna com valor da base
             }
+            // V3 (lacuna com valor da base) saiu na DA-41: com a V2 exigindo fonte citada para todo valor, ela só
+            // barrava respostas parciais legítimas ("não funcionamos 24 horas; sobre o plantão não tenho a informação").
         }
 
         // V4: resposta institucional sem fonte e sem lacuna

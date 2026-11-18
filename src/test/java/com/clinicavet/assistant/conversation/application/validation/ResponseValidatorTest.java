@@ -164,9 +164,12 @@ class ResponseValidatorTest {
     class V3GapCoherence {
 
         @Test
-        void gapWithInstitutionalValue_isRejected() {
+        void partialAnswer_gapPlusACitedValue_isAccepted_da41() {
             assertThat(checks("Não tenho essa informação, mas aos sábados abrimos às 8h.", Intent.CLINIC_INFORMATION,
-                    List.of("hours.saturday"), true)).containsExactly("V3");
+                    List.of("hours.saturday"), true)).isEmpty();
+            // Sem a fonte citada, o mesmo valor continua reprovado pela V2.
+            assertThat(checks("Não tenho essa informação, mas aos sábados abrimos às 8h.", Intent.CLINIC_INFORMATION,
+                    List.of(), true)).contains("V2");
         }
 
         @Test

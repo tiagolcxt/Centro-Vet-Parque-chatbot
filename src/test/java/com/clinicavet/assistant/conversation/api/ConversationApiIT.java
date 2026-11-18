@@ -374,7 +374,8 @@ class ConversationApiIT {
 
             assertThat(response.status()).isEqualTo(200);
             assertThat(response.body().path("fallback").asBoolean()).isTrue();
-            assertThat(response.body().path("reply").asString()).isEqualTo(settings.fallbackReply().strip());
+            assertThat(response.body().path("reply").asString()).startsWith(settings.fallbackReply().strip())
+                    .contains("ligue para a recepção");   // DA-41: a resposta segura indica a recepção
             assertThat(response.body().path("intent").isNull()).isTrue();
             assertThat(model.requests().size() - callsBefore).as("chamadas ao modelo").isEqualTo(expectedCalls);
 

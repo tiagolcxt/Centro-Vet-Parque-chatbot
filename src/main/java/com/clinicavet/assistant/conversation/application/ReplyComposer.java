@@ -124,8 +124,9 @@ class ReplyComposer {
             parts.add(fallbackReply.strip());
             if (plan.register()) {
                 parts.add(texts.register().strip());
-                parts.add(plan.nextStep());
             }
+            // DA-41: a resposta segura nunca é um beco sem saída; o tutor sempre recebe como falar com a equipe.
+            parts.add(plan.nextStep());
         }
         if (plan.offerHuman()) {
             parts.add(texts.humanOffer().strip());

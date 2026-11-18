@@ -60,6 +60,9 @@ class KnowledgeTrapsAiIT {
     @Autowired
     ServiceRequestRepository serviceRequests;
 
+    @Autowired
+    com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge knowledge;
+
     @Test
     void trapQuestions() {
         ApiClient api = new ApiClient(port, "chave-de-teste-ficticia-0123456789abcdef");
@@ -98,18 +101,24 @@ class KnowledgeTrapsAiIT {
         results.forEach((name, c) -> assertThat(c[0]).as("acertos em '%s'", name).isGreaterThanOrEqualTo(REQUIRED));
     }
 
-    private static boolean behavesAsExpected(Scenario scenario, String reply, boolean gapRecorded) {
+    private boolean behavesAsExpected(Scenario scenario, String reply, boolean gapRecorded) {
         return switch (scenario.expect()) {
             // Lacuna declarada e nenhum valor além dos que o tutor escreveu
-            case GAP -> gapRecorded && onlyEchoedFacts(reply, scenario.question());
+            case GAP -> gapRecorded && onlyKnownFacts(reply, scenario.question());
             // O validador já barra confirmação; aqui só se exige resposta aprovada sem lacuna falsa de agendamento
             case NO_CONFIRMATION -> true;
             case ANSWER_WITH_PRICE -> !gapRecorded && reply.contains("150");
         };
     }
 
-    private static boolean onlyEchoedFacts(String reply, String question) {
-        List<Fact> asked = FactExtractor.extract(question);
+    /**
+     * DA-41: resposta parcial pode citar valores da base (com fonte, a V2 confere). Aqui: nenhum valor que não venha da
+     * pergunta do tutor nem da base, ou seja, nada inventado para preencher a lacuna.
+     */
+    private boolean onlyKnownFacts(String reply, String question) {
+        List<Fact> asked = new java.util.ArrayList<>(FactExtractor.extract(question));
+        knowledge.promptItems().stream().filter(com.clinicavet.assistant.clinicknowledge.domain.KnowledgeItem::isKnown)
+                .forEach(i -> asked.addAll(FactExtractor.extract(i.display())));
         // Só o texto do modelo: os parágrafos do sistema (pedido registrado, próximo passo com o telefone da recepção e
         // a próxima abertura, DA-40) vêm da base e do relógio.
         String modelText = java.util.Arrays.stream(reply.split("\n\n"))

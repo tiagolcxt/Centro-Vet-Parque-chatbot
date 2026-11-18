@@ -167,7 +167,7 @@ Na falha, a mensagem do tutor continua gravada e o **estado da conversa não mud
 |---|---|
 | V1 | `knowledgeRefs` tem chave inexistente, de texto interno (`approved-texts`) ou só com itens DESCONHECIDO |
 | V2 | O `reply` tem um valor (formatos abaixo) que não está autorizado |
-| V3 | `knowledgeGap = true` e o `reply` tem valor que só a base autorizaria |
+| ~~V3~~ | Removida na DA-41 (resposta parcial com fonte é aceita) |
 | V4 | Intenção `CLINIC_INFORMATION`, `SERVICE_INFORMATION` ou `PRICE_INQUIRY` sem fonte e sem lacuna |
 | V5 | Expressão de confirmação de agendamento |
 | V6 | Expressão de aviso à equipe, promessa de contato ou de resolução |

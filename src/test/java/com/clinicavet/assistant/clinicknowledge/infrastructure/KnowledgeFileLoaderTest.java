@@ -48,6 +48,10 @@ class KnowledgeFileLoaderTest {
         assertThat(knowledge.resolve("services.consulta")).hasSize(9);
         assertThat(knowledge.resolve("services.acupuntura")).isEmpty();
         assertThat(knowledge.resolve("approved-texts.emergency-policy")).as("texto interno não é fonte").isEmpty();
+        assertThat(knowledge.resolve("hours")).as("seção inteira (DA-41)").extracting(KnowledgeItem::key)
+                .contains("hours.monday", "hours.saturday", "hours.holidays");
+        assertThat(knowledge.resolve("review")).as("seção interna não é fonte").isEmpty();
+        assertThat(knowledge.resolve("inexistente")).isEmpty();
     }
 
     @Test

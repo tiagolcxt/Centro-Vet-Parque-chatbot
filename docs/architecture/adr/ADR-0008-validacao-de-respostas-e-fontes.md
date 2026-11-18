@@ -112,3 +112,9 @@ Esses limites são cobertos por instruções no prompt, pela avaliação contín
 - **V6b:** a lista `allowed` do arquivo de expressões existe para textos aprovados com processo real (P-14) e hoje está vazia.
 - **Testes:** `FactExtractorTest` (cada formato, detectado e não detectado), `ResponseValidatorTest` (V1–V7, aprovado e reprovado), `KnowledgeTurnIT` (lacuna, reprovação e resposta corrigida), `KnowledgeTrapsAiIT` (modelo real).
 - **Linha de base com o modelo real** (2026-11-16, base fictícia, 5 cenários × 10): **0 reprovações** em 50 respostas; todas corretas. Detalhes em context-management.md.
+
+## Revisão (2026-11-17): DA-41
+
+- **V3 removida.** Com a V2 exigindo fonte citada para todo valor institucional, a V3 ("lacuna com valor da base") só barrava respostas parciais legítimas, como "não funcionamos 24 horas; sobre o plantão não tenho a informação". No teste manual, isso virou resposta segura duas vezes seguidas.
+- **Citação de seção inteira:** `knowledgeRefs` pode trazer o nome de uma seção (`hours`, `services`, `payment`) quando a resposta resume várias linhas dela; todos os itens da seção autorizam os valores. Seções internas (`approved-texts`, `review`) continuam fora.
+- A resposta segura passou a trazer o próximo passo (ligar para a recepção, DA-40).
