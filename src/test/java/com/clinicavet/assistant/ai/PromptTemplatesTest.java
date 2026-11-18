@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PromptTemplatesTest {
 
     private final PromptTemplates templates = new PromptTemplates(
-            new ClassPathResource("prompts/system-message.st"), new ClassPathResource("prompts/waiting-human.st"),
+            new ClassPathResource("prompts/system-message.st"),
             new ClassPathResource("prompts/operational-context.st"),
             new ClassPathResource("prompts/clinic-context.st"), new ClassPathResource("prompts/tutor-context.st"),
             KnowledgeFileLoader.parse(read("config/clinic-knowledge.ficticia.yml"), "ficticia"));

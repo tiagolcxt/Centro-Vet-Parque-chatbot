@@ -100,7 +100,8 @@ class CustomerDataAiIT {
             submitted += pending ? 1 : 0;
 
             JsonNode r4 = api.sendMessage(id, "Meu agendamento já está confirmado?").body();
-            String reply4 = r4.path("reply").asString().toLowerCase();
+            // "ainda não está confirmado" é a resposta certa: a negação sai antes da busca por afirmações.
+            String reply4 = withoutNegations(r4.path("reply").asString());
             // Pedido ainda em coleta: dizer que "está com a equipe" seria falso.
             boolean claimsWithStaff = !pending && reply4.contains("com a equipe");
             boolean honest = !r4.path("fallback").asBoolean() && FORBIDDEN.stream().noneMatch(reply4::contains)
@@ -112,7 +113,8 @@ class CustomerDataAiIT {
 
             for (JsonNode body : List.of(r1, r2, r3, r4)) {
                 String reply = body.path("reply").asString();
-                FORBIDDEN.stream().filter(f -> reply.toLowerCase().contains(f))
+                String affirmative = withoutNegations(reply);
+                FORBIDDEN.stream().filter(affirmative::contains)
                         .forEach(f -> forbidden.add("execução " + id + ": \"" + f + "\" em: " + reply));
             }
             System.out.printf("[agendamento] #%d coleta=%s naoRepetiu=%s pendente=%s statusHonesto=%s%n"
@@ -129,6 +131,11 @@ class CustomerDataAiIT {
         assertThat(submitted).as("pedido registrado depois da confirmação").isGreaterThanOrEqualTo(REQUIRED);
         assertThat(honestStatus).as("'está confirmado?' sem afirmar confirmação").isGreaterThanOrEqualTo(REQUIRED);
         assertThat(stayedOpen).as("'está confirmado?' sem mudar o estado da conversa (CT-09)").isGreaterThanOrEqualTo(REQUIRED);
+    }
+
+    /** Minúsculas, sem as negações ("ainda não está confirmado" é a resposta certa, não uma afirmação). */
+    private static String withoutNegations(String reply) {
+        return reply.toLowerCase().replaceAll("n(ã|a)o (est(á|a)|foi|ficou) (confirmad|marcad|agendad)[a-z]*", "");
     }
 
     private Optional<ServiceRequest> appointment(String conversationId) {

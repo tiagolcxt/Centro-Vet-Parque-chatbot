@@ -106,3 +106,17 @@ Regras completas, com a tabela de motivos, a composição do texto e a rastreabi
 - **Conversa improdutiva (item 10):** `UnproductiveConversationDetector` (DA-31). Escolha dentro da regra aprovada: mensagens do tutor com menos de 3 palavras ("ok", "sim") não contam como repetição.
 - **Reconciliação (ADR-0002):** anúncio de transferência sem encaminhamento é a falha `TRANSFER_WITHOUT_HANDOFF`; se persistir, encaminha com `TURN_FAILURE`.
 - **Testes:** `ExplicitHumanRequestDetectorTest`, `PriorityAndHandoffPolicyTest`, `ReplyComposerTest`, `GuidelineScenariosIT` (CT-01 a CT-08, CT-10 a CT-12, CT-14 a CT-16), `StaffOperationsIT`, `HandoffAiIT` (modelo real, 40/40).
+
+## Revisão (2026-11-17): atendimento resolutivo (DA-40)
+
+Motivo: no teste manual do responsável, quase tudo terminava em "sua conversa ficou registrada", e o assistente parava de ajudar até em "que horas abre amanhã?". Regras completas: [business-rules.md, seções 2, 4 e 5](../business-rules.md#2-encaminhamento-adr-0007-da-40).
+- **Item 2, revisto:** a decisão passa a ter três resultados.
+  - *Transferir* (`WAITING_HUMAN`): P1, P2, preocupação médica, pedido explícito, reclamação, falha com encaminhamento.
+  - *Registrar* (pedido para a equipe, a conversa continua `OPEN`): P3 e acompanhamento, insatisfação, decisão da equipe, assunto sensível, sugestão do modelo, conversa improdutiva.
+  - *Oferecer*: sem mudança.
+  A sugestão do modelo continua sendo levada à equipe (o pedido registrado); o que muda é que ela não tira mais a conversa do assistente.
+- **Item 3, acrescentado:** toda transferência e todo pedido registrado terminam com o **próximo passo** (inclusive a lacuna de informação): ligar para a recepção, conforme a clínica esteja aberta agora (horário da base, DA-39). Nunca promete contato.
+- **Item 4, substituído:** em `WAITING_HUMAN` o modelo roda no modo principal, com as mesmas validações e até 2 chamadas, limitado pelo prompt ao que é da clínica e ao andamento. O modo restrito (só sinais, `waiting-human.st`, `waiting_human_signals_v1`, 15 s, sem nova tentativa) foi removido. A detecção de emergência continua: lista de alertas, `possibleEmergency` e a prioridade, que só sobe. O fail-safe da falha do modelo continua (CT-19).
+- **Item 6:** com o prazo vencido, a resposta traz o contato direto aprovado ou o próximo passo.
+- **Provisório:** o que transfere (P-12) e se P3 transfere (P-20) seguem com a clínica.
+- Testes: `PriorityAndHandoffPolicyTest.da40_…`, `ReplyComposerTest.da40_…`, `NextStepTest`, `GuidelineScenariosIT`, `SensitiveTopicAndRecoveryIT` e `ResolutionAiIT` (IA real).

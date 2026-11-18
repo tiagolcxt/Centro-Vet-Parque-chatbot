@@ -21,32 +21,19 @@ import java.util.Objects;
  * @param history         mensagens anteriores da conversa atual, em ordem cronológica
  * @param customerMessage a mensagem que o tutor acabou de enviar
  */
-public record AssistantRequest(Mode mode, CustomerContext customer, OperationalContext operational,
-                               List<HistoryEntry> history, String customerMessage) {
-
-    /** Principal: resposta completa. Restrito: só sinais, em {@code WAITING_HUMAN} (ADR-0007, item 4). */
-    public enum Mode { MAIN, RESTRICTED }
+public record AssistantRequest(CustomerContext customer, OperationalContext operational, List<HistoryEntry> history,
+                               String customerMessage) {
 
     public AssistantRequest {
-        Objects.requireNonNull(mode, "mode");
         customer = customer == null ? CustomerContext.NONE : customer;
         Objects.requireNonNull(operational, "operational");
         history = List.copyOf(history);
         Objects.requireNonNull(customerMessage, "customerMessage");
     }
 
-    public AssistantRequest(Mode mode, OperationalContext operational, List<HistoryEntry> history,
-                            String customerMessage) {
-        this(mode, CustomerContext.NONE, operational, history, customerMessage);
-    }
-
     /** Requisição do modo principal sem dados do tutor (forma da Etapa 2). */
     public AssistantRequest(OperationalContext operational, List<HistoryEntry> history, String customerMessage) {
-        this(Mode.MAIN, CustomerContext.NONE, operational, history, customerMessage);
-    }
-
-    public AssistantRequest restricted() {
-        return new AssistantRequest(Mode.RESTRICTED, customer, operational, history, customerMessage);
+        this(CustomerContext.NONE, operational, history, customerMessage);
     }
 
     public record HistoryEntry(MessageAuthor author, String content) {

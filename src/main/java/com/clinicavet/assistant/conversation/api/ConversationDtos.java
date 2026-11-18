@@ -48,12 +48,13 @@ record ConversationResponse(UUID id, ConversationStatus status, Instant startedA
  * @param handoffReason   motivo do encaminhamento, se a conversa está com a equipe (ADR-0007)
  */
 record TurnResponse(UUID conversationId, boolean newConversation, String reply, ConversationStatus status,
-                    Intent intent, boolean fallback, ClinicalPriority priority, HandoffReason handoffReason) {
+                    Intent intent, boolean fallback, ClinicalPriority priority, HandoffReason handoffReason,
+                    HandoffReason staffRequestReason) {
 
     static TurnResponse from(HandleIncomingMessageUseCase.Result result) {
         return new TurnResponse(result.conversationId().value(), result.newConversation(), result.reply(),
                 result.status(), result.intent().orElse(null), result.fallback(), result.priority(),
-                result.handoffReason().orElse(null));
+                result.handoffReason().orElse(null), result.staffRequestReason().orElse(null));
     }
 }
 

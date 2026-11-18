@@ -12,7 +12,7 @@
 | ID | Requisito | Diretriz | Garantido por | Etapa | ADR | CT |
 |---|---|---|---|---|---|---|
 | RF-D01 | Classificar **cada** mensagem em P1–P6, sem usar dados comerciais | Hier. H1, H2 | backend + modelo | E4 | 0018 | CT-01, CT-06 |
-| RF-D02 | Reavaliar a prioridade a cada mensagem, **inclusive em `WAITING_HUMAN`** (modo restrito) | Hier. H2; Dir. 6.2 do prompt | backend | E4 | 0007, 0018 | CT-07 |
+| RF-D02 | Reavaliar a prioridade a cada mensagem, **inclusive em `WAITING_HUMAN`** (chamada principal desde a DA-40; antes, modo restrito) | Hier. H2; Dir. 6.2 do prompt | backend | E4 | 0007, 0018 | CT-07 |
 | RF-D03 | Detectar possível emergência em qualquer estado e responder com o protocolo aprovado **antes de qualquer outro conteúdo** | Dir. 2 (P1) | backend + modelo | E4 | 0007, 0018 | CT-01, CT-07 |
 | RF-D04 | Detectar **deterministicamente** pedido explícito de atendimento humano, antes do modelo | Dir. 3.1, 3.3 | backend | E4 | 0007 | CT-02 |
 | RF-D05 | Persistir o **motivo do encaminhamento** e os sinais que o motivaram | Prompt 6.5 | backend | E4 | 0007 | todos com encaminhamento |

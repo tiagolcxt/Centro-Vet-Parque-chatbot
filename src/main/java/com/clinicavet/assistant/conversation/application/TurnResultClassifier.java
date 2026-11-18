@@ -75,28 +75,6 @@ public class TurnResultClassifier {
         return new TurnOutcome.Valid(turn, attempt);
     }
 
-    /** Modo restrito: só sinais. */
-    public RestrictedOutcome classifyRestricted(ModelReply reply) {
-        Optional<FailureKind> technical = technicalFailure(reply);
-        if (technical.isPresent()) {
-            return new RestrictedOutcome.Failed(technical.get());
-        }
-        JsonNode root = parse(reply.content());
-        if (root == null || !isBoolean(root, "possibleEmergency") || !isBoolean(root, "explicitHumanRequest")
-                || !isString(root, "priority") || !isArray(root, "signals")) {
-            return new RestrictedOutcome.Failed(FailureKind.INVALID);
-        }
-        List<String> signals = strings(root.get("signals"));
-        if (signals == null) {
-            return new RestrictedOutcome.Failed(FailureKind.INVALID);
-        }
-        return new RestrictedOutcome.Valid(new RestrictedSignals(
-                root.get("possibleEmergency").asBoolean(),
-                root.get("explicitHumanRequest").asBoolean(),
-                ClinicalPriority.parse(root.get("priority").asString()),
-                modelSignals(signals)));
-    }
-
     private static Optional<FailureKind> technicalFailure(ModelReply reply) {
         String finish = reply.finishReason() == null ? "" : reply.finishReason().strip().toLowerCase(Locale.ROOT);
         if ((reply.refusal() != null && !reply.refusal().isBlank()) || finish.equals("content_filter")) {

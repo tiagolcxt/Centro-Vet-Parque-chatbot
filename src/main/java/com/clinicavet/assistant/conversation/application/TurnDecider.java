@@ -80,7 +80,7 @@ class TurnDecider {
     /** O texto anuncia transferência mas a decisão não é encaminhar: inconsistente. */
     Optional<FailureKind> reconcile(Context ctx, AssistantTurn turn) {
         String text = com.clinicavet.assistant.conversation.application.rules.RuleText.normalize(turn.reply());
-        if (TRANSFER.matcher(text).find() && !decideValid(ctx, turn).handoff().handsOff()) {
+        if (TRANSFER.matcher(text).find() && !decideValid(ctx, turn).handoff().reachesStaff()) {
             return Optional.of(FailureKind.TRANSFER_WITHOUT_HANDOFF);
         }
         return Optional.empty();

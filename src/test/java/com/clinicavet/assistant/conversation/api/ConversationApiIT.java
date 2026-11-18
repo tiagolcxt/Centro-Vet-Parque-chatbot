@@ -241,9 +241,13 @@ class ConversationApiIT {
             List<JsonNode> messages = history(id);
             assertThat(messages).extracting(m -> m.path("author").asString())
                     .containsExactly("CUSTOMER", "ASSISTANT", "CUSTOMER", "ASSISTANT");
-            assertThat(messages).extracting(m -> m.path("content").asString())
-                    .containsExactly("Oi", "Sou o assistente virtual da clínica.\n\nOlá! Como posso ajudar?", "Que horas vocês abrem?",
-                            "Não tenho essa informação disponível.");
+            List<String> contents = new ArrayList<>();
+            messages.forEach(m -> contents.add(m.path("content").asString()));
+            assertThat(contents.subList(0, 3))
+                    .containsExactly("Oi", "Sou o assistente virtual da clínica.\n\nOlá! Como posso ajudar?", "Que horas vocês abrem?");
+            // DA-40: a lacuna termina com o pedido registrado e o próximo passo (aberta ou fechada, conforme o relógio).
+            assertThat(contents.get(3)).startsWith("Não tenho essa informação disponível.\n\nSeu pedido ficou registrado")
+                    .contains("ligue para a recepção: (11) 3000-1000.");
             assertThat(messages.get(1).path("intent").asString()).isEqualTo("GREETING");
             assertThat(messages.get(0).path("intent").isNull()).isTrue();
             assertThat(load(id).currentIntent()).contains(Intent.CLINIC_INFORMATION);

@@ -110,8 +110,46 @@ class PriorityAndHandoffPolicyTest {
                     Unproductive.NONE, false, false);
         }
 
+        /** Motivo que chega à equipe, por transferência ou pedido registrado (DA-40). */
         private Optional<HandoffReason> reason(HandoffPolicy.Inputs in) {
-            return HandoffPolicy.decide(in).handoff();
+            HandoffPolicy.Decision decision = HandoffPolicy.decide(in);
+            return decision.handoff().or(decision::register);
+        }
+
+        private HandoffPolicy.Inputs with(Set<Intent> intents, boolean modelRequested, Set<TurnSignal> signals,
+                                          ClinicalPriority level, Unproductive unproductive) {
+            return new HandoffPolicy.Inputs(false, intents, modelRequested, false, signals, level, unproductive, false,
+                    false);
+        }
+
+        @Test
+        void da40_transfersOnlyUrgencyPersonComplaintAndClinical_registersTheRest() {
+            // Transfere: P1, P2, preocupação médica, pedido de pessoa, reclamação.
+            for (var in : java.util.List.of(with(Set.of(), false, Set.of(), P1_POSSIBLE_EMERGENCY, Unproductive.NONE),
+                    with(Set.of(), false, Set.of(), ClinicalPriority.P2_URGENT, Unproductive.NONE),
+                    with(Set.of(Intent.MEDICAL_CONCERN), false, Set.of(), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(Intent.HUMAN_REQUEST), false, Set.of(), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(Intent.COMPLAINT), false, Set.of(), P6_RELATIONSHIP, Unproductive.NONE))) {
+                HandoffPolicy.Decision d = HandoffPolicy.decide(in);
+                assertThat(d.handsOff()).as(in.toString()).isTrue();
+                assertThat(d.registers()).isFalse();
+            }
+            // Registra sem transferir: P3, acompanhamento, insatisfação, decisão da equipe, assunto sensível, sugestão do
+            // modelo, conversa improdutiva.
+            for (var in : java.util.List.of(with(Set.of(), false, Set.of(), P3_CLINICAL_FOLLOW_UP, Unproductive.NONE),
+                    with(Set.of(Intent.TREATMENT_FOLLOW_UP), false, Set.of(), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(), false, Set.of(TurnSignal.DISSATISFACTION), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(), false, Set.of(TurnSignal.NEEDS_STAFF_DECISION), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(), false, Set.of(TurnSignal.SENSITIVE_TOPIC), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(), true, Set.of(), P6_RELATIONSHIP, Unproductive.NONE),
+                    with(Set.of(), false, Set.of(), P6_RELATIONSHIP, Unproductive.HANDOFF))) {
+                HandoffPolicy.Decision d = HandoffPolicy.decide(in);
+                assertThat(d.handsOff()).as(in.toString()).isFalse();
+                assertThat(d.registers()).as(in.toString()).isTrue();
+                assertThat(d.offerHuman()).isFalse();
+            }
+            assertThat(HandoffPolicy.decide(with(Set.of(), false, Set.of(TurnSignal.SENSITIVE_TOPIC), P6_RELATIONSHIP,
+                    Unproductive.NONE)).register()).contains(HandoffReason.SENSITIVE_TOPIC);
         }
 
         @Test
@@ -176,7 +214,7 @@ class PriorityAndHandoffPolicyTest {
         void unproductive_offerThenHandoff() {
             var offer = HandoffPolicy.decide(new HandoffPolicy.Inputs(false, Set.of(), false, false, Set.of(),
                     P6_RELATIONSHIP, Unproductive.OFFER, false, false));
-            assertThat(offer).isEqualTo(new HandoffPolicy.Decision(Optional.empty(), true));
+            assertThat(offer).isEqualTo(new HandoffPolicy.Decision(Optional.empty(), Optional.empty(), true));
             assertThat(reason(new HandoffPolicy.Inputs(false, Set.of(), false, false, Set.of(), P6_RELATIONSHIP,
                     Unproductive.HANDOFF, false, false))).contains(HandoffReason.UNPRODUCTIVE_CONVERSATION);
         }
@@ -187,7 +225,7 @@ class PriorityAndHandoffPolicyTest {
                     Set.of(TurnSignal.EMOTIONAL_DISTRESS), P6_RELATIONSHIP, Unproductive.NONE, false, false));
             var again = HandoffPolicy.decide(new HandoffPolicy.Inputs(false, Set.of(Intent.OTHER), false, false,
                     Set.of(TurnSignal.CONFUSION), P6_RELATIONSHIP, Unproductive.NONE, false, true));
-            assertThat(first).isEqualTo(new HandoffPolicy.Decision(Optional.empty(), true));
+            assertThat(first).isEqualTo(new HandoffPolicy.Decision(Optional.empty(), Optional.empty(), true));
             assertThat(again).isEqualTo(HandoffPolicy.Decision.NONE);
         }
 

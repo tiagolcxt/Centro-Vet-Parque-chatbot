@@ -30,7 +30,7 @@ Isso compatibiliza a hierarquia com a regra do briefing de não criar classifica
 | # | Regra | Implementação |
 |---|---|---|
 | H1 | **A prioridade não considera dados comerciais** (valor, histórico de compras, tipo de cliente) | Backend: nenhuma dessas informações entra no cálculo nem no contexto de prioridade |
-| H2 | **Reavaliação a cada mensagem**, inclusive em conversas `WAITING_HUMAN` | Backend: toda mensagem passa pelo cálculo (modo principal ou restrito) |
+| H2 | **Reavaliação a cada mensagem**, inclusive em conversas `WAITING_HUMAN` | Backend: toda mensagem passa pelo cálculo (chamada principal, também em `WAITING_HUMAN` desde a DA-40) |
 | H3 | **Vale o nível mais urgente** entre: sinal do modelo, pisos determinísticos do backend (H5) e prioridade atual da conversa | `PriorityPolicy` (domínio) |
 | H4 | **Rebaixamento automático é proibido.** Só um funcionário pode baixar a prioridade de uma conversa, com registro de quem e quando. Conversa nova (ADR-0009) começa em P6 | Domínio + endpoint da equipe |
 | H5 | **Pisos determinísticos** (o backend não aceita nível menos urgente que estes): possível emergência → P1; preocupação médica (`MEDICAL_CONCERN`), agravamento, alteração após procedimento ou **incerteza clínica** → no máximo P2; acompanhamento de tratamento → no máximo P3; correspondência na **lista aprovada de expressões de alerta** (DA-27, ADR-0019) → P1 ou P2 | `PriorityPolicy` |

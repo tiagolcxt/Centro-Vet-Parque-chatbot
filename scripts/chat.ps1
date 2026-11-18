@@ -200,6 +200,7 @@ while ($true) {
             Write-Host $b.reply
             $meta = "  status=$($b.status) | prioridade=$($b.priority) | intenção=$($b.intent)"
             if ($b.handoffReason) { $meta += " | encaminhamento=$($b.handoffReason)" }
+            if ($b.staffRequestReason) { $meta += " | pedido para a equipe=$($b.staffRequestReason)" }
             if ($b.fallback) { $meta += " | RESPOSTA SEGURA (o modelo falhou ou foi reprovado)" }
             Write-Host $meta -ForegroundColor DarkGray
             Write-Host ""

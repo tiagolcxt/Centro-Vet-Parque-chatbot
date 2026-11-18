@@ -42,11 +42,12 @@ import java.util.Set;
  *   <li><b>Transação 1:</b> resolve a conversa ativa do contato (expira e abre outra, se preciso), grava a
  *       mensagem do tutor e lê a janela recente. A mensagem fica gravada aconteça o que acontecer depois.</li>
  *   <li><b>Fora de transação:</b> detectores determinísticos (pedido de humano, expressões de alerta), depois
- *       o modelo: <b>modo principal</b> em {@code OPEN} (até 2 chamadas, validação e reconciliação) ou
- *       <b>modo restrito</b> em {@code WAITING_HUMAN} (só sinais, uma chamada, ADR-0007 item 4).</li>
+ *       o modelo (até 2 chamadas, validação), também em {@code WAITING_HUMAN} desde a DA-40 (antes, modo restrito
+ *       só de sinais); a reconciliação "anuncia transferência" só com a conversa aberta.</li>
  *   <li><b>Transação 2:</b> confere que ninguém mexeu na conversa (senão {@code 409}, DA-21). Aplica tudo de uma
- *       vez (ADR-0017): prioridade (só sobe), intenção, encaminhamento + {@code ServiceRequest(HUMAN_CONTACT)},
- *       pedido de informação, oferta de atendimento humano e a resposta composta pelo backend.</li>
+ *       vez (ADR-0017): prioridade (só sobe), intenção, transferência ou pedido registrado ({@code ServiceRequest(HUMAN_CONTACT)},
+ *       DA-40), pedido de informação, oferta de atendimento humano e a resposta composta pelo backend, com
+ *       o próximo passo ({@link NextStep}: ligar para a recepção).</li>
  * </ol>
  * A conversa-alvo da URL serve para identificar o contato. Como no WhatsApp, a mensagem vai para a conversa
  * ativa do contato, que pode ser outra se a alvo estiver encerrada ou expirada (ADR-0009).
@@ -63,7 +64,15 @@ public class HandleIncomingMessageUseCase {
      */
     public record Result(ConversationId conversationId, boolean newConversation, String reply,
                          ConversationStatus status, Optional<Intent> intent, boolean fallback,
-                         ClinicalPriority priority, Optional<HandoffReason> handoffReason) {
+                         ClinicalPriority priority, Optional<HandoffReason> handoffReason,
+                         Optional<HandoffReason> staffRequestReason) {
+
+        public Result(ConversationId conversationId, boolean newConversation, String reply, ConversationStatus status,
+                      Optional<Intent> intent, boolean fallback, ClinicalPriority priority,
+                      Optional<HandoffReason> handoffReason) {
+            this(conversationId, newConversation, reply, status, intent, fallback, priority, handoffReason,
+                    Optional.empty());
+        }
     }
 
     private record TurnStart(Conversation conversation, boolean newConversation, Message customerMessage,
@@ -71,14 +80,6 @@ public class HandleIncomingMessageUseCase {
 
         List<Message> previous() {
             return recent.stream().filter(m -> !m.id().equals(customerMessage.id())).toList();
-        }
-    }
-
-    private sealed interface ModelResult {
-        record Main(TurnOutcome outcome) implements ModelResult {
-        }
-
-        record Restricted(RestrictedOutcome outcome) implements ModelResult {
         }
     }
 
@@ -97,6 +98,7 @@ public class HandleIncomingMessageUseCase {
     private final HandoffSettings handoffSettings;
     private final CustomerDataCollector collector;
     private final CustomerDataSettings customerData;
+    private final NextStep nextStep;
     private final Clock clock;
 
     HandleIncomingMessageUseCase(ConversationRepository conversations, MessageRepository messages,
@@ -105,7 +107,7 @@ public class HandleIncomingMessageUseCase {
                                  ReplyComposer composer, ExplicitHumanRequestDetector humanRequest,
                                  AlertExpressionDetector alerts, TransactionRunner tx, ConversationSettings settings,
                                  HandoffSettings handoffSettings, CustomerDataCollector collector,
-                                 CustomerDataSettings customerData, Clock clock) {
+                                 CustomerDataSettings customerData, NextStep nextStep, Clock clock) {
         this.conversations = conversations;
         this.messages = messages;
         this.serviceRequests = serviceRequests;
@@ -121,6 +123,7 @@ public class HandleIncomingMessageUseCase {
         this.handoffSettings = handoffSettings;
         this.collector = collector;
         this.customerData = customerData;
+        this.nextStep = nextStep;
         this.clock = clock;
     }
 
@@ -140,16 +143,19 @@ public class HandleIncomingMessageUseCase {
 
         AssistantRequest request = contextAssembler.assemble(conversation, start.recent(), start.customerMessage(),
                 start.at());
-        ModelResult modelResult = conversation.status() == ConversationStatus.WAITING_HUMAN
-                ? new ModelResult.Restricted(executor.executeRestricted(request))
-                : new ModelResult.Main(executor.execute(request, turn -> decider.reconcile(ctx, turn)));
+        // DA-40: também em WAITING_HUMAN o modelo responde (o que é da clínica), com as mesmas validações. A
+        // reconciliação "anuncia transferência" só vale com a conversa aberta.
+        boolean waiting = conversation.status() == ConversationStatus.WAITING_HUMAN;
+        TurnOutcome outcome = waiting
+                ? executor.execute(request)
+                : executor.execute(request, turn -> decider.reconcile(ctx, turn));
 
-        Result result = tx.inTransaction(() -> finish(start, ctx, modelResult));
+        Result result = tx.inTransaction(() -> finish(start, ctx, outcome, waiting));
         log.info("Turno concluído [conversationId={}, novaConversa={}, modo={}, falha={}, prioridade={}, "
-                        + "encaminhamento={}, pedidoExplicito={}, alerta={}]",
-                result.conversationId().value(), result.newConversation(),
-                modelResult instanceof ModelResult.Restricted ? "RESTRITO" : "PRINCIPAL", result.fallback(),
-                result.priority(), result.handoffReason().map(Enum::name).orElse("-"),
+                        + "encaminhamento={}, pedidoRegistrado={}, pedidoExplicito={}, alerta={}]",
+                result.conversationId().value(), result.newConversation(), waiting ? "ESPERA" : "PRINCIPAL",
+                result.fallback(), result.priority(), result.handoffReason().map(Enum::name).orElse("-"),
+                result.staffRequestReason().map(Enum::name).orElse("-"),
                 ctx.explicitRequest().orElse("-"), ctx.alertFloor().map(Enum::name).orElse("-"));
         return result;
     }
@@ -177,7 +183,7 @@ public class HandleIncomingMessageUseCase {
         return new TurnStart(saved, resolved.started(), customer, recent, now);
     }
 
-    private Result finish(TurnStart start, TurnDecider.Context ctx, ModelResult modelResult) {
+    private Result finish(TurnStart start, TurnDecider.Context ctx, TurnOutcome outcome, boolean waiting) {
         ConversationId id = start.conversation().id();
         Conversation current = conversations.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalStateException("conversa sumiu durante o turno"));
@@ -191,10 +197,7 @@ public class HandleIncomingMessageUseCase {
             throw new ConcurrentTurnException();
         }
         Instant now = clock.instant();
-        return switch (modelResult) {
-            case ModelResult.Restricted restricted -> finishWaiting(start, ctx, current, restricted.outcome(), now);
-            case ModelResult.Main main -> finishMain(start, ctx, current, main.outcome(), now);
-        };
+        return waiting ? finishWaiting(start, ctx, current, outcome, now) : finishMain(start, ctx, current, outcome, now);
     }
 
     private Result finishMain(TurnStart start, TurnDecider.Context ctx, Conversation current, TurnOutcome outcome,
@@ -210,7 +213,9 @@ public class HandleIncomingMessageUseCase {
             case TurnOutcome.Valid valid -> {
                 AssistantTurn turn = valid.turn();
                 decision = decider.decideValid(ctx, turn);
-                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency());
+                // Lacuna de informação (ADR-0008) também termina com o próximo passo: o pedido de informação está
+                // registrado, e o tutor sabe como falar com a equipe (DA-40).
+                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency(), turn.knowledgeGap());
                 reply = composer.composeValid(plan, turn.reply());
                 intent = turn.intent();
                 secondary = turn.secondaryIntents();
@@ -237,13 +242,15 @@ public class HandleIncomingMessageUseCase {
                 // Falha: intenção e coleta não mudam (ADR-0002). Prioridade e encaminhamento ainda podem mudar,
                 // porque vêm dos detectores determinísticos (H8, ADR-0007).
                 decision = decider.decideFailure(ctx, failure.kind() == FailureKind.TRANSFER_WITHOUT_HANDOFF);
-                reply = composer.composeFailure(plan(decision, false), settings.fallbackReply(),
+                reply = composer.composeFailure(plan(decision, false, false), settings.fallbackReply(),
                         current.clinicalPriority());
                 failed = true;
             }
         }
         current.raisePriority(decision.priority().effective());
         decision.handoff().handoff().ifPresent(reason -> handOff(current, reason, customerText, now));
+        // DA-40: pedido registrado para a equipe, e a conversa continua com o assistente.
+        decision.handoff().register().ifPresent(reason -> openStaffRequest(current, reason, customerText, now));
         if (decision.handoff().offerHuman()) {
             current.markHumanOfferMade();
         }
@@ -252,46 +259,72 @@ public class HandleIncomingMessageUseCase {
         messages.save(Message.fromAssistant(id, reply, intent,
                 metadata(failed, decision.priority(), decision.signals(), secondary), now));
         return new Result(id, start.newConversation(), reply, saved.status(), Optional.ofNullable(intent), failed,
-                saved.clinicalPriority(), decision.handoff().handoff());
+                saved.clinicalPriority(), decision.handoff().handoff(), decision.handoff().register());
     }
 
-    private Result finishWaiting(TurnStart start, TurnDecider.Context ctx, Conversation current,
-                                 RestrictedOutcome outcome, Instant now) {
-        boolean failed = outcome instanceof RestrictedOutcome.Failed;
-        RestrictedSignals signals = outcome instanceof RestrictedOutcome.Valid valid ? valid.signals() : null;
-        PriorityPolicy.Inputs inputs = signals == null
-                ? PriorityPolicy.Inputs.deterministicOnly(ctx.alertFloor())
-                : new PriorityPolicy.Inputs(signals.priority(), Set.of(), signals.signals(), signals.possibleEmergency(),
-                false, ctx.alertFloor());
-        PriorityPolicy.Assessment priority = PriorityPolicy.assess(current.clinicalPriority(), inputs);
-        boolean emergency = signals != null && signals.possibleEmergency();
-        current.raisePriority(priority.effective());
+    /**
+     * {@code WAITING_HUMAN} (DA-40): a equipe já tem a conversa. O modelo responde o que é da clínica (horário,
+     * serviços, andamento) e os detectores continuam: a prioridade é reavaliada e só sobe; risco põe a orientação
+     * primeiro. Nada de nova transferência nem de coleta de agendamento. Falha do modelo: confirmação de recebimento
+     * (fail-safe, CT-19).
+     */
+    private Result finishWaiting(TurnStart start, TurnDecider.Context ctx, Conversation current, TurnOutcome outcome,
+                                 Instant now) {
         boolean overdue = current.handoffAt()
                 .map(at -> now.isAfter(at.plus(handoffSettings.deadlineFor(current.clinicalPriority()))))
                 .orElse(false);
-        // CT-19: a resposta da espera varia com o sinal e nunca repete a anterior.
         String previousReply = start.previous().stream().filter(m -> m.author() == MessageAuthor.ASSISTANT)
                 .reduce((a, b) -> b).map(Message::content).orElse(null);
-        String reply = composer.composeWaiting(priority.turnLevel(), emergency, failed, overdue,
-                signals == null ? Set.of() : signals.signals(), previousReply);
-        current.registerActivity(now);
-        Conversation saved = conversations.save(current);
         Set<TurnSignal> recorded = EnumSet.noneOf(TurnSignal.class);
-        if (signals != null) {
-            recorded.addAll(signals.signals());
-        }
         if (ctx.alertFloor().isPresent()) {
             recorded.add(TurnSignal.ALERT_EXPRESSION);
         }
-        messages.save(Message.fromAssistant(current.id(), reply, null,
-                metadata(failed, priority, recorded, List.of()), now));
-        return new Result(current.id(), start.newConversation(), reply, saved.status(), Optional.empty(), failed,
-                saved.clinicalPriority(), saved.handoffReason());
+        String step = nextStep.text().orElse(null);
+        String closed = nextStep.emergencyWhenClosed().orElse(null);
+        PriorityPolicy.Assessment priority;
+        String reply;
+        Intent intent = null;
+        List<Intent> secondary = List.of();
+        boolean failed;
+        switch (outcome) {
+            case TurnOutcome.Valid valid -> {
+                AssistantTurn turn = valid.turn();
+                priority = PriorityPolicy.assess(current.clinicalPriority(), new PriorityPolicy.Inputs(turn.priority(),
+                        turn.allIntents(), turn.signals(), turn.possibleEmergency(), turn.clinicalUncertainty(),
+                        ctx.alertFloor()));
+                recorded.addAll(turn.signals());
+                reply = composer.composeWaitingValid(new ReplyComposer.WaitingPlan(priority.turnLevel(),
+                        turn.possibleEmergency(), overdue, turn.signals(), previousReply, step, closed), turn.reply());
+                intent = turn.intent();
+                secondary = turn.secondaryIntents();
+                current.recordIntent(turn.intent());
+                if (turn.knowledgeGap()) {
+                    recordInformationGap(current, start.customerMessage().content(), now);
+                }
+                collector.collect(current, turn, start.recent(), start.customerMessage(), true, now);
+                failed = false;
+            }
+            case TurnOutcome.Failed failure -> {
+                priority = PriorityPolicy.assess(current.clinicalPriority(),
+                        PriorityPolicy.Inputs.deterministicOnly(ctx.alertFloor()));
+                reply = composer.composeWaiting(new ReplyComposer.WaitingPlan(priority.turnLevel(), false, overdue,
+                        Set.of(), previousReply, step, closed), true);
+                failed = true;
+            }
+        }
+        current.raisePriority(priority.effective());
+        current.registerActivity(now);
+        Conversation saved = conversations.save(current);
+        messages.save(Message.fromAssistant(current.id(), reply, intent,
+                metadata(failed, priority, recorded, secondary), now));
+        return new Result(current.id(), start.newConversation(), reply, saved.status(), Optional.ofNullable(intent),
+                failed, saved.clinicalPriority(), saved.handoffReason());
     }
 
-    private static ReplyComposer.Plan plan(TurnDecider.Decision decision, boolean possibleEmergency) {
+    private ReplyComposer.Plan plan(TurnDecider.Decision decision, boolean possibleEmergency, boolean knowledgeGap) {
         return new ReplyComposer.Plan(decision.priority().turnLevel(), possibleEmergency, decision.explicitRequest(),
-                decision.handoff().handsOff(), decision.handoff().offerHuman());
+                decision.handoff().handsOff(), decision.handoff().registers() || knowledgeGap, decision.handoff().offerHuman(),
+                nextStep.text().orElse(null), nextStep.emergencyWhenClosed().orElse(null));
     }
 
     private static AssistantMetadata metadata(boolean failed, PriorityPolicy.Assessment priority, Set<TurnSignal> signals,
@@ -305,6 +338,14 @@ public class HandleIncomingMessageUseCase {
      */
     private void handOff(Conversation conversation, HandoffReason reason, String customerText, Instant now) {
         conversation.handOff(reason, now);
+        openStaffRequest(conversation, reason, customerText, now);
+    }
+
+    /**
+     * {@code ServiceRequest(HUMAN_CONTACT)} pendente com o motivo, uma aberta por conversa: na transferência e no
+     * pedido registrado sem transferir (DA-40). A equipe vê na listagem; ninguém é notificado.
+     */
+    private void openStaffRequest(Conversation conversation, HandoffReason reason, String customerText, Instant now) {
         boolean alreadyOpen = serviceRequests.findByConversation(conversation.id()).stream()
                 .anyMatch(r -> r.type() == RequestType.HUMAN_CONTACT && !r.status().isFinal());
         if (!alreadyOpen) {

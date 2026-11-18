@@ -86,8 +86,12 @@ class SensitiveTopicAndRecoveryIT {
         JsonNode first = api.sendMessage(id, "boa noite, eu gostaria de saber se vocês fazem sacrifício de cachorro").body();
         JsonNode second = api.sendMessage(id, "Vocês podem me atender amanhã de manhã?").body();
 
+        // DA-40: pedido registrado para a equipe, a conversa continua aberta e termina com o próximo passo.
         assertThat(first.path("status").asString()).isEqualTo("OPEN");
-        assertThat(first.path("reply").asString()).endsWith(handoff.replies().humanOffer().strip());
+        assertThat(first.path("staffRequestReason").asString()).isEqualTo("SENSITIVE_TOPIC");
+        assertThat(first.path("reply").asString()).contains(handoff.replies().register().strip())
+                .contains("ligue para a recepção").contains("(11) 3000-1000");
+        assertThat(requestTypes(id)).contains(RequestType.HUMAN_CONTACT);
         assertThat(second.path("status").asString()).isEqualTo("OPEN");
         assertThat(requestTypes(id)).doesNotContain(RequestType.APPOINTMENT);
     }
@@ -111,13 +115,25 @@ class SensitiveTopicAndRecoveryIT {
     }
 
     @Test
-    void waitingHuman_answersFrustrationWithAnHonestExplanation_andNeverRepeatsTheSameText() {
+    void waitingHuman_theModelKeepsAnsweringClinicQuestions() {
+        String id = open();
+        api.sendMessage(id, "quero falar com um atendente");
+        model.thenJson(TurnJson.of("Amanhã abrimos das 08:00 às 18:00.", "CLINIC_INFORMATION").refs("hours.tuesday"));
+
+        JsonNode body = api.sendMessage(id, "que horas a clinica abre amanhã?").body();
+
+        assertThat(body.path("status").asString()).isEqualTo("WAITING_HUMAN");
+        assertThat(body.path("fallback").asBoolean()).isFalse();
+        assertThat(body.path("reply").asString()).isEqualTo("Amanhã abrimos das 08:00 às 18:00.");
+    }
+
+    @Test
+    void waitingHuman_whenTheModelFails_failSafeExplains_andNeverRepeatsTheSameText() {
         String id = open();
         api.sendMessage(id, "quero falar com um atendente");   // encaminha pelo detector (DA-30)
-        model.thenRestricted(false, false, "P6_RELATIONSHIP", "CONFUSION")
-                .thenRestricted(false, false, "P6_RELATIONSHIP", "DISSATISFACTION")
-                .thenRestricted(false, false, "P6_RELATIONSHIP")
-                .thenRestricted(false, false, "P6_RELATIONSHIP");
+        for (int i = 0; i < 8; i++) {
+            model.thenFail(com.clinicavet.assistant.conversation.application.AssistantModelException.Kind.TIMEOUT);
+        }
 
         List<String> replies = new ArrayList<>();
         for (String text : List.of("então para o que você serve?", "não tá fazendo sentido o que você está falando",
@@ -127,8 +143,6 @@ class SensitiveTopicAndRecoveryIT {
             replies.add(body.path("reply").asString());
         }
 
-        assertThat(replies.get(0)).isEqualTo(handoff.replies().waitingExplanation().strip());
-        assertThat(replies.get(1)).isEqualTo(handoff.replies().waitingExplanationRepeat().strip());
         for (int i = 1; i < replies.size(); i++) {
             assertThat(replies.get(i)).as("resposta %d igual à anterior", i).isNotEqualTo(replies.get(i - 1));
         }

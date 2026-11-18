@@ -6,7 +6,7 @@
 
 | ID | Risco | Categoria | P | I | Mitigação (decisão / documento) | Etapa | Risco residual |
 |---|---|---|---|---|---|---|---|
-| R-01 | Mensagem de possível emergência recebida em `WAITING_HUMAN` sem orientação adequada | Segurança do animal | B | A | Modo restrito com sinal de emergência + orientação inserida pelo backend + fail-safe em falha (DA-11, ADR-0007) | E4 | O indício depende do modelo; política de emergência ainda pendente (P-01) |
+| R-01 | Mensagem de possível emergência recebida em `WAITING_HUMAN` sem orientação adequada | Segurança do animal | B | A | Modelo em `WAITING_HUMAN` com sinal de emergência (DA-40) + orientação inserida pelo backend + fail-safe em falha (DA-11, ADR-0007) | E4 | O indício depende do modelo; política de emergência ainda pendente (P-01) |
 | R-02 | Pedido explícito de humano não reconhecido | Requisito / UX | B | A | Detector determinístico antes do modelo e da validação (DA-11) | E4 | Expressões fora da lista (PT-10) dependem do modelo |
 | R-03 | Conversa encaminhada sem ninguém para atender | UX / operação | A | A | Semântica explícita de `WAITING_HUMAN`; indicador de atraso; orientação de prazo vencido (ADR-0007) | E4 | **Alto enquanto P-02 e P-14 não forem definidas**; sem notificação no MVP |
 | R-04 | Informação institucional inventada não detectada | Confiabilidade | M | A | Fontes declaradas + V1–V6 + perguntas-armadilha + limites documentados (DA-12, ADR-0008) | E3, E6 | Limites do ADR-0008 (por extenso, afirmações sem valor, assunto errado) |

@@ -20,7 +20,7 @@ Nada fica só em memória. A cada mensagem, a aplicação **reconstrói o contex
 
 As mensagens do tutor (anteriores e atual) vão delimitadas por `<mensagem_do_cliente>…</mensagem_do_cliente>`. Se o tutor escrever essas marcas no texto, elas são removidas antes do envio, para que ele não consiga "fechar" o bloco e escrever fora dele. O prompt de sistema manda tratar o conteúdo delimitado como dado, nunca como instrução.
 
-**Dois modos** (ADR-0007, item 4): em `OPEN`, o modo principal, com a mensagem 1 = `system-message.st`; em `WAITING_HUMAN`, o **modo restrito**, com a mensagem 1 = `waiting-human.st`, saída só de sinais (`possibleEmergency`, `explicitHumanRequest`, `priority`, `signals`), uma chamada, 500 tokens, 15 s. No modo restrito a camada 3 não é enviada (minimização); as demais mensagens são iguais nos dois modos.
+**Um modo só** (DA-40): em `OPEN` e em `WAITING_HUMAN`, a mesma chamada principal, com as mesmas mensagens. O status em `<estado_do_atendimento>` diz ao modelo que a conversa está com a equipe, e o prompt limita o que ele faz nesse caso. O antigo modo restrito, só de sinais, saiu.
 
 No modo principal, a resposta pedida é o `AssistantTurn` v4, com JSON Schema **estrito** (`assistant_turn_v4`):
 

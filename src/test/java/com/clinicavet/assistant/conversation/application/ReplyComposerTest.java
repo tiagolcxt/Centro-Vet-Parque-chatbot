@@ -18,7 +18,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ReplyComposerTest {
 
     private static final HandoffSettings.Replies TEXTS = new HandoffSettings.Replies("REGISTRADA", "RECEBIDA", "OFERTA",
-            "EMERGENCIA", "ORIENTACAO-CURTA", "PRAZO-VENCIDO", "EXPLICACAO", "EXPLICACAO-2");
+            "EMERGENCIA", "ORIENTACAO-CURTA", "PRAZO-VENCIDO", "EXPLICACAO", "EXPLICACAO-2", "PEDIDO-REGISTRADO",
+            "LIGUE {phone}", "FECHADA {when} {phone}", "HORARIO {phone}", "FECHADA-AGORA", "PROCURE {referral}");
 
     private static HandoffSettings settings() {
         Map<ClinicalPriority, Duration> deadlines = new EnumMap<>(ClinicalPriority.class);
@@ -95,18 +96,63 @@ class ReplyComposerTest {
         var confusion = java.util.Set.of(com.clinicavet.assistant.conversation.domain.TurnSignal.CONFUSION);
         var none = java.util.Set.<com.clinicavet.assistant.conversation.domain.TurnSignal>of();
 
-        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, confusion, "RECEBIDA"))
+        assertThat(waiting(P6_RELATIONSHIP, false, confusion, "RECEBIDA"))
                 .isEqualTo("EXPLICACAO");
-        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, confusion, "EXPLICACAO"))
+        assertThat(waiting(P6_RELATIONSHIP, false, confusion, "EXPLICACAO"))
                 .isEqualTo("EXPLICACAO-2");
-        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, confusion, "EXPLICACAO-2"))
+        assertThat(waiting(P6_RELATIONSHIP, false, confusion, "EXPLICACAO-2"))
                 .isEqualTo("EXPLICACAO");
         // Sem sinal, mas a anterior já foi a confirmação: não repete.
-        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, none, "REGISTRADA\n\nRECEBIDA"))
+        assertThat(waiting(P6_RELATIONSHIP, false, none, "REGISTRADA\n\nRECEBIDA"))
                 .isEqualTo("EXPLICACAO");
-        assertThat(composer.composeWaiting(P6_RELATIONSHIP, false, false, false, none, "Outra coisa")).isEqualTo("RECEBIDA");
+        assertThat(waiting(P6_RELATIONSHIP, false, none, "Outra coisa")).isEqualTo("RECEBIDA");
         // Emergência continua primeiro.
-        assertThat(composer.composeWaiting(P6_RELATIONSHIP, true, false, false, confusion, "RECEBIDA"))
+        assertThat(waiting(P6_RELATIONSHIP, true, confusion, "RECEBIDA"))
                 .isEqualTo("EMERGENCIA\n\nEXPLICACAO");
+    }
+
+    private String waiting(ClinicalPriority level, boolean emergency,
+                           java.util.Set<com.clinicavet.assistant.conversation.domain.TurnSignal> signals, String previous) {
+        return composer.composeWaiting(new ReplyComposer.WaitingPlan(level, emergency, false, signals, previous, null,
+                null), false);
+    }
+
+    @Test
+    void da40_transferAndRegister_endWithTheNextStep_andNothingIsRepeated() {
+        var transfer = new ReplyComposer.Plan(P6_RELATIONSHIP, false, false, true, false, false, "LIGUE 1234", null);
+        var register = new ReplyComposer.Plan(P6_RELATIONSHIP, false, false, false, true, false, "LIGUE 1234", null);
+        var explicit = new ReplyComposer.Plan(P6_RELATIONSHIP, false, true, true, false, false, "LIGUE 1234", null);
+        var info = new ReplyComposer.Plan(P6_RELATIONSHIP, false, false, false, false, false, "LIGUE 1234", null);
+
+        assertThat(composer.composeValid(transfer, "Texto.")).isEqualTo("Texto.\n\nREGISTRADA\n\nLIGUE 1234");
+        assertThat(composer.composeValid(register, "Texto.")).isEqualTo("Texto.\n\nPEDIDO-REGISTRADO\n\nLIGUE 1234");
+        assertThat(composer.composeValid(explicit, "Texto.")).isEqualTo("REGISTRADA\n\nLIGUE 1234");
+        assertThat(composer.composeValid(info, "Texto.")).as("informação: sem próximo passo").isEqualTo("Texto.");
+    }
+
+    @Test
+    void da40_emergencyWithTheClinicClosed_guidanceFirst_thenClosedNotice_thenNextStep() {
+        var plan = new ReplyComposer.Plan(P1_POSSIBLE_EMERGENCY, true, false, true, false, false, "FECHADA amanhã 1234",
+                "FECHADA-AGORA PROCURE Hospital");
+
+        assertThat(composer.composeValid(plan, "ignorado")).isEqualTo(
+                "EMERGENCIA\n\nFECHADA-AGORA PROCURE Hospital\n\nREGISTRADA\n\nFECHADA amanhã 1234");
+    }
+
+    @Test
+    void da40_waitingWithTheModel_answersAndAddsTheNextStepOnlyWhenUrgentOrOverdue_withoutRepeating() {
+        var none = java.util.Set.<com.clinicavet.assistant.conversation.domain.TurnSignal>of();
+
+        assertThat(composer.composeWaitingValid(new ReplyComposer.WaitingPlan(P6_RELATIONSHIP, false, false, none, null,
+                "LIGUE 1234", null), "Abrimos às 8h.")).isEqualTo("Abrimos às 8h.");
+        assertThat(composer.composeWaitingValid(new ReplyComposer.WaitingPlan(P2_URGENT, false, false, none, null,
+                "LIGUE 1234", null), "Entendo.")).isEqualTo("ORIENTACAO-CURTA\n\nEntendo.\n\nLIGUE 1234");
+        assertThat(composer.composeWaitingValid(new ReplyComposer.WaitingPlan(P6_RELATIONSHIP, false, true, none,
+                "x\n\nLIGUE 1234", "LIGUE 1234", null), "Ok.")).as("prazo vencido: sempre").isEqualTo("Ok.\n\nLIGUE 1234");
+        assertThat(composer.composeWaitingValid(new ReplyComposer.WaitingPlan(P2_URGENT, false, false, none,
+                "x\n\nLIGUE 1234", "LIGUE 1234", null), "Ok.")).as("urgência: não repete o anterior")
+                .isEqualTo("ORIENTACAO-CURTA\n\nOk.");
+        assertThat(composer.composeWaitingValid(new ReplyComposer.WaitingPlan(P6_RELATIONSHIP, true, false, none, null,
+                "LIGUE 1234", null), "ignorado")).isEqualTo("EMERGENCIA\n\nRECEBIDA\n\nLIGUE 1234");
     }
 }

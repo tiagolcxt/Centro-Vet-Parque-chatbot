@@ -119,12 +119,6 @@ public final class TurnJson {
                 + ",\"appointmentRequest\":" + appointment + "}";
     }
 
-    /** JSON do modo restrito ({@code WAITING_HUMAN}). */
-    public static String restricted(boolean emergency, boolean humanRequest, String priority, String... signals) {
-        return "{\"possibleEmergency\":" + emergency + ",\"explicitHumanRequest\":" + humanRequest
-                + ",\"priority\":\"" + priority + "\",\"signals\":" + array(List.of(signals)) + "}";
-    }
-
     private static String array(List<String> values) {
         return "[" + String.join(",", values.stream().map(v -> "\"" + escape(v) + "\"").toList()) + "]";
     }

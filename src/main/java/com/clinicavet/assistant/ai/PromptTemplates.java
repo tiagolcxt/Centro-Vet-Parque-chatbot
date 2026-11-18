@@ -42,17 +42,14 @@ class PromptTemplates {
     private final String operationalContext;
     private final String clinicTemplate;
     private final ClinicKnowledge knowledge;
-    private final String waitingHumanMessage;
     private final String tutorContext;
 
     PromptTemplates(@Value("classpath:prompts/system-message.st") Resource systemMessage,
-                    @Value("classpath:prompts/waiting-human.st") Resource waitingHuman,
                     @Value("classpath:prompts/operational-context.st") Resource operationalContext,
                     @Value("classpath:prompts/clinic-context.st") Resource clinicTemplate,
                     @Value("classpath:prompts/tutor-context.st") Resource tutorContext,
                     ClinicKnowledge knowledge) {
         this.systemMessage = read(systemMessage);
-        this.waitingHumanMessage = read(waitingHuman);
         this.operationalContext = read(operationalContext);
         this.tutorContext = read(tutorContext);
         this.clinicTemplate = read(clinicTemplate);
@@ -81,11 +78,6 @@ class PromptTemplates {
             lines.add("(nenhuma informação cadastrada)");
         }
         return render(template, Map.of("itens", String.join("\n", lines)));
-    }
-
-    /** Modo restrito em {@code WAITING_HUMAN}: no lugar da camada 1, pede só sinais (ADR-0007, item 4). */
-    String waitingHumanMessage() {
-        return waitingHumanMessage;
     }
 
     /** Camada 1: identidade e comportamento. Texto fixo, sem dados da clínica. */

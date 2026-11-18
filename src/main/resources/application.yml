@@ -80,20 +80,31 @@ assistant:
       handoff: "Sua conversa ficou registrada para a equipe da clínica."
       waiting-confirmation: "Recebi sua mensagem. Ela ficou registrada nesta conversa para a equipe da clínica."
       human-offer: "Se preferir, sua conversa pode ficar registrada para a equipe da clínica. É só me dizer."
+      # PROVISÓRIOS (P-01): sem a marca [PENDENTE] para o tutor desde a DA-40; continuam provisórios até a clínica
+      # aprovar a política de emergência (approved-texts.emergency-policy substitui os dois).
       emergency-placeholder: >-
-        [PENDENTE: política de emergência da clínica (P-01)] Se o seu animal estiver em risco, procure
-        atendimento veterinário imediatamente.
+        Se o seu animal estiver em risco, procure atendimento veterinário imediatamente.
       short-guidance-placeholder: >-
-        [PENDENTE: orientação aprovada pela clínica (P-01)] Se houver piora ou qualquer sinal de risco, procure
-        atendimento veterinário imediatamente.
-      overdue-placeholder: "[PENDENTE: orientação para quando a equipe não responde no prazo (P-02)]"
-      # Em WAITING_HUMAN, com confusão ou insatisfação, ou para não repetir a confirmação (CT-19). Sem prometer contato.
+        Se houver piora ou qualquer sinal de risco, procure atendimento veterinário imediatamente.
+      # Usado só se a base não tiver telefone da recepção nem texto aprovado de contato direto (P-02).
+      overdue-placeholder: "Se precisar de ajuda agora, procure a clínica pelo telefone de atendimento."
+      # Fail-safe em WAITING_HUMAN quando o modelo falha, com confusão ou insatisfação (CT-19). Sem prometer contato.
       waiting-explanation: >-
-        Entendo, e desculpe se não fui claro. Esta conversa está aguardando a equipe da clínica, e por aqui eu não
-        consigo continuar o assunto. O que você escrever fica registrado junto dela para a equipe.
+        Entendo, e desculpe se não fui claro. Esta conversa está aguardando a equipe da clínica. O que você escrever
+        fica registrado junto dela para a equipe.
       waiting-explanation-repeat: >-
         Sua conversa continua aguardando a equipe da clínica. Pode escrever o que precisar: tudo fica registrado
         nela para a equipe.
+      # DA-40: pedido registrado para a equipe sem transferir a conversa (o assistente continua ajudando).
+      register: "Seu pedido ficou registrado para a equipe da clínica."
+      # DA-40: próximo passo. Nunca promete contato: indica ligar para a recepção (identification.phone), conforme a
+      # clínica esteja aberta ({phone}) ou fechada ({when} = próxima abertura, calculada pelo backend).
+      next-step-open: "Para falar com a equipe agora, ligue para a recepção: {phone}."
+      next-step-closed: "A clínica está fechada agora e abre {when}. A partir desse horário, ligue para a recepção: {phone}."
+      next-step-unknown: "Para falar com a equipe, ligue para a recepção no horário de funcionamento: {phone}."
+      # Emergência com a clínica fechada (P-01). {referral} = emergency.after-hours-referral da base.
+      emergency-closed: "A clínica está fechada agora."
+      emergency-referral: "Fora do horário de funcionamento, procure: {referral}"
   customer-data:
     # PROVISÓRIO (P-08): por quanto tempo uma confirmação feita em outra conversa vale como CADASTRADA. Depois,
     # o dado aparece como A_RECONFIRMAR. Valor de desenvolvimento, sem decisão da clínica.

@@ -11,17 +11,21 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Compõe o texto final ao tutor a partir da decisão do backend (ADR-0002 reconciliação, ADR-0007, H6–H8).
+ * Compõe o texto final ao tutor a partir da decisão do backend (ADR-0002 reconciliação, ADR-0007, H6–H8, DA-40).
  * <ul>
- *   <li><b>P1 / possível emergência:</b> orientação de emergência <b>primeiro e sozinha</b>, depois o registro
- *       para a equipe. O texto do modelo não é usado (nada administrativo antes da orientação).</li>
+ *   <li><b>P1 / possível emergência:</b> orientação de emergência <b>primeiro e sozinha</b> (com a clínica fechada, o
+ *       aviso e onde procurar fora do horário), depois o registro e o próximo passo. O texto do modelo não é usado.</li>
  *   <li><b>P2:</b> orientação curta de quando procurar atendimento imediato <b>antes</b> do resto (H6).</li>
- *   <li><b>Pedido explícito de humano:</b> só a confirmação de registro, sem pedir justificativa nem tentar
- *       resolver pela IA (diretriz 3.3, CT-02).</li>
- *   <li><b>Encaminhamento:</b> o texto padrão de registro é acrescentado. Nenhum texto afirma notificação.</li>
+ *   <li><b>Pedido explícito de humano:</b> só a confirmação de registro e o próximo passo, sem pedir justificativa
+ *       nem tentar resolver pela IA (diretriz 3.3, CT-02).</li>
+ *   <li><b>Transferência ou pedido registrado:</b> o texto do modelo, o aviso (conversa registrada / pedido
+ *       registrado) e o <b>próximo passo</b> ({@link NextStep}: ligar para a recepção, conforme a clínica esteja
+ *       aberta). Nenhum texto afirma notificação nem promete contato.</li>
+ *   <li><b>Aguardando a equipe</b> ({@code WAITING_HUMAN}, DA-40): o modelo responde o que é da clínica; o backend
+ *       põe a orientação antes, se houver risco, e o próximo passo quando é urgente ou o prazo venceu.</li>
  * </ul>
- * A orientação de emergência e o contato direto vêm da base (P-01, P-02); enquanto não aprovados, entram os
- * <i>placeholders</i> explícitos, aceitáveis só com dados fictícios (ADR-0014).
+ * A orientação de emergência e o contato direto vêm da base (P-01, P-02); enquanto não aprovados, entram os textos
+ * provisórios da configuração, aceitáveis só com dados fictícios (ADR-0014).
  */
 @Component
 class ReplyComposer {
@@ -29,7 +33,6 @@ class ReplyComposer {
     private final HandoffSettings.Replies texts;
     private final String emergency;
     private final String shortGuidance;
-    private final String overdue;
     private final String directContact;
 
     ReplyComposer(HandoffSettings settings, ClinicKnowledge knowledge) {
@@ -38,12 +41,35 @@ class ReplyComposer {
         this.emergency = policy != null ? policy : texts.emergencyPlaceholder().strip();
         this.shortGuidance = policy != null ? policy : texts.shortGuidancePlaceholder().strip();
         this.directContact = approved(knowledge, "approved-texts.direct-contact");
-        this.overdue = directContact != null ? directContact : texts.overduePlaceholder().strip();
     }
 
-    /** O que o composer precisa saber do turno. */
+    /**
+     * O que o composer precisa saber do turno.
+     *
+     * @param nextStep        "ligue para a recepção…" ({@link NextStep}), ou {@code null} se a base não tem como dizer
+     * @param emergencyClosed aviso de clínica fechada (e onde procurar) para emergência, ou {@code null}
+     */
     record Plan(ClinicalPriority turnLevel, boolean possibleEmergency, boolean explicitRequest, boolean handoff,
-                boolean offerHuman) {
+                boolean register, boolean offerHuman, String nextStep, String emergencyClosed) {
+
+        Plan(ClinicalPriority turnLevel, boolean possibleEmergency, boolean explicitRequest, boolean handoff,
+             boolean offerHuman) {
+            this(turnLevel, possibleEmergency, explicitRequest, handoff, false, offerHuman, null, null);
+        }
+
+        boolean emergency() {
+            return possibleEmergency || turnLevel == ClinicalPriority.P1_POSSIBLE_EMERGENCY;
+        }
+    }
+
+    /**
+     * Turno em {@code WAITING_HUMAN}.
+     *
+     * @param signals       sinais do turno
+     * @param previousReply a última resposta do assistente nesta conversa, ou {@code null}
+     */
+    record WaitingPlan(ClinicalPriority turnLevel, boolean possibleEmergency, boolean overdue, Set<TurnSignal> signals,
+                       String previousReply, String nextStep, String emergencyClosed) {
 
         boolean emergency() {
             return possibleEmergency || turnLevel == ClinicalPriority.P1_POSSIBLE_EMERGENCY;
@@ -53,7 +79,7 @@ class ReplyComposer {
     /** Modo principal, turno válido. */
     String composeValid(Plan plan, String modelReply) {
         if (plan.emergency()) {
-            return join(emergency, handoffText());
+            return join(emergency, plan.emergencyClosed(), handoffText(), plan.nextStep());
         }
         List<String> parts = new ArrayList<>();
         if (plan.turnLevel() == ClinicalPriority.P2_URGENT) {
@@ -65,7 +91,12 @@ class ReplyComposer {
             parts.add(modelReply);
             if (plan.handoff()) {
                 parts.add(handoffText());
+            } else if (plan.register()) {
+                parts.add(texts.register().strip());
             }
+        }
+        if (plan.explicitRequest() || plan.handoff() || plan.register()) {
+            parts.add(plan.nextStep());
         }
         if (plan.offerHuman()) {
             parts.add(texts.humanOffer().strip());
@@ -75,18 +106,27 @@ class ReplyComposer {
 
     /**
      * Modo principal, turno com falha. Se a decisão é encaminhar (pedido explícito, prioridade, transferência
-     * anunciada), a resposta segura é a de encaminhamento. Conversa em P1/P2: a resposta segura inclui a
-     * orientação curta (H8).
+     * anunciada), a resposta segura é a de encaminhamento, com o próximo passo. Conversa em P1/P2: a resposta segura
+     * inclui a orientação curta (H8).
      */
     String composeFailure(Plan plan, String fallbackReply, ClinicalPriority conversationLevel) {
         if (plan.emergency()) {
-            return join(emergency, handoffText());
+            return join(emergency, plan.emergencyClosed(), handoffText(), plan.nextStep());
         }
         List<String> parts = new ArrayList<>();
         if (conversationLevel.isUrgentOrWorse() || plan.turnLevel() == ClinicalPriority.P2_URGENT) {
             parts.add(shortGuidance);
         }
-        parts.add(plan.handoff() ? handoffText() : fallbackReply.strip());
+        if (plan.handoff()) {
+            parts.add(handoffText());
+            parts.add(plan.nextStep());
+        } else {
+            parts.add(fallbackReply.strip());
+            if (plan.register()) {
+                parts.add(texts.register().strip());
+                parts.add(plan.nextStep());
+            }
+        }
         if (plan.offerHuman()) {
             parts.add(texts.humanOffer().strip());
         }
@@ -94,38 +134,64 @@ class ReplyComposer {
     }
 
     /**
-     * Modo restrito ({@code WAITING_HUMAN}). Confirmação de recebimento, sem prometer notificação. Indício de
-     * emergência: orientação no início. Falha: confirmação + orientação curta (fail-safe). Prazo vencido:
-     * orientação de contato direto (P-02).
+     * {@code WAITING_HUMAN}, turno válido (DA-40). Risco: orientação primeiro e sozinha, sem o texto do modelo. Senão o
+     * texto do modelo (que responde o que é da clínica), com a orientação curta antes em P2. O próximo passo entra
+     * quando é urgente ou o prazo venceu, sem repetir o da resposta anterior.
      */
-    String composeWaiting(ClinicalPriority turnLevel, boolean possibleEmergency, boolean failed, boolean overdueNow) {
-        return composeWaiting(turnLevel, possibleEmergency, failed, overdueNow, Set.of(), null);
+    String composeWaitingValid(WaitingPlan plan, String modelReply) {
+        if (plan.emergency()) {
+            return join(emergency, plan.emergencyClosed(), texts.waitingConfirmation().strip(),
+                    overdueText(plan.nextStep()));
+        }
+        List<String> parts = new ArrayList<>();
+        boolean urgent = plan.turnLevel() == ClinicalPriority.P2_URGENT;
+        if (urgent) {
+            parts.add(shortGuidance);
+        }
+        parts.add(modelReply);
+        String step = overdueText(plan.nextStep());
+        boolean repeated = plan.previousReply() != null && plan.previousReply().contains(step);
+        if (plan.overdue() || (urgent && !repeated)) {   // prazo vencido: sempre; urgência: sem repetir
+            parts.add(step);
+        }
+        return join(parts.toArray(String[]::new));
     }
 
     /**
-     * Com confusão, insatisfação ou sofrimento, a confirmação vira uma explicação honesta do estado da conversa; e o
-     * mesmo texto nunca vai duas vezes seguidas (CT-19, opção A aprovada em 2026-11-17). O modelo continua sem
-     * escrever texto livre em {@code WAITING_HUMAN}.
-     *
-     * @param signals       sinais do modo restrito neste turno
-     * @param previousReply a última resposta do assistente nesta conversa, ou {@code null}
+     * {@code WAITING_HUMAN}, falha do modelo (fail-safe). Confirmação de recebimento, sem prometer notificação; com
+     * confusão, insatisfação ou sofrimento, uma explicação honesta; o mesmo texto nunca vai duas vezes seguidas
+     * (CT-19). Indício de emergência: orientação no início. Prazo vencido ou emergência: contato direto ou próximo
+     * passo.
      */
-    String composeWaiting(ClinicalPriority turnLevel, boolean possibleEmergency, boolean failed, boolean overdueNow,
-                          Set<TurnSignal> signals, String previousReply) {
+    String composeWaiting(ClinicalPriority turnLevel, boolean possibleEmergency, boolean failed, boolean overdueNow) {
+        return composeWaiting(new WaitingPlan(turnLevel, possibleEmergency, overdueNow, Set.of(), null, null, null),
+                failed);
+    }
+
+    String composeWaiting(WaitingPlan plan, boolean failed) {
         List<String> parts = new ArrayList<>();
-        if (possibleEmergency || turnLevel == ClinicalPriority.P1_POSSIBLE_EMERGENCY) {
+        if (plan.emergency()) {
             parts.add(emergency);
-        } else if (turnLevel == ClinicalPriority.P2_URGENT) {
+            parts.add(plan.emergencyClosed());
+        } else if (plan.turnLevel() == ClinicalPriority.P2_URGENT) {
             parts.add(shortGuidance);
         }
-        parts.add(waitingText(signals, previousReply));
-        if (failed && parts.size() == 1) {
+        parts.add(waitingText(plan.signals(), plan.previousReply()));
+        if (failed && parts.stream().filter(p -> p != null).count() == 1) {
             parts.add(shortGuidance);
         }
-        if (overdueNow) {
-            parts.add(overdue);
+        if (plan.overdue() || (plan.emergency() && plan.nextStep() != null)) {
+            parts.add(overdueText(plan.nextStep()));
         }
         return join(parts.toArray(String[]::new));
+    }
+
+    /** Prazo vencido: o texto aprovado (P-02); senão o próximo passo; senão o provisório da configuração. */
+    private String overdueText(String nextStep) {
+        if (directContact != null) {
+            return directContact;
+        }
+        return nextStep != null ? nextStep : texts.overduePlaceholder().strip();
     }
 
     private static final Set<TurnSignal> FRUSTRATION = Set.of(TurnSignal.CONFUSION, TurnSignal.DISSATISFACTION,
@@ -150,7 +216,13 @@ class ReplyComposer {
     }
 
     private static String join(String... parts) {
-        return String.join("\n\n", java.util.Arrays.stream(parts).filter(p -> p != null && !p.isBlank()).toList());
+        List<String> kept = new ArrayList<>();
+        for (String part : parts) {
+            if (part != null && !part.isBlank() && !kept.contains(part)) {
+                kept.add(part);
+            }
+        }
+        return String.join("\n\n", kept);
     }
 
     private static String approved(ClinicKnowledge knowledge, String key) {

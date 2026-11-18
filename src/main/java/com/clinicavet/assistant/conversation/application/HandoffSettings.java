@@ -40,11 +40,20 @@ public record HandoffSettings(@NotNull Map<ClinicalPriority, Duration> deadlines
      * @param waitingExplanation      em {@code WAITING_HUMAN}, quando o tutor mostra confusão ou insatisfação, ou para não
      *                                repetir a confirmação: explica, com honestidade, em que pé está a conversa (CT-19)
      * @param waitingExplanationRepeat variação da explicação, para não mandar o mesmo texto duas vezes seguidas
+     * @param register                 pedido registrado para a equipe sem transferir a conversa (DA-40)
+     * @param nextStepOpen             próximo passo com a clínica aberta; {@code {phone}} = telefone da recepção
+     * @param nextStepClosed           próximo passo com a clínica fechada; {@code {when}} = próxima abertura
+     * @param nextStepUnknown          próximo passo sem horário cadastrado para hoje
+     * @param emergencyClosed          emergência com a clínica fechada (aviso)
+     * @param emergencyReferral        onde procurar fora do horário; {@code {referral}} = local cadastrado (P-01)
      */
     public record Replies(@NotBlank String handoff, @NotBlank String waitingConfirmation, @NotBlank String humanOffer,
                           @NotBlank String emergencyPlaceholder, @NotBlank String shortGuidancePlaceholder,
                           @NotBlank String overduePlaceholder, @NotBlank String waitingExplanation,
-                          @NotBlank String waitingExplanationRepeat) {
+                          @NotBlank String waitingExplanationRepeat, @NotBlank String register,
+                          @NotBlank String nextStepOpen, @NotBlank String nextStepClosed,
+                          @NotBlank String nextStepUnknown, @NotBlank String emergencyClosed,
+                          @NotBlank String emergencyReferral) {
     }
 
     public Duration deadlineFor(ClinicalPriority priority) {

@@ -110,3 +110,7 @@ O `SpringAiAssistantModelIT` aponta o adaptador real para um servidor HTTP local
 
 - O schema principal passou a `assistant_turn_v4`, com três objetos aninhados (`extracted` com a lista `pets`, a lista `confirmations` e `appointmentRequest`) e dois enums novos (espécie com `UNKNOWN`, campo confirmável). O modo estrito exige todos os campos; "não informado" vai como texto vazio. A OpenAI aceitou o schema (testes com IA real da Etapa 5 e repetição dos das Etapas 2 a 4).
 - A camada 3 (`<cliente>`) é mais uma mensagem `system`, só no modo principal.
+
+### Complemento (2026-11-17): fim do modo restrito (DA-40)
+
+O modo restrito (500 tokens, 15 s, sem nova tentativa) foi removido. Em `WAITING_HUMAN` vale o mesmo da chamada principal: 2.000 tokens, 30 s e uma nova tentativa. Isso também corrige a falha observada no teste manual: um timeout de rede depois de inatividade virava resposta segura, porque o modo restrito não repetia. As linhas "modo restrito" da tabela acima ficam como histórico.

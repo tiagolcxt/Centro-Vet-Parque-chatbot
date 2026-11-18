@@ -43,13 +43,6 @@ public final class FakeAssistantModel implements AssistantModel {
         return then(request -> ModelReply.of(json, "STOP"));
     }
 
-    /** Resposta do modo restrito. */
-    public synchronized FakeAssistantModel thenRestricted(boolean emergency, boolean humanRequest, String priority,
-                                                          String... signals) {
-        String json = TurnJson.restricted(emergency, humanRequest, priority, signals);
-        return then(request -> ModelReply.of(json, "STOP"));
-    }
-
     public synchronized FakeAssistantModel thenTurn(String reply, String intent, List<String> refs, boolean gap) {
         return then(request -> ModelReply.of(turnJson(reply, intent, refs, gap), "STOP"));
     }
@@ -89,9 +82,7 @@ public final class FakeAssistantModel implements AssistantModel {
             behavior = script.pollFirst();
         }
         if (behavior == null) {
-            return request.mode() == AssistantRequest.Mode.RESTRICTED
-                    ? ModelReply.of(TurnJson.restricted(false, false, "P6_RELATIONSHIP"), "STOP")
-                    : ModelReply.of(turnJson(DEFAULT_REPLY, "OTHER"), "STOP");
+            return ModelReply.of(turnJson(DEFAULT_REPLY, "OTHER"), "STOP");
         }
         return behavior.apply(request);
     }

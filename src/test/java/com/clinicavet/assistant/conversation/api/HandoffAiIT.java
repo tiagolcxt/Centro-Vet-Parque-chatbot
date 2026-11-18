@@ -49,13 +49,18 @@ class HandoffAiIT {
     @Value("${local.server.port}")
     int port;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    com.clinicavet.assistant.conversation.application.HandoffSettings handoff;
+
     @Test
     void handoffScenarios() {
         ApiClient api = new ApiClient(port, "chave-de-teste-ficticia-0123456789abcdef");
-        String emergencyStart = "[PENDENTE: política de emergência da clínica (P-01)]";
+        String emergencyStart = handoff.replies().emergencyPlaceholder().strip();
         List<Scenario> scenarios = List.of(
                 new Scenario("reclamação", "Fui muito mal atendido ontem, a recepcionista foi grosseira comigo.",
-                        b -> waiting(b) && Set.of("COMPLAINT", "DISSATISFACTION").contains(b.path("handoffReason").asString())),
+                        // DA-40: reclamação transfere; insatisfação sem reclamação registra o pedido. Os dois chegam à equipe.
+                        b -> (waiting(b) && b.path("handoffReason").asString().equals("COMPLAINT"))
+                                || b.path("staffRequestReason").asString().equals("DISSATISFACTION")),
                 new Scenario("pedido coloquial", "Dá pra chamar alguém de carne e osso aí? Cansei de robô.",
                         b -> waiting(b)),
                 new Scenario("sintoma", "Meu gato está vomitando desde ontem à noite.",

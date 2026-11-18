@@ -42,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @IntegrationTest
 class GuidelineScenariosIT {
 
+    /** Próximo passo da DA-40 (o texto exato depende de a clínica fictícia estar aberta no relógio do teste). */
+    private static final String RECEPTION = "ligue para a recepção";
+
     @Value("${local.server.port}")
     int port;
 
@@ -142,14 +145,15 @@ class GuidelineScenariosIT {
 
         assertThat(first.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(first.path("handoffReason").asString()).isEqualTo("EXPLICIT_REQUEST");
-        assertThat(first.path("reply").asString()).endsWith(handoff.replies().handoff().strip())
-                .doesNotContain("?");   // sem pedir o motivo
+        assertThat(first.path("reply").asString()).contains(handoff.replies().handoff().strip())
+                .contains(RECEPTION).doesNotContain("?");   // sem pedir o motivo; termina com o próximo passo (DA-40)
         assertThat(openRequestTypes(id)).containsExactly(RequestType.HUMAN_CONTACT);
 
         JsonNode second = api.sendMessage(id, "já falei, quero uma pessoa").body();
 
-        assertThat(model.lastRequest().mode()).isEqualTo(AssistantRequest.Mode.RESTRICTED);
-        assertThat(second.path("reply").asString()).isEqualTo(handoff.replies().waitingConfirmation().strip());
+        // DA-40: na espera, o modelo responde (aqui, a resposta padrão do double); nada de pedir o motivo.
+        assertThat(second.path("status").asString()).isEqualTo("WAITING_HUMAN");
+        assertThat(second.path("reply").asString()).isEqualTo(FakeAssistantModel.DEFAULT_REPLY);
         assertThat(openRequestTypes(id)).as("não duplica o pedido").containsExactly(RequestType.HUMAN_CONTACT);
     }
 
@@ -162,7 +166,7 @@ class GuidelineScenariosIT {
 
         assertThat(body.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(body.path("handoffReason").asString()).isEqualTo("EXPLICIT_REQUEST");
-        assertThat(body.path("reply").asString()).isEqualTo(handoff.replies().handoff().strip());
+        assertThat(body.path("reply").asString()).startsWith(handoff.replies().handoff().strip()).contains(RECEPTION);
     }
 
     @Test
@@ -222,7 +226,7 @@ class GuidelineScenariosIT {
     void ct07_emergencyWhileWaiting_raisesToP1_staysWaiting_guidanceFirst() {
         String id = open();
         api.sendMessage(id, "quero falar com um atendente");
-        model.thenRestricted(true, false, "P6_RELATIONSHIP");
+        model.thenJson(TurnJson.of("Entendo.", "MEDICAL_CONCERN").emergency());
 
         JsonNode body = api.sendMessage(id, "Ele começou a tremer e caiu").body();
 
@@ -233,24 +237,22 @@ class GuidelineScenariosIT {
     }
 
     @Test
-    void ct07_restrictedModeFailing_failSafeIncludesShortGuidance() {
+    void ct07_modelFailingWhileWaiting_failSafeIncludesShortGuidance() {
         String id = open();
         api.sendMessage(id, "quero falar com um atendente");
-        model.thenFail(AssistantModelException.Kind.TIMEOUT);
+        model.thenFail(AssistantModelException.Kind.TIMEOUT).thenFail(AssistantModelException.Kind.TIMEOUT);   // 1 + 1 nova tentativa
 
         JsonNode body = api.sendMessage(id, "Ele começou a tremer e caiu").body();
 
         assertThat(body.path("fallback").asBoolean()).isTrue();
         assertThat(body.path("reply").asString()).contains(handoff.replies().waitingConfirmation().strip(), shortGuidance());
-        assertThat(model.requests().stream().filter(r -> r.mode() == AssistantRequest.Mode.RESTRICTED))
-                .as("modo restrito não repete").hasSize(1);
     }
 
     @Test
     void ct07_alertExpressionWhileWaiting_raisesEvenIfTheModelSaysP6() {
         String id = open();
         api.sendMessage(id, "quero falar com um atendente");
-        model.thenRestricted(false, false, "P6_RELATIONSHIP");
+        model.thenJson(TurnJson.of("Entendo.", "OTHER"));
 
         JsonNode body = api.sendMessage(id, "Agora ele está convulsionando").body();
 
@@ -269,7 +271,11 @@ class GuidelineScenariosIT {
         JsonNode withSymptom = api.sendMessage(b, "Posso dar mais remédio? Ele continua com febre").body();
 
         assertThat(followUp.path("priority").asString()).isEqualTo("P3_CLINICAL_FOLLOW_UP");
-        assertThat(followUp.path("handoffReason").asString()).isEqualTo("CLINICAL_PRIORITY");
+        // DA-40: acompanhamento sem urgência (P3) registra o pedido e a conversa continua com o assistente.
+        assertThat(followUp.path("status").asString()).isEqualTo("OPEN");
+        assertThat(followUp.path("staffRequestReason").asString()).isEqualTo("CLINICAL");
+        assertThat(followUp.path("reply").asString()).contains(RECEPTION);
+        assertThat(withSymptom.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(withSymptom.path("priority").asString()).isEqualTo("P2_URGENT");
     }
 
@@ -298,7 +304,7 @@ class GuidelineScenariosIT {
         JsonNode item = findById(queue, id);
         assertThat(item.path("overdue").asBoolean()).isTrue();
         assertThat(item.path("waitingMinutes").asLong()).isGreaterThan(60);
-        assertThat(next.path("reply").asString()).contains(handoff.replies().overduePlaceholder().strip());
+        assertThat(next.path("reply").asString()).contains(RECEPTION);   // prazo vencido: ligar para a recepção (DA-40)
         assertNeverClaimsNotification(next.path("reply").asString());
     }
 
@@ -326,8 +332,11 @@ class GuidelineScenariosIT {
         assertThat(second.path("reply").asString()).contains(handoff.replies().humanOffer().strip());
         assertThat(second.path("status").asString()).isEqualTo("OPEN");
         assertThat(load(id).humanOfferMade()).isTrue();
-        assertThat(third.path("status").asString()).isEqualTo("WAITING_HUMAN");
-        assertThat(third.path("handoffReason").asString()).isEqualTo("UNPRODUCTIVE_CONVERSATION");
+        // DA-40: na 3ª, pedido registrado para a equipe com o próximo passo; a conversa continua aberta.
+        assertThat(third.path("status").asString()).isEqualTo("OPEN");
+        assertThat(third.path("staffRequestReason").asString()).isEqualTo("UNPRODUCTIVE_CONVERSATION");
+        assertThat(third.path("reply").asString()).contains(handoff.replies().register().strip(), RECEPTION);
+        assertThat(openRequestTypes(id)).contains(RequestType.HUMAN_CONTACT);
     }
 
     @Test
@@ -350,7 +359,7 @@ class GuidelineScenariosIT {
         String id = open();
         model.thenJson(TurnJson.of("Entendo.", "OTHER"));
         api.sendMessage(id, "Ele desmaiou agora há pouco");
-        model.thenRestricted(false, false, "P6_RELATIONSHIP");
+        model.thenJson(TurnJson.of("Entendo.", "OTHER"));
 
         JsonNode body = api.sendMessage(id, "Já passou, pode esquecer").body();
         assertThat(body.path("priority").asString()).isEqualTo("P1_POSSIBLE_EMERGENCY");
@@ -376,7 +385,7 @@ class GuidelineScenariosIT {
 
         assertThat(body.path("fallback").asBoolean()).isTrue();
         assertThat(body.path("handoffReason").asString()).isEqualTo("TURN_FAILURE");
-        assertThat(body.path("reply").asString()).isEqualTo(handoff.replies().handoff().strip());
+        assertThat(body.path("reply").asString()).startsWith(handoff.replies().handoff().strip()).contains(RECEPTION);
     }
 
     @Test

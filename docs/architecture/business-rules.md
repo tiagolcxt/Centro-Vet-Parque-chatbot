@@ -1,6 +1,6 @@
 # Regras de negócio implementadas — encaminhamento, prioridade, limites e coleta
 
-> Reflete o código ao fim da **Etapa 5 — Coleta de dados e solicitações de agendamento** (2026-11-17). Decisões: ADR-0007, ADR-0010, ADR-0011, ADR-0017, ADR-0018, ADR-0019, DA-15, DA-25, DA-30, DA-31, DA-33, DA-34, DA-35, DA-36, DA-37. Requisitos: [requisitos-diretrizes.md](../specs/requisitos-diretrizes.md). Cenários: [cenarios-diretrizes.md](../specs/cenarios-diretrizes.md).
+> Reflete o código ao fim da **Etapa 5** e das revisões de 2026-11-17 (DA-38 a DA-40: formato, base v2 e atendimento resolutivo). Decisões: ADR-0007, ADR-0010, ADR-0011, ADR-0017, ADR-0018, ADR-0019, DA-15, DA-25, DA-30, DA-31, DA-33, DA-34, DA-35, DA-36, DA-37. Requisitos: [requisitos-diretrizes.md](../specs/requisitos-diretrizes.md). Cenários: [cenarios-diretrizes.md](../specs/cenarios-diretrizes.md).
 > **Somente dados fictícios.** Textos de emergência, prazo e encaminhamento são provisórios (P-01, P-02, P-10, P-19); a lista de expressões de alerta é ilustrativa (P-20).
 
 ## 1. Quem decide o quê
@@ -17,33 +17,44 @@
 
 O modelo nunca remove um encaminhamento nem rebaixa uma prioridade: o backend só acrescenta.
 
-## 2. Encaminhamento (ADR-0007)
+## 2. Encaminhamento (ADR-0007, DA-40)
 
-O turno encaminha quando qualquer condição vale. Fica o motivo da primeira desta lista:
+Desde a DA-40 (atendimento resolutivo, 2026-11-17), o turno tem três resultados possíveis. Fica o motivo da primeira condição que valer.
+
+**Transferir** (a conversa vai para a fila da equipe, `WAITING_HUMAN`):
 
 | # | Condição | Motivo persistido |
 |---|---|---|
 | 1 | Possível emergência (modelo) ou nível do turno P1 | `POSSIBLE_EMERGENCY` |
-| 2 | Nível do turno P2 ou P3 | `CLINICAL_PRIORITY` |
+| 2 | Nível do turno P2 | `CLINICAL_PRIORITY` |
 | 3 | Pedido explícito (detector) ou intenção `HUMAN_REQUEST` (principal ou secundária) | `EXPLICIT_REQUEST` |
 | 4 | Intenção `COMPLAINT` | `COMPLAINT` |
-| 5 | Intenção `MEDICAL_CONCERN` ou `TREATMENT_FOLLOW_UP` | `CLINICAL` |
-| 6 | Sinal `DISSATISFACTION` | `DISSATISFACTION` |
-| 7 | Sinal `NEEDS_STAFF_DECISION` | `STAFF_DECISION` |
-| 8 | O modelo pediu (`handoffRequested`) | `MODEL_SIGNAL` |
-| 9 | Conversa improdutiva no limite (3ª ocorrência) | `UNPRODUCTIVE_CONVERSATION` |
-| 10 | Falha envolvendo encaminhamento (texto anunciou transferência nas duas tentativas) | `TURN_FAILURE` |
+| 5 | Intenção `MEDICAL_CONCERN` | `CLINICAL` |
+| 6 | Falha envolvendo encaminhamento (texto anunciou transferência nas duas tentativas) | `TURN_FAILURE` |
+
+**Registrar** (pedido para a equipe; a conversa **continua com o assistente**, `OPEN`):
+
+| # | Condição | Motivo do pedido |
+|---|---|---|
+| 7 | Nível do turno P3 ou intenção `TREATMENT_FOLLOW_UP` | `CLINICAL` |
+| 8 | Sinal `DISSATISFACTION` | `DISSATISFACTION` |
+| 9 | Sinal `NEEDS_STAFF_DECISION` | `STAFF_DECISION` |
+| 10 | Sinal `SENSITIVE_TOPIC` (CT-19) | `SENSITIVE_TOPIC` |
+| 11 | O modelo pediu (`handoffRequested`) | `MODEL_SIGNAL` |
+| 12 | Conversa improdutiva no limite (3ª ocorrência) | `UNPRODUCTIVE_CONVERSATION` |
+
+**Oferecer** (sem transferir nem registrar): sinais `EMOTIONAL_DISTRESS`, `CONFUSION`, `BEREAVEMENT`, `FINANCIAL_VULNERABILITY` ou conversa improdutiva na 2ª ocorrência. No máximo uma vez por conversa.
 
 **Nível do turno** é o do modelo mais os pisos deste turno, **sem** o nível que a conversa já tinha. Assim, uma conversa P2 que a equipe devolveu ao assistente não volta automaticamente para a fila; ela volta se a nova mensagem for urgente.
 
-**Ao encaminhar**, na mesma transação (ADR-0017):
-- `WAITING_HUMAN`, motivo e momento na conversa;
+**Ao transferir ou registrar**, na mesma transação (ADR-0017):
 - uma `ServiceRequest(HUMAN_CONTACT)` `PENDING` com o motivo e a mensagem no resumo (uma por conversa);
-- **ninguém é notificado**. A equipe vê a conversa na fila.
+- na transferência, também `WAITING_HUMAN`, motivo e momento na conversa;
+- **ninguém é notificado**. A equipe vê a conversa na fila e o pedido na listagem. A resposta da API traz `handoffReason` (transferência) ou `staffRequestReason` (pedido registrado).
 
-**Oferta de atendimento humano** (sem encaminhar): sinais `EMOTIONAL_DISTRESS`, `CONFUSION`, `BEREAVEMENT`, `FINANCIAL_VULNERABILITY` ou conversa improdutiva na 2ª ocorrência. No máximo uma vez por conversa.
+**Próximo passo** (DA-40): toda transferência, todo pedido registrado e todo pedido explícito de pessoa terminam com o caminho até uma pessoa, composto pelo backend (`NextStep`): ligar para a **recepção** (`identification.phone`), conforme a clínica esteja **aberta** agora ("ligue agora") ou **fechada** ("abre quarta-feira, 18/11, às 08:00; a partir desse horário, ligue"). O cálculo usa o horário da base (`OpeningHours`, DA-39). Texto aprovado de contato direto (`approved-texts.direct-contact`, P-02) substitui o montado. Sem telefone na base, não há próximo passo, e nunca se inventa um número. **Nunca promete contato.** Pergunta só de informação (horário, preço, vacina) é respondida direto, sem próximo passo. Quando o assistente **não tem** a informação (lacuna, ADR-0008), a resposta também termina com "pedido registrado" (o pedido de informação para a equipe) e o próximo passo, de forma determinística.
 
-**Provisório (P-12, P-20):** sintoma e acompanhamento (P3) encaminham direto; sinais emocionais só oferecem.
+**Provisório (P-12, P-20):** o que transfere e se P3 transfere são decisões da clínica.
 
 ## 3. Prioridade clínica (ADR-0018)
 
@@ -54,36 +65,37 @@ O turno encaminha quando qualquer condição vale. Fica o motivo da primeira des
 - **Sem dados comerciais (H1):** as entradas da `PriorityPolicy` são só intenções, sinais, possível emergência, incerteza e alerta (teste dedicado).
 - Cada mensagem do assistente grava a prioridade efetiva, a origem (`MODEL`, `BACKEND_FLOOR`, `CURRENT_LEVEL`) e os sinais.
 
-## 4. Composição do texto (ADR-0002, H6–H8)
+## 4. Composição do texto (ADR-0002, H6–H8, DA-40)
 
 | Situação | Texto ao tutor |
 |---|---|
-| P1 ou possível emergência | Orientação de emergência **primeiro e sozinha**, depois "conversa registrada". O texto do modelo é descartado |
-| P2 | Orientação curta de quando procurar atendimento **primeiro**, depois o texto do modelo e o registro |
-| Pedido explícito de humano | Só "conversa registrada": sem pedir motivo, sem "antes, posso ajudar com…" |
-| Outro encaminhamento | Texto do modelo + "conversa registrada" |
+| P1 ou possível emergência | Orientação de emergência **primeiro e sozinha**; com a clínica fechada, o aviso e onde procurar fora do horário (`emergency.after-hours-referral`); depois "conversa registrada" e o próximo passo. O texto do modelo é descartado |
+| P2 | Orientação curta de quando procurar atendimento **primeiro**, depois o texto do modelo, o registro e o próximo passo |
+| Pedido explícito de humano | Só "conversa registrada" e o próximo passo: sem pedir motivo, sem "antes, posso ajudar com…" |
+| Outra transferência | Texto do modelo + "conversa registrada" + próximo passo |
+| Pedido registrado (sem transferir) | Texto do modelo + "pedido registrado" + próximo passo |
 | Oferta | Texto do modelo + oferta |
-| Falha, sem encaminhar | Resposta segura; com a orientação curta antes se a conversa está em P1/P2 |
-| Falha, com encaminhamento | Resposta de encaminhamento (falha em direção ao humano) |
-| `WAITING_HUMAN` | Confirmação de recebimento; orientação de emergência antes se houver indício; orientação curta depois se o modo restrito falhar (fail-safe); orientação de prazo vencido se passou do prazo |
+| Falha, sem encaminhar | Resposta segura; com a orientação curta antes se a conversa está em P1/P2; com pedido registrado, também o aviso e o próximo passo |
+| Falha, com transferência | Resposta de encaminhamento com o próximo passo (falha em direção ao humano) |
+| `WAITING_HUMAN` | Ver seção 5 |
 
-Os textos padrão ficam em `assistant.handoff.replies` (provisórios). A orientação de emergência e o contato direto vêm de `approved-texts` na base (P-01, P-02); enquanto forem `null`, entram *placeholders* `[PENDENTE: …]` explícitos, aceitáveis só com dados fictícios.
+Os textos padrão ficam em `assistant.handoff.replies` (provisórios, P-10, P-19). A orientação de emergência e o contato direto vêm de `approved-texts` na base (P-01, P-02). Enquanto não aprovados, entram textos provisórios **sem a marca `[PENDENTE]`** desde a DA-40; continuam marcados como provisórios na configuração e na documentação. Um texto nunca se repete dentro da mesma resposta.
 
-**Reconciliação:** texto do modelo que anuncia transferência ("vou te transferir", "estou encaminhando") quando o backend não decidiu encaminhar é inconsistente: nova tentativa e, se repetir, encaminhamento com motivo `TURN_FAILURE`. Afirmação de notificação já era reprovada pela V6 (ADR-0008).
+**Reconciliação:** texto do modelo que anuncia transferência ("vou te transferir", "estou encaminhando") quando o backend não decidiu transferir **nem registrar** é inconsistente: nova tentativa e, se repetir, transferência com motivo `TURN_FAILURE`. Afirmação de notificação já era reprovada pela V6 (ADR-0008).
 
-## 5. Modo restrito em `WAITING_HUMAN` (ADR-0007, item 4)
+## 5. Aguardando a equipe (`WAITING_HUMAN`; ADR-0007, item 4, revisado pela DA-40)
 
-- O modelo é chamado com `waiting-human.st` e devolve só sinais (`possibleEmergency`, `explicitHumanRequest`, `priority`, `signals`); não há texto livre de atendimento nem coleta.
-- Uma chamada, sem nova tentativa, até 500 tokens, prazo de 15 s (DA-28).
-- A prioridade é reavaliada (pode subir, nunca descer); a conversa continua `WAITING_HUMAN`.
-- O detector de expressões de alerta também roda aqui.
-- **Texto ao tutor (CT-19, opção A aprovada em 2026-11-17):** confirmação de recebimento (`waiting-confirmation`); com `CONFUSION`, `DISSATISFACTION` ou `EMOTIONAL_DISTRESS`, uma explicação honesta do estado (`waiting-explanation`: a conversa aguarda a equipe, o assistente não continua o assunto, o que o tutor escrever fica registrado); o mesmo texto **nunca vai duas vezes seguidas** (alterna com `waiting-explanation-repeat`). Nenhum promete contato. Textos provisórios (P-10, P-19).
+- **Desde a DA-40, o modelo continua respondendo** (modo principal, mesmas validações V1–V7, até 2 chamadas). O antigo modo restrito, só de sinais, saiu. Motivo: com ele, o assistente deixava de ajudar até em "que horas abre amanhã?".
+- O prompt limita o que ele faz nesse status: responde o que é da clínica (horário, endereço, serviços, preços) e o andamento (a conversa está com a equipe). Não dá orientação sobre saúde, não faz perguntas clínicas e não abre pedido de agendamento (o backend também não abre). Dados do tutor e do pet continuam sendo guardados.
+- A prioridade é reavaliada com o turno e os detectores (pode subir, nunca descer); a conversa continua `WAITING_HUMAN`; não há nova transferência.
+- **Texto ao tutor:** o do modelo; com risco (P1 ou possível emergência), a orientação de emergência primeiro, sem o texto do modelo, seguida de confirmação de recebimento e próximo passo; em P2, a orientação curta antes e o próximo passo (sem repetir o da resposta anterior); com o prazo vencido, sempre o próximo passo.
+- **Falha do modelo (fail-safe, CT-19):** confirmação de recebimento; com confusão, insatisfação ou sofrimento, uma explicação honesta; o mesmo texto **nunca vai duas vezes seguidas** (alterna com `waiting-explanation-repeat`); orientação curta depois. Nenhum texto promete contato.
 
 ## 6. Prazo de atendimento (ADR-0007 item 6, H11)
 
 - Prazo por nível em `assistant.handoff.deadlines`. **Provisório (P-02):** P1 15 min, P2 1 h, P3 4 h, P4 e P5 24 h, P6 48 h.
 - A fila (`GET /api/conversations?status=WAITING_HUMAN`) mostra `waitingMinutes` e `overdue`.
-- Na próxima mensagem do tutor depois do prazo, a resposta inclui a orientação de contato direto (`approved-texts.direct-contact`, P-02) ou o *placeholder*. Não há job nem notificação ativa.
+- Na próxima mensagem do tutor depois do prazo, a resposta inclui o contato direto aprovado (`approved-texts.direct-contact`, P-02) ou o próximo passo (ligar para a recepção, DA-40). Não há job nem notificação ativa.
 
 ## 7. Operações da equipe
 
@@ -118,7 +130,7 @@ Transição inválida → `409`; desfecho ausente → `422`. Mesma API Key do ca
 | Requisito | Situação | Implementação | Teste |
 |---|---|---|---|
 | RF-D01, RN-D03 | Implementado | `PriorityPolicy` | `PriorityAndHandoffPolicyTest`, CT-03, CT-04, CT-08, CT-12 |
-| RF-D02 | Implementado | Modo restrito reavalia | CT-07 |
+| RF-D02 | Implementado | Turno em `WAITING_HUMAN` reavalia (DA-40) | CT-07 |
 | RF-D03, RN-D01 | Implementado | Alerta + `possibleEmergency` → orientação primeiro | CT-01, CT-07, `HandoffAiIT` |
 | RF-D04, RN-D06 | Implementado | `ExplicitHumanRequestDetector` | `ExplicitHumanRequestDetectorTest`, CT-02 |
 | RF-D05 | Implementado | Motivo na conversa e na solicitação; sinais na mensagem | CT-03, CT-10 |

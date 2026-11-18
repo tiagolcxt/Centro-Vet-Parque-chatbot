@@ -98,7 +98,7 @@ Estado inicial: `WAITING_HUMAN`, P4. Mensagem: *"Ele começou a ter convulsão a
 | Prioridade | **P1** (reavaliação em `WAITING_HUMAN`) |
 | Assistente | Orientação do protocolo de emergência, composta pelo backend; nada de "sua mensagem foi registrada" sozinho |
 | Intervenção humana | Imediata |
-| Backend | Modo restrito → `possibleEmergency`; `clinicalPriority` P4 → P1; a conversa sobe na fila; o estado continua `WAITING_HUMAN`. Se o modo restrito **falhar**, a resposta inclui a orientação curta de emergência (fail-safe) |
+| Backend | (Desde a DA-40, a chamada principal em `WAITING_HUMAN`, não mais o modo restrito.) `possibleEmergency`; `clinicalPriority` P4 → P1; a conversa sobe na fila; o estado continua `WAITING_HUMAN`. Se o modo restrito **falhar**, a resposta inclui a orientação curta de emergência (fail-safe) |
 | Proibido | Resposta fixa sem orientação; retomar a coleta |
 | Camadas | U, I (*double* sinaliza; *double* falha), A |
 

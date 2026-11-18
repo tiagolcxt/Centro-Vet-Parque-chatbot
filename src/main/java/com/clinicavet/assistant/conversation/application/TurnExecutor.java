@@ -15,7 +15,7 @@ import java.util.function.Function;
  * Chama o modelo, classifica e valida a resposta por fontes (ADR-0008), com no máximo uma nova
  * tentativa por turno (DA-28), só para falhas repetíveis: timeout, erro transitório, resposta truncada,
  * inválida ou inconsistente (reprovada pelo validador ou pela reconciliação). Recusa e erro permanente não
- * são repetidos. O modo restrito tem uma tentativa só (DA-28).
+ * são repetidos. Vale também em {@code WAITING_HUMAN} desde a DA-40 (o modo restrito, de uma tentativa, saiu).
  * <p>
  * O log tem só metadados (resultado, códigos das violações, latência, tokens, modelo), nunca conteúdo
  * (DM-12).
@@ -54,27 +54,6 @@ class TurnExecutor {
             outcome = attempt(request, MAX_ATTEMPTS, reconciliation);
         }
         return outcome;
-    }
-
-    /** Modo restrito: uma tentativa, sem retry; falha vira fail-safe em quem chama. */
-    RestrictedOutcome executeRestricted(AssistantRequest request) {
-        long start = System.nanoTime();
-        try {
-            ModelReply reply = model.respond(request.restricted());
-            RestrictedOutcome outcome = classifier.classifyRestricted(reply);
-            log.info("Chamada ao modelo, modo restrito [resultado={}, finishReason={}, modelo={}, tokensEntrada={}, "
-                            + "tokensSaida={}, ms={}]",
-                    outcome instanceof RestrictedOutcome.Failed f ? f.kind() : "VALID", reply.finishReason(),
-                    reply.model(), reply.inputTokens(), reply.outputTokens(), elapsedMillis(start));
-            return outcome;
-        } catch (AssistantModelException e) {
-            log.warn("Chamada ao modelo falhou, modo restrito [resultado={}, motivo={}, ms={}]",
-                    e.kind(), e.getMessage(), elapsedMillis(start));
-            return new RestrictedOutcome.Failed(toFailure(e.kind()));
-        } catch (RuntimeException e) {
-            log.error("Erro inesperado no modo restrito [tipo={}]", e.getClass().getName());
-            return new RestrictedOutcome.Failed(FailureKind.TECHNICAL_PERMANENT);
-        }
     }
 
     private TurnOutcome attempt(AssistantRequest request, int attempt,

@@ -98,7 +98,7 @@ class ContextAssembler {
         ZonedDateTime localNow = ZonedDateTime.ofInstant(now, clock.getZone());
         AssistantRequest.OperationalContext operational = new AssistantRequest.OperationalContext(
                 conversation.status(), localNow, OpeningHours.at(knowledge, localNow), requests, previousRequests);
-        return new AssistantRequest(AssistantRequest.Mode.MAIN, customer, operational, history, current.content());
+        return new AssistantRequest(customer, operational, history, current.content());
     }
 
     private AssistantRequest.CustomerContext customer(CustomerRecords records, ConversationId conversation,
