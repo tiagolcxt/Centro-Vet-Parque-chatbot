@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Pedido que a equipe precisa resolver (ADR-0011). Independente do ciclo de vida da conversa.
@@ -26,6 +27,9 @@ import java.util.Set;
  * </pre>
  *
  * Não existe data/hora confirmada: uma solicitação nunca representa um agendamento efetivado.
+ * <p>
+ * Etapa S2: toda solicitação tem um <b>setor</b> (o padrão, se ninguém escolheu) e no máximo um <b>responsável</b>
+ * (RN-S05). {@code IN_PROGRESS} exige responsável. Transferir de setor limpa o responsável e volta a {@code PENDING}.
  */
 public final class ServiceRequest {
 
@@ -45,6 +49,8 @@ public final class ServiceRequest {
     private String preferredPeriod;
     private RequestOutcome outcome;
     private String outcomeNote;
+    private UUID departmentId;
+    private UUID assigneeId;
     private final Instant createdAt;
     private Instant updatedAt;
     private final Long version;
@@ -52,7 +58,7 @@ public final class ServiceRequest {
     private ServiceRequest(ServiceRequestId id, ConversationId conversationId, TutorId tutorId,
                            PetId petId, RequestType type, RequestStatus status, String summary,
                            String reason, String preferredPeriod, RequestOutcome outcome, String outcomeNote,
-                           Instant createdAt, Instant updatedAt, Long version) {
+                           Instant createdAt, Instant updatedAt, UUID departmentId, UUID assigneeId, Long version) {
         this.id = Objects.requireNonNull(id, "id");
         this.conversationId = Objects.requireNonNull(conversationId, "conversationId");
         this.tutorId = tutorId;
@@ -71,13 +77,18 @@ public final class ServiceRequest {
             throw new IllegalStateException("solicitação inconsistente: status=" + status + ", outcome=" + outcome);
         }
         this.createdAt = Timestamps.normalize(createdAt);
+        this.departmentId = departmentId;
+        this.assigneeId = assigneeId;
+        if (status == RequestStatus.IN_PROGRESS && assigneeId == null) {
+            throw new IllegalStateException("solicitação em andamento sem responsável");
+        }
         this.updatedAt = Timestamps.normalize(updatedAt);
         this.version = version;
     }
 
     public static ServiceRequest open(ConversationId conversationId, RequestType type, Instant now) {
         return new ServiceRequest(ServiceRequestId.newId(), conversationId, null, null, type,
-                RequestStatus.COLLECTING, null, null, null, null, null, now, now, null);
+                RequestStatus.COLLECTING, null, null, null, null, null, now, now, null, null, null);
     }
 
     public static ServiceRequest restore(ServiceRequestId id, ConversationId conversationId,
@@ -85,7 +96,7 @@ public final class ServiceRequest {
                                          RequestStatus status, String summary, RequestOutcome outcome,
                                          String outcomeNote, Instant createdAt, Instant updatedAt, Long version) {
         return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, null, null, outcome,
-                outcomeNote, createdAt, updatedAt, version);
+                outcomeNote, createdAt, updatedAt, null, null, version);
     }
 
     /** Reconstitui com os detalhes de agendamento (Etapa 5). */
@@ -95,7 +106,18 @@ public final class ServiceRequest {
                                          String preferredPeriod, RequestOutcome outcome, String outcomeNote,
                                          Instant createdAt, Instant updatedAt, Long version) {
         return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, reason, preferredPeriod,
-                outcome, outcomeNote, createdAt, updatedAt, version);
+                outcome, outcomeNote, createdAt, updatedAt, null, null, version);
+    }
+
+    /** Reconstitui com setor e responsável (Etapa S2). */
+    public static ServiceRequest restore(ServiceRequestId id, ConversationId conversationId,
+                                         TutorId tutorId, PetId petId, RequestType type,
+                                         RequestStatus status, String summary, String reason,
+                                         String preferredPeriod, RequestOutcome outcome, String outcomeNote,
+                                         Instant createdAt, Instant updatedAt, UUID departmentId, UUID assigneeId,
+                                         Long version) {
+        return new ServiceRequest(id, conversationId, tutorId, petId, type, status, summary, reason, preferredPeriod,
+                outcome, outcomeNote, createdAt, updatedAt, departmentId, assigneeId, version);
     }
 
     public void describe(String summary, Instant at) {
@@ -175,6 +197,9 @@ public final class ServiceRequest {
 
     public void startProgress(Instant at) {
         requireStatus(RequestStatus.PENDING, "startProgress");
+        if (assigneeId == null) {
+            throw new InvalidStateTransitionException(AGGREGATE, status, "startProgress (sem responsável)");
+        }
         transition(RequestStatus.IN_PROGRESS, at);
     }
 
@@ -190,6 +215,40 @@ public final class ServiceRequest {
         requireNotFinal("cancel");
         recordOutcome(outcome, note);
         transition(RequestStatus.CANCELLED, at);
+    }
+
+    /** Define o setor (na abertura ou por regra, S5). */
+    public void routeTo(UUID departmentId, Instant at) {
+        requireNotFinal("routeTo");
+        this.departmentId = Objects.requireNonNull(departmentId, "departmentId");
+        touch(at);
+    }
+
+    /** Atribui a um funcionário do setor (RF-S33). Não muda o estado. */
+    public void assign(UUID staffUserId, Instant at) {
+        requireNotFinal("assign");
+        this.assigneeId = Objects.requireNonNull(staffUserId, "staffUserId");
+        touch(at);
+    }
+
+    /** Tira o responsável (RN-S07). Em andamento volta a pendente. */
+    public void unassign(Instant at) {
+        requireNotFinal("unassign");
+        assigneeId = null;
+        if (status == RequestStatus.IN_PROGRESS) {
+            status = RequestStatus.PENDING;
+        }
+        touch(at);
+    }
+
+    /** Transfere de setor (RF-S33, RN-S06): limpa o responsável; em andamento volta a pendente. */
+    public void transfer(UUID departmentId, Instant at) {
+        requireNotFinal("transfer");
+        if (Objects.requireNonNull(departmentId, "departmentId").equals(this.departmentId)) {
+            throw new DomainValidationException("departmentId", "a solicitação já está nesse setor");
+        }
+        this.departmentId = departmentId;
+        unassign(at);
     }
 
     private void recordOutcome(RequestOutcome outcome, String note) {
@@ -270,6 +329,14 @@ public final class ServiceRequest {
 
     public Optional<String> outcomeNote() {
         return Optional.ofNullable(outcomeNote);
+    }
+
+    public Optional<UUID> departmentId() {
+        return Optional.ofNullable(departmentId);
+    }
+
+    public Optional<UUID> assigneeId() {
+        return Optional.ofNullable(assigneeId);
     }
 
     public Instant createdAt() {

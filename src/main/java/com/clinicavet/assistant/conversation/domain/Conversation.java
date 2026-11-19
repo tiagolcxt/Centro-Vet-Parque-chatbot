@@ -10,15 +10,17 @@ import com.clinicavet.assistant.tutor.domain.TutorId;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Um atendimento contínuo de um contato (ADR-0009).
  *
  * <pre>
- *  start ──► OPEN ──handOff──► WAITING_HUMAN
- *             ▲                     │
- *             └──returnToAssistant──┘
- *  OPEN / WAITING_HUMAN ──closeByStaff / expire──► CLOSED (final)
+ *  start ──► OPEN ──handOff──► WAITING_HUMAN ──assume──► ASSIGNED
+ *             ▲  └──────────assume─────────────────────────┘ │
+ *             └──returnToAssistant (de WAITING_HUMAN ou ASSIGNED)
+ *  ASSIGNED ──transfer──► WAITING_HUMAN (outro setor)
+ *  ativa ──closeByStaff──► CLOSED; OPEN / WAITING_HUMAN ──expire──► CLOSED (ASSIGNED não expira)
  * </pre>
  *
  * A prioridade clínica é independente do status (ADR-0018, H9): só sobe automaticamente; só a equipe a
@@ -42,13 +44,15 @@ public final class Conversation {
     private HandoffReason handoffReason;
     private Instant handoffAt;
     private boolean humanOfferMade;
+    private UUID assigneeId;
+    private UUID waitingDepartmentId;
     private final Long version;
 
     private Conversation(ConversationId id, ContactIdentity contact, TutorId tutorId,
                          ConversationStatus status, Intent currentIntent, CloseReason closeReason,
                          Instant startedAt, Instant lastActivityAt, Instant closedAt,
                          ClinicalPriority clinicalPriority, HandoffReason handoffReason, Instant handoffAt,
-                         boolean humanOfferMade, Long version) {
+                         boolean humanOfferMade, UUID assigneeId, UUID waitingDepartmentId, Long version) {
         this.id = Objects.requireNonNull(id, "id");
         this.contact = Objects.requireNonNull(contact, "contact");
         this.tutorId = tutorId;
@@ -62,13 +66,15 @@ public final class Conversation {
         this.handoffReason = handoffReason;
         this.handoffAt = Timestamps.normalizeNullable(handoffAt);
         this.humanOfferMade = humanOfferMade;
+        this.assigneeId = assigneeId;
+        this.waitingDepartmentId = waitingDepartmentId;
         this.version = version;
         checkConsistency();
     }
 
     public static Conversation start(ContactIdentity contact, Instant now) {
         return new Conversation(ConversationId.newId(), contact, null, ConversationStatus.OPEN,
-                null, null, now, now, null, ClinicalPriority.INITIAL, null, null, false, null);
+                null, null, now, now, null, ClinicalPriority.INITIAL, null, null, false, null, null, null);
     }
 
     /** Reconstitui a partir da persistência, validando a consistência do estado. */
@@ -77,9 +83,22 @@ public final class Conversation {
                                        CloseReason closeReason, Instant startedAt,
                                        Instant lastActivityAt, Instant closedAt,
                                        ClinicalPriority clinicalPriority, HandoffReason handoffReason,
-                                       Instant handoffAt, boolean humanOfferMade, Long version) {
+                                       Instant handoffAt, boolean humanOfferMade, UUID assigneeId,
+                                       UUID waitingDepartmentId, Long version) {
         return new Conversation(id, contact, tutorId, status, currentIntent, closeReason, startedAt,
-                lastActivityAt, closedAt, clinicalPriority, handoffReason, handoffAt, humanOfferMade, version);
+                lastActivityAt, closedAt, clinicalPriority, handoffReason, handoffAt, humanOfferMade, assigneeId,
+                waitingDepartmentId, version);
+    }
+
+    /** Reconstituição sem os campos da Etapa S2 (sem responsável nem setor). */
+    public static Conversation restore(ConversationId id, ContactIdentity contact, TutorId tutorId,
+                                       ConversationStatus status, Intent currentIntent,
+                                       CloseReason closeReason, Instant startedAt,
+                                       Instant lastActivityAt, Instant closedAt,
+                                       ClinicalPriority clinicalPriority, HandoffReason handoffReason,
+                                       Instant handoffAt, boolean humanOfferMade, Long version) {
+        return restore(id, contact, tutorId, status, currentIntent, closeReason, startedAt, lastActivityAt,
+                closedAt, clinicalPriority, handoffReason, handoffAt, humanOfferMade, null, null, version);
     }
 
     /** Reconstituição sem os campos da Etapa 4 (prioridade inicial, sem encaminhamento). */
@@ -105,20 +124,76 @@ public final class Conversation {
      * A solicitação {@code HUMAN_CONTACT} é criada pelo turno, na mesma transação (ADR-0017).
      */
     public void handOff(HandoffReason reason, Instant at) {
+        handOff(reason, at, null);
+    }
+
+    /** Encaminha para um setor (Etapa S2). Sem setor = o setor padrão, resolvido por quem grava. */
+    public void handOff(HandoffReason reason, Instant at, UUID departmentId) {
         Objects.requireNonNull(reason, "reason");
         requireStatus(ConversationStatus.OPEN, "handOff");
         status = ConversationStatus.WAITING_HUMAN;
         handoffReason = reason;
         handoffAt = Timestamps.normalize(at);
+        waitingDepartmentId = departmentId;
         registerActivity(at);
+    }
+
+    /**
+     * Um funcionário assume (RF-S22, DA-47): o assistente para de responder. Só um responsável por vez (RN-S05):
+     * se outro já assumiu, a operação é recusada.
+     */
+    public void assume(UUID staffUserId, Instant at) {
+        Objects.requireNonNull(staffUserId, "staffUserId");
+        if (status == ConversationStatus.ASSIGNED) {
+            if (staffUserId.equals(assigneeId)) {
+                return;
+            }
+            throw new InvalidStateTransitionException(AGGREGATE, status, "assume (já assumida)");
+        }
+        requireActive("assume");
+        if (handoffReason == null) {
+            handoffReason = HandoffReason.STAFF_DECISION;
+            handoffAt = Timestamps.normalize(at);
+        }
+        status = ConversationStatus.ASSIGNED;
+        assigneeId = staffUserId;
+        registerActivity(at);
+    }
+
+    /** Transfere para outro setor (RF-S25): volta a aguardar, sem responsável. O motivo fica com quem chama. */
+    public void transfer(UUID departmentId, Instant at) {
+        Objects.requireNonNull(departmentId, "departmentId");
+        if (status != ConversationStatus.ASSIGNED && status != ConversationStatus.WAITING_HUMAN) {
+            throw new InvalidStateTransitionException(AGGREGATE, status, "transfer");
+        }
+        status = ConversationStatus.WAITING_HUMAN;
+        assigneeId = null;
+        waitingDepartmentId = departmentId;
+        if (handoffReason == null) {
+            handoffReason = HandoffReason.STAFF_DECISION;
+        }
+        handoffAt = Timestamps.normalize(at);
+        registerActivity(at);
+    }
+
+    /** Responsável desativado (RN-S07): a conversa volta a aguardar no mesmo setor. */
+    public void releaseAssignee(Instant at) {
+        requireStatus(ConversationStatus.ASSIGNED, "releaseAssignee");
+        status = ConversationStatus.WAITING_HUMAN;
+        assigneeId = null;
+        handoffAt = Timestamps.normalize(at);
     }
 
     /** A equipe devolve a conversa ao assistente (ADR-0011). A prioridade não muda (H4). */
     public void returnToAssistant(Instant at) {
-        requireStatus(ConversationStatus.WAITING_HUMAN, "returnToAssistant");
+        if (status != ConversationStatus.WAITING_HUMAN && status != ConversationStatus.ASSIGNED) {
+            throw new InvalidStateTransitionException(AGGREGATE, status, "returnToAssistant");
+        }
         status = ConversationStatus.OPEN;
         handoffReason = null;
         handoffAt = null;
+        assigneeId = null;
+        waitingDepartmentId = null;
         registerActivity(at);
     }
 
@@ -169,7 +244,7 @@ public final class Conversation {
      */
     public boolean isExpired(Instant now, ConversationExpirationPolicy policy) {
         Objects.requireNonNull(policy, "policy");
-        if (!status.isActive()) {
+        if (!status.isActive() || status == ConversationStatus.ASSIGNED) {
             return false;
         }
         return Timestamps.normalize(now).isAfter(lastActivityAt.plus(policy.timeoutFor(status)));
@@ -201,6 +276,7 @@ public final class Conversation {
     private void close(CloseReason reason, Instant at) {
         Instant normalized = Timestamps.normalize(at);
         status = ConversationStatus.CLOSED;
+        assigneeId = null;
         closeReason = reason;
         closedAt = normalized.isBefore(lastActivityAt) ? lastActivityAt : normalized;
     }
@@ -227,6 +303,17 @@ public final class Conversation {
         if (status == ConversationStatus.WAITING_HUMAN && (handoffReason == null || handoffAt == null)) {
             throw new IllegalStateException("conversa em WAITING_HUMAN sem motivo ou momento do encaminhamento");
         }
+        if ((status == ConversationStatus.ASSIGNED) != (assigneeId != null)) {
+            throw new IllegalStateException("responsável só existe em conversa assumida: status=" + status);
+        }
+    }
+
+    public Optional<UUID> assigneeId() {
+        return Optional.ofNullable(assigneeId);
+    }
+
+    public Optional<UUID> waitingDepartmentId() {
+        return Optional.ofNullable(waitingDepartmentId);
     }
 
     public ConversationId id() {

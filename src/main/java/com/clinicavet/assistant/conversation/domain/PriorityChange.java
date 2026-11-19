@@ -34,6 +34,12 @@ public record PriorityChange(UUID id, ConversationId conversationId, ClinicalPri
         return new PriorityChange(UUID.randomUUID(), conversationId, from, to, API_KEY_AUTHOR, note, at);
     }
 
+    /** Mudança feita por um funcionário logado (Etapa S2): o autor é o id da conta. */
+    public static PriorityChange byStaff(ConversationId conversationId, ClinicalPriority from, ClinicalPriority to,
+                                         String note, Instant at, String author) {
+        return new PriorityChange(UUID.randomUUID(), conversationId, from, to, author, note, at);
+    }
+
     public Optional<String> noteText() {
         return Optional.ofNullable(note);
     }

@@ -82,6 +82,14 @@ class DepartmentService implements Departments {
 
     @Override
     @Transactional(readOnly = true)
+    public Department defaultDepartment() {
+        return departments.findAll().stream().filter(DepartmentEntity::isDefault).findFirst()
+                .map(DepartmentEntity::view)
+                .orElseThrow(() -> new IllegalStateException("Clínica sem setor padrão (ClinicDefaults)"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Set<UUID> activeAmong(Set<UUID> ids) {
         if (ids.isEmpty()) {
             return Set.of();
@@ -92,12 +100,17 @@ class DepartmentService implements Departments {
     @Override
     @Transactional
     public void ensureDefaults() {
-        if (departments.count() > 0) {
-            return;
+        // Por tipo, não por contagem: a V7 pode ter criado só a Recepção numa clínica antiga.
+        List<DepartmentEntity> existing = departments.findAll();
+        if (existing.stream().noneMatch(DepartmentEntity::isDefault)) {
+            departments.save(new DepartmentEntity("Recepção", Kind.RECEPTION, true, clock.instant()));
         }
-        departments.save(new DepartmentEntity("Recepção", Kind.RECEPTION, true, clock.instant()));
-        departments.save(new DepartmentEntity("Clínica", Kind.CLINICAL, false, clock.instant()));
-        departments.save(new DepartmentEntity("Pet shop", Kind.PETSHOP, false, clock.instant()));
+        if (existing.stream().noneMatch(d -> d.kind() == Kind.CLINICAL) && !departments.existsByName("Clínica")) {
+            departments.save(new DepartmentEntity("Clínica", Kind.CLINICAL, false, clock.instant()));
+        }
+        if (existing.stream().noneMatch(d -> d.kind() == Kind.PETSHOP) && !departments.existsByName("Pet shop")) {
+            departments.save(new DepartmentEntity("Pet shop", Kind.PETSHOP, false, clock.instant()));
+        }
     }
 
     private DepartmentEntity own(UUID id) {

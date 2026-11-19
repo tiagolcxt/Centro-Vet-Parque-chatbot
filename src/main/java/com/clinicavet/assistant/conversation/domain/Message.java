@@ -8,6 +8,7 @@ import com.clinicavet.assistant.shared.exception.DomainValidationException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Mensagem individual de uma conversa. Imutável. Agregado separado de {@link Conversation}: só a
@@ -27,24 +28,30 @@ public final class Message {
     private final Intent intent;
     private final AssistantMetadata metadata;
     private final Instant createdAt;
+    private final UUID staffUserId;
 
     private Message(MessageId id, ConversationId conversationId, MessageAuthor author,
-                    String content, Intent intent, AssistantMetadata metadata, Instant createdAt) {
+                    String content, Intent intent, AssistantMetadata metadata, Instant createdAt,
+                    UUID staffUserId) {
         this.id = Objects.requireNonNull(id, "id");
         this.conversationId = Objects.requireNonNull(conversationId, "conversationId");
         this.author = Objects.requireNonNull(author, "author");
         this.content = Texts.required("content", content, MAX_CONTENT_LENGTH);
         AssistantMetadata meta = metadata == null ? AssistantMetadata.NONE : metadata;
-        if (author == MessageAuthor.CUSTOMER && (intent != null || !meta.equals(AssistantMetadata.NONE))) {
+        if (author != MessageAuthor.ASSISTANT && (intent != null || !meta.equals(AssistantMetadata.NONE))) {
             throw new DomainValidationException("intent", "só mensagens do assistente registram intenção e metadados");
         }
         this.intent = intent;
         this.metadata = meta;
         this.createdAt = Timestamps.normalize(createdAt);
+        if ((author == MessageAuthor.STAFF) != (staffUserId != null)) {
+            throw new DomainValidationException("staffUserId", "só mensagens da equipe têm funcionário");
+        }
+        this.staffUserId = staffUserId;
     }
 
     public static Message fromCustomer(ConversationId conversationId, String content, Instant at) {
-        return new Message(MessageId.newId(), conversationId, MessageAuthor.CUSTOMER, content, null, null, at);
+        return new Message(MessageId.newId(), conversationId, MessageAuthor.CUSTOMER, content, null, null, at, null);
     }
 
     public static Message fromAssistant(ConversationId conversationId, String content, Intent intent,
@@ -54,7 +61,13 @@ public final class Message {
 
     public static Message fromAssistant(ConversationId conversationId, String content, Intent intent,
                                         AssistantMetadata metadata, Instant at) {
-        return new Message(MessageId.newId(), conversationId, MessageAuthor.ASSISTANT, content, intent, metadata, at);
+        return new Message(MessageId.newId(), conversationId, MessageAuthor.ASSISTANT, content, intent, metadata, at, null);
+    }
+
+    /** Resposta de um funcionário pela aplicação (RF-S23). */
+    public static Message fromStaff(ConversationId conversationId, String content, UUID staffUserId, Instant at) {
+        return new Message(MessageId.newId(), conversationId, MessageAuthor.STAFF, content, null, null, at,
+                Objects.requireNonNull(staffUserId, "staffUserId"));
     }
 
     public static Message restore(MessageId id, ConversationId conversationId, MessageAuthor author,
@@ -64,7 +77,17 @@ public final class Message {
 
     public static Message restore(MessageId id, ConversationId conversationId, MessageAuthor author,
                                   String content, Intent intent, AssistantMetadata metadata, Instant createdAt) {
-        return new Message(id, conversationId, author, content, intent, metadata, createdAt);
+        return restore(id, conversationId, author, content, intent, metadata, createdAt, null);
+    }
+
+    public static Message restore(MessageId id, ConversationId conversationId, MessageAuthor author,
+                                  String content, Intent intent, AssistantMetadata metadata, Instant createdAt,
+                                  UUID staffUserId) {
+        return new Message(id, conversationId, author, content, intent, metadata, createdAt, staffUserId);
+    }
+
+    public Optional<UUID> staffUserId() {
+        return Optional.ofNullable(staffUserId);
     }
 
     public MessageId id() {

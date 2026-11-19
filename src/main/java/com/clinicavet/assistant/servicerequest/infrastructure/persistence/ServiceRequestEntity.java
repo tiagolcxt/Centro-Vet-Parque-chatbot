@@ -73,6 +73,13 @@ class ServiceRequestEntity {
     @Column(name = "updated_at", columnDefinition = "DATETIME(6)", nullable = false)
     private Instant updatedAt;
 
+    // Etapa S2: setor (obrigatório no banco; o repositório põe o padrão quando ninguém escolheu) e responsável.
+    @Column(name = "department_id", columnDefinition = "BINARY(16)", nullable = false)
+    private UUID departmentId;
+
+    @Column(name = "assignee_user_id", columnDefinition = "BINARY(16)")
+    private UUID assigneeId;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -95,6 +102,8 @@ class ServiceRequestEntity {
         entity.outcomeNote = request.outcomeNote().orElse(null);
         entity.createdAt = request.createdAt();
         entity.updatedAt = request.updatedAt();
+        entity.departmentId = request.departmentId().orElse(null);
+        entity.assigneeId = request.assigneeId().orElse(null);
         entity.version = request.version();
         return entity;
     }
@@ -102,6 +111,7 @@ class ServiceRequestEntity {
     ServiceRequest toDomain() {
         return ServiceRequest.restore(new ServiceRequestId(id), new ConversationId(conversationId),
                 tutorId == null ? null : new TutorId(tutorId), petId == null ? null : new PetId(petId),
-                type, status, summary, reason, preferredPeriod, outcome, outcomeNote, createdAt, updatedAt, version);
+                type, status, summary, reason, preferredPeriod, outcome, outcomeNote, createdAt, updatedAt,
+                departmentId, assigneeId, version);
     }
 }

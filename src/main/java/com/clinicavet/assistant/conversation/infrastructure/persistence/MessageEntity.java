@@ -78,6 +78,9 @@ class MessageEntity implements Persistable<UUID> {
     @Column(name = "secondary_intents", length = 100)
     private String secondaryIntents;
 
+    @Column(name = "staff_user_id", columnDefinition = "BINARY(16)", updatable = false)
+    private UUID staffUserId;
+
     @jakarta.persistence.Transient
     private boolean isNew;
 
@@ -92,6 +95,7 @@ class MessageEntity implements Persistable<UUID> {
         entity.content = message.content();
         entity.intent = message.intent().orElse(null);
         entity.createdAt = message.createdAt();
+        entity.staffUserId = message.staffUserId().orElse(null);
         AssistantMetadata meta = message.metadata();
         entity.fallback = meta.fallback();
         entity.priority = meta.priority();
@@ -103,10 +107,10 @@ class MessageEntity implements Persistable<UUID> {
     }
 
     Message toDomain() {
-        AssistantMetadata meta = author == MessageAuthor.CUSTOMER ? AssistantMetadata.NONE
+        AssistantMetadata meta = author != MessageAuthor.ASSISTANT ? AssistantMetadata.NONE
                 : new AssistantMetadata(fallback, priority, prioritySource, parseSignals(signals), parseIntents(secondaryIntents));
         return Message.restore(new MessageId(id), new ConversationId(conversationId), author, content, intent, meta,
-                createdAt);
+                createdAt, staffUserId);
     }
 
     private static String join(List<String> values) {

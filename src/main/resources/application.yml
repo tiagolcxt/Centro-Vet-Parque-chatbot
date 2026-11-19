@@ -119,6 +119,9 @@ assistant:
     api-key: ${ASSISTANT_API_KEY:}
     # Clínica dona da chave (ADR-0021). Padrão: a clínica fictícia criada pela V5.
     api-key-clinic: ${ASSISTANT_API_KEY_CLINIC:00000000-0000-4000-8000-000000000001}
+  staff:
+    # PROVISÓRIO (P-10): enviado ao tutor quando um funcionário assume a conversa (DA-47). Nunca diz "avisei".
+    assumed-reply: "{name} ({department}) vai continuar o seu atendimento por aqui."
   conversation:
     expiration:
       # PROVISÓRIO (P-05): valores de desenvolvimento, sem decisão da clínica. Não usar como definitivos.

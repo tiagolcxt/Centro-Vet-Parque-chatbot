@@ -82,6 +82,7 @@ class ConversationHandoffAndPriorityTest {
         ServiceRequest r = ServiceRequest.open(ConversationId.newId(), RequestType.HUMAN_CONTACT, T0);
         r.describe("pedido", T0);
         r.submit(Set.of(RequestField.SUMMARY), T0);
+        r.assign(java.util.UUID.randomUUID(), T0);
         r.startProgress(T0);
 
         assertThatThrownBy(() -> r.resolve(null, null, T0)).isInstanceOf(DomainValidationException.class);

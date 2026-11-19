@@ -104,12 +104,30 @@ Ficou para depois:
 
 **Aceite:**
 
-- [ ] Um funcionário trabalha uma conversa e uma solicitação do início ao fim pela web.
-- [ ] O tutor de teste vê "encaminhado" e depois "assumido por Ana".
-- [ ] Dois funcionários clicam "assumir" ao mesmo tempo: um ganha e o outro vê o aviso.
-- [ ] O tosador não vê as notas clínicas; a recepção não vê os setores que não são dela.
-- [ ] Uma possível emergência em conversa assumida sobe para o topo.
-- [ ] Caminho de ponta a ponta (Playwright) verde.
+- [x] Um funcionário trabalha uma conversa e uma solicitação do início ao fim pela web (`InboxIT`; conferido no navegador em 2026-11-19).
+- [x] O tutor de teste vê "encaminhado" e depois "assumido por Ana" ("Ana (Recepção) vai continuar o seu atendimento por aqui").
+- [x] Dois funcionários tentam assumir: o segundo recebe 409 com o nome de quem já está com a conversa.
+- [x] A recepção não vê os setores que não são dela; o tosador só vê o pet shop. Notas clínicas separadas por permissão ficam para quando houver nota clínica (hoje as notas internas são da conversa e da solicitação, e seguem o escopo de setor).
+- [x] Uma possível emergência em conversa assumida sobe a prioridade e vai para o topo, sem o assistente responder.
+- [ ] Caminho de ponta a ponta automatizado (Playwright): **não feito**. O caminho foi conferido no navegador embutido (login, assumir, responder, aviso em tempo real, solicitação, celular). O Playwright exige baixar navegadores e fica para a S3, com a sua aprovação.
+
+**Situação: implementada e aceita pelo responsável em 2026-11-19.**
+
+O que foi feito:
+
+- V7: estado `ASSIGNED`, autor `STAFF`, setor e responsável da solicitação, histórico e notas internas;
+- caixa de entrada e solicitações por setor em `/app/api`, com escopo de setor e RN-S07;
+- avisos em tempo real (SSE);
+- busca e ficha de clientes;
+- aplicação web em React (`web/`).
+
+As rotas antigas da equipe em `/api` (fila, encerrar, devolver, solicitações) saíram. O `chat.ps1` ficou só com o lado do tutor e ganhou `/atualizar`.
+
+Ficou para depois:
+
+- edição de cliente e pet pela equipe (RF-S41): a proveniência hoje exige a conversa de origem e pede migração (S3);
+- indicadores da tela Início (RF-S71, S5);
+- Playwright (acima).
 
 ---
 

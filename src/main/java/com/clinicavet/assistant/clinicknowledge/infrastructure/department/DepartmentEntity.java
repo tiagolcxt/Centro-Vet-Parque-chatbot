@@ -73,6 +73,10 @@ class DepartmentEntity {
         return id;
     }
 
+    Departments.Kind kind() {
+        return kind;
+    }
+
     boolean isDefault() {
         return isDefault;
     }

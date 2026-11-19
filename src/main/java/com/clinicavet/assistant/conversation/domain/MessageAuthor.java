@@ -1,10 +1,11 @@
 package com.clinicavet.assistant.conversation.domain;
 
 /**
- * Autor da mensagem. {@code STAFF} (mensagens da equipe no mesmo chat) fica para o adaptador
- * WhatsApp (registro de decisões, seção 4).
+ * Autor da mensagem. {@code STAFF}: funcionário respondendo pela aplicação (Etapa S2), com o id da conta.
  */
 public enum MessageAuthor {
     CUSTOMER,
-    ASSISTANT
+    ASSISTANT,
+    /** Funcionário respondendo pela aplicação (Etapa S2). */
+    STAFF
 }

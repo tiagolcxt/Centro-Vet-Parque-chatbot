@@ -46,6 +46,9 @@ class CustomerDataIT {
     int port;
 
     @Autowired
+    org.springframework.context.ApplicationContext context;
+
+    @Autowired
     FakeAssistantModel model;
 
     @Autowired
@@ -148,7 +151,8 @@ class CustomerDataIT {
         assertThat(last.path("status").asString()).isEqualTo("OPEN");
 
         // A equipe vê os detalhes.
-        JsonNode staff = api.get("/api/service-requests?status=PENDING").body();
+        JsonNode staff = com.clinicavet.assistant.support.TestStaff.admin(port, context)
+                .get("/app/api/service-requests?status=PENDING").body();
         assertThat(staff.toString()).contains("\"reason\":\"vacina\"", "\"preferredPeriod\":\"de manhã\"");
     }
 

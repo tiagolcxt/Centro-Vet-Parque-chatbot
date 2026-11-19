@@ -47,6 +47,14 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// Aplicação web (ADR-0022): o build do Vite (web/dist, gerado por "npm run build" em web/) é servido pelo Spring
+// como conteúdo estático. Sem o build, a API funciona e a raiz não tem página.
+tasks.named('processResources', ProcessResources) {
+    from('web/dist') {
+        into 'static'
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs << '-parameters'

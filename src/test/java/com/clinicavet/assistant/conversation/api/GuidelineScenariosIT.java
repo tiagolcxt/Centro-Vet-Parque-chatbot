@@ -66,12 +66,17 @@ class GuidelineScenariosIT {
     @Autowired
     HandoffSettings handoff;
 
+    @Autowired
+    org.springframework.context.ApplicationContext context;
+
     ApiClient api;
+    com.clinicavet.assistant.support.StaffClient staff;
 
     @BeforeEach
     void setUp() {
         model.reset();
         api = ApiClient.authenticated(port);
+        staff = com.clinicavet.assistant.support.TestStaff.admin(port, context);
     }
 
     private String open() {
@@ -298,7 +303,7 @@ class GuidelineScenariosIT {
         api.sendMessage(id, "Ele está mancando desde ontem");
 
         clock.advance(handoff.deadlineFor(ClinicalPriority.P2_URGENT).plusMinutes(1));
-        JsonNode queue = api.get("/api/conversations?status=WAITING_HUMAN&limit=200").body();
+        JsonNode queue = staff.get("/app/api/conversations?filter=WAITING").body();
         JsonNode next = api.sendMessage(id, "Ninguém respondeu ainda?").body();
 
         JsonNode item = findById(queue, id);
@@ -344,7 +349,7 @@ class GuidelineScenariosIT {
         String id = open();
         model.thenJson(TurnJson.of("Entendo.", "MEDICAL_CONCERN"));
         api.sendMessage(id, "Ele está mancando desde ontem");
-        api.post("/api/conversations/" + id + "/return-to-assistant", Map.of());
+        staff.post("/app/api/conversations/" + id + "/return-to-assistant", Map.of());
         failTwice();
 
         JsonNode body = api.sendMessage(id, "Outra coisa: qual o endereço?").body();
@@ -364,15 +369,15 @@ class GuidelineScenariosIT {
         JsonNode body = api.sendMessage(id, "Já passou, pode esquecer").body();
         assertThat(body.path("priority").asString()).isEqualTo("P1_POSSIBLE_EMERGENCY");
 
-        JsonNode lowered = patch("/api/conversations/" + id + "/priority",
+        JsonNode lowered = patch("/app/api/conversations/" + id + "/priority",
                 Map.of("priority", "P4_SERVICE_REQUEST", "note", "Equipe avaliou por telefone (fictício)."));
-        JsonNode history = api.get("/api/conversations/" + id + "/priority-changes").body();
+        JsonNode history = lowered.path("priorityChanges");
 
         assertThat(lowered.path("priority").asString()).isEqualTo("P4_SERVICE_REQUEST");
         assertThat(history).hasSize(1);
         assertThat(history.get(0).path("from").asString()).isEqualTo("P1_POSSIBLE_EMERGENCY");
         assertThat(history.get(0).path("to").asString()).isEqualTo("P4_SERVICE_REQUEST");
-        assertThat(history.get(0).path("changedBy").asString()).contains("API Key");
+        assertThat(history.get(0).path("changedBy").asString()).as("o id da conta de quem mudou").hasSize(36);
     }
 
     @Test
@@ -408,7 +413,7 @@ class GuidelineScenariosIT {
         String p1 = open();
         api.sendMessage(p1, "Ele está convulsionando");
 
-        List<String> order = ids(api.get("/api/conversations?status=WAITING_HUMAN&limit=200").body());
+        List<String> order = ids(staff.get("/app/api/conversations?filter=WAITING").body());
 
         assertThat(order.indexOf(p1)).isLessThan(order.indexOf(p2));
         assertThat(load(p1).clinicalPriority()).isEqualTo(ClinicalPriority.P1_POSSIBLE_EMERGENCY);
@@ -419,7 +424,7 @@ class GuidelineScenariosIT {
     }
 
     private JsonNode patch(String path, Map<String, ?> body) {
-        return api.patch(path, body).body();
+        return staff.patch(path, body).body();
     }
 
     private static JsonNode findById(JsonNode array, String id) {

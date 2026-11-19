@@ -44,6 +44,11 @@ class ClinicIsolationIT {
 
     ApiClient clinicA;
     ApiClient clinicB;
+    com.clinicavet.assistant.support.StaffClient staffA;
+    com.clinicavet.assistant.support.StaffClient staffB;
+
+    @Autowired
+    org.springframework.context.ApplicationContext context;
 
     @BeforeEach
     void setUp() {
@@ -51,6 +56,8 @@ class ClinicIsolationIT {
         OtherClinic.ensure(jdbc);
         clinicA = ApiClient.authenticated(port);
         clinicB = clinicA.withKey(IntegrationTest.OTHER_CLINIC_API_KEY);
+        staffA = com.clinicavet.assistant.support.TestStaff.admin(port, context);
+        staffB = com.clinicavet.assistant.support.TestStaff.admin(port, context, OtherClinic.CLINIC);
     }
 
     /** Conversa encaminhada (pedido explícito), com solicitação aberta. */
@@ -73,10 +80,14 @@ class ClinicIsolationIT {
         assertThat(clinicA.get("/api/conversations/" + id + "/messages").status()).isEqualTo(200);
         assertThat(clinicB.get("/api/conversations/" + id + "/messages").status()).isEqualTo(404);
         assertThat(clinicB.sendMessage(id, "oi").status()).isEqualTo(404);
-        assertThat(clinicB.post("/api/conversations/" + id + "/close", Map.of()).status()).isEqualTo(404);
-        assertThat(clinicB.post("/api/conversations/" + id + "/return-to-assistant", Map.of()).status())
+        assertThat(staffB.get("/app/api/conversations/" + id).status()).isEqualTo(404);
+        assertThat(staffB.post("/app/api/conversations/" + id + "/assume", Map.of()).status()).isEqualTo(404);
+        assertThat(staffB.post("/app/api/conversations/" + id + "/close", Map.of()).status()).isEqualTo(404);
+        assertThat(staffB.post("/app/api/conversations/" + id + "/return-to-assistant", Map.of()).status())
                 .isEqualTo(404);
-        assertThat(clinicB.get("/api/conversations/" + id + "/priority-changes").status()).isEqualTo(404);
+        assertThat(staffB.post("/app/api/conversations/" + id + "/notes", Map.of("text", "x")).status()).isEqualTo(404);
+        assertThat(staffA.get("/app/api/conversations/" + id).body().path("status").asString())
+                .isEqualTo("WAITING_HUMAN");
         assertThat(clinicA.get("/api/conversations/" + id + "/messages").status())
                 .as("nada do que B tentou mudou a conversa de A").isEqualTo(200);
     }
@@ -86,13 +97,13 @@ class ClinicIsolationIT {
         String fromA = handedOff(clinicA, "ficticio-" + UUID.randomUUID());
         String fromB = handedOff(clinicB, "ficticio-" + UUID.randomUUID());
 
-        List<String> queueA = ids(clinicA.get("/api/conversations?status=WAITING_HUMAN&limit=200").body());
-        List<String> queueB = ids(clinicB.get("/api/conversations?status=WAITING_HUMAN&limit=200").body());
+        List<String> queueA = ids(staffA.get("/app/api/conversations?filter=WAITING").body());
+        List<String> queueB = ids(staffB.get("/app/api/conversations?filter=WAITING").body());
         assertThat(queueA).contains(fromA).doesNotContain(fromB);
         assertThat(queueB).contains(fromB).doesNotContain(fromA);
 
         List<String> requestsB = new ArrayList<>();
-        clinicB.get("/api/service-requests?status=PENDING").body()
+        staffB.get("/app/api/service-requests?status=PENDING").body()
                 .forEach(r -> requestsB.add(r.path("conversationId").asString()));
         assertThat(requestsB).contains(fromB).doesNotContain(fromA);
     }
@@ -103,7 +114,7 @@ class ClinicIsolationIT {
         String requestId = serviceRequests.findByConversation(new ConversationId(UUID.fromString(fromA))).getFirst()
                 .id().value().toString();
 
-        assertThat(clinicB.patch("/api/service-requests/" + requestId, Map.of("status", "IN_PROGRESS")).status())
+        assertThat(staffB.patch("/app/api/service-requests/" + requestId, Map.of("status", "IN_PROGRESS")).status())
                 .isEqualTo(404);
         assertThat(serviceRequests.findByConversation(new ConversationId(UUID.fromString(fromA))).getFirst().status())
                 .as("continua como estava").hasToString("PENDING");
@@ -139,7 +150,7 @@ class ClinicIsolationIT {
 
     @Test
     void wrongKey_is401_andNoClinicIsChosenByTheCaller() {
-        assertThat(clinicA.withKey("chave-que-nao-existe-0123456789abcdef").get("/api/service-requests").status())
+        assertThat(clinicA.withKey("chave-que-nao-existe-0123456789abcdef").get("/api/conversations/" + UUID.randomUUID() + "/messages").status())
                 .isEqualTo(401);
     }
 }

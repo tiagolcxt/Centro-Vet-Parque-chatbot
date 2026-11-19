@@ -39,21 +39,21 @@
 
 | # | Item | Tamanho | Depende de | Requisitos |
 |---|---|---|---|---|
-| S2-1 | Esqueleto da aplicação web: Vite, React e TypeScript, build no Gradle, servida pelo Spring, login | M | S1 | DA-44 |
-| S2-2 | Layout responsivo, menu por permissão, tela Início | M | S2-1 | RF-S70, RNF-S03 |
-| S2-3 | Migração: `ASSIGNED`, responsável e setor na conversa; autor `STAFF` na mensagem | M | S1 | Modelo de dados §4 |
-| S2-4 | Casos de uso: assumir (condicional), devolver, transferir, encerrar; texto "assumido por" no próximo turno | M | S2-3 | RF-S22, S24, S25, S27 |
-| S2-5 | Resposta manual pelo canal de teste e nota interna da conversa | M | S2-3 | RF-S23, RF-S26 |
-| S2-6 | Reavaliação de prioridade em conversa assumida, sem resposta da IA | M | S2-4 | RF-S28, RF-S63 |
-| S2-7 | Migração: setor, responsável, eventos e notas da solicitação | M | S1 | Modelo de dados §3 |
-| S2-8 | Casos de uso: atribuir, transferir, mudar estado e encerrar, com eventos; escopo de setor | M | S2-7 | RF-S30 a RF-S36 |
-| S2-9 | SSE por usuário, com eventos depois do commit | M | S2-4, S2-8 | RF-S29, RNF-S04 |
-| S2-10 | Tela Atendimento (lista, conversa, painel do tutor e do pet) | G → quebrar em lista / conversa / painel | S2-2, S2-4 | RF-S20, RF-S21 |
-| S2-11 | Tela Solicitações com abas por setor, filtros e detalhe | G → quebrar em lista / detalhe | S2-2, S2-8 | RF-S30 a RF-S35 |
-| S2-12 | Clientes e pets: busca, ficha, edição (proveniência CADASTRADA) | M | S2-2 | RF-S40 a RF-S42 |
-| S2-13 | Restrição de informação sensível por permissão (o tosador não vê as notas clínicas) | P | S2-8, S2-12 | RF-S44 |
-| S2-14 | Disponibilidade (disponível ou ausente) e retorno das atribuições ao desativar | P | S1-9 | RF-S06, RN-S07 |
-| S2-15 | Ponta a ponta (Playwright): login → assumir → responder → encerrar | M | S2-10 | RNF-S09 |
+| S2-1 ✅ | Esqueleto da aplicação web: Vite, React e TypeScript, build no Gradle, servida pelo Spring, login | M | S1 | DA-44 |
+| S2-2 ✅ | Layout responsivo, menu por permissão, tela Início | M | S2-1 | RF-S70, RNF-S03 |
+| S2-3 ✅ | Migração: `ASSIGNED`, responsável e setor na conversa; autor `STAFF` na mensagem | M | S1 | Modelo de dados §4 |
+| S2-4 ✅ | Casos de uso: assumir (condicional), devolver, transferir, encerrar; texto "assumido por" no próximo turno | M | S2-3 | RF-S22, S24, S25, S27 |
+| S2-5 ✅ | Resposta manual pelo canal de teste e nota interna da conversa | M | S2-3 | RF-S23, RF-S26 |
+| S2-6 ✅ | Reavaliação de prioridade em conversa assumida, sem resposta da IA | M | S2-4 | RF-S28, RF-S63 |
+| S2-7 ✅ | Migração: setor, responsável, eventos e notas da solicitação | M | S1 | Modelo de dados §3 |
+| S2-8 ✅ | Casos de uso: atribuir, transferir, mudar estado e encerrar, com eventos; escopo de setor | M | S2-7 | RF-S30 a RF-S36 |
+| S2-9 ✅ | SSE por usuário, com eventos depois do commit | M | S2-4, S2-8 | RF-S29, RNF-S04 |
+| S2-10 ✅ | Tela Atendimento (lista, conversa, painel do tutor e do pet) | G → quebrar em lista / conversa / painel | S2-2, S2-4 | RF-S20, RF-S21 |
+| S2-11 ✅ | Tela Solicitações com abas por setor, filtros e detalhe | G → quebrar em lista / detalhe | S2-2, S2-8 | RF-S30 a RF-S35 |
+| S2-12 ◐ | Clientes e pets: busca e ficha (feito); edição (proveniência CADASTRADA) adiada para a S3: a proveniência exige a conversa de origem | M | S2-2 | RF-S40 a RF-S42 |
+| S2-13 ◐ | Restrição por escopo de setor (feito: o tosador só vê o pet shop); permissão `clinical-notes:view` para notas clínicas fica para quando houver nota clínica | P | S2-8, S2-12 | RF-S44 |
+| S2-14 ✅ | Disponibilidade (disponível ou ausente) e retorno das atribuições ao desativar | P | S1-9 | RF-S06, RN-S07 |
+| S2-15 ◐ | Ponta a ponta: conferido no navegador embutido; Playwright automatizado adiado (download de navegadores) | M | S2-10 | RNF-S09 |
 
 ## S3 — Configuração pela web
 

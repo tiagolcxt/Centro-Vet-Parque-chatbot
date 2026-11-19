@@ -52,3 +52,7 @@ bin/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Aplicação web (ADR-0022): dependências e build gerados
+web/node_modules/
+web/dist/

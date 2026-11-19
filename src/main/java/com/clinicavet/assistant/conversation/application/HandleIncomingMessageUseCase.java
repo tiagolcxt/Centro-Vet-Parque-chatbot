@@ -99,6 +99,7 @@ public class HandleIncomingMessageUseCase {
     private final CustomerDataCollector collector;
     private final CustomerDataSettings customerData;
     private final NextStep nextStep;
+    private final com.clinicavet.assistant.platform.LiveUpdates live;
     private final Clock clock;
 
     HandleIncomingMessageUseCase(ConversationRepository conversations, MessageRepository messages,
@@ -107,7 +108,8 @@ public class HandleIncomingMessageUseCase {
                                  ReplyComposer composer, ExplicitHumanRequestDetector humanRequest,
                                  AlertExpressionDetector alerts, TransactionRunner tx, ConversationSettings settings,
                                  HandoffSettings handoffSettings, CustomerDataCollector collector,
-                                 CustomerDataSettings customerData, NextStep nextStep, Clock clock) {
+                                 CustomerDataSettings customerData, NextStep nextStep,
+                                 com.clinicavet.assistant.platform.LiveUpdates live, Clock clock) {
         this.conversations = conversations;
         this.messages = messages;
         this.serviceRequests = serviceRequests;
@@ -124,6 +126,7 @@ public class HandleIncomingMessageUseCase {
         this.collector = collector;
         this.customerData = customerData;
         this.nextStep = nextStep;
+        this.live = live;
         this.clock = clock;
     }
 
@@ -146,14 +149,18 @@ public class HandleIncomingMessageUseCase {
         // DA-40: também em WAITING_HUMAN o modelo responde (o que é da clínica), com as mesmas validações. A
         // reconciliação "anuncia transferência" só vale com a conversa aberta.
         boolean waiting = conversation.status() == ConversationStatus.WAITING_HUMAN;
-        TurnOutcome outcome = waiting
+        // Etapa S2: assumida por funcionário. O modelo roda só para reavaliar a prioridade (RN-S03); nada é respondido.
+        boolean assigned = conversation.status() == ConversationStatus.ASSIGNED;
+        TurnOutcome outcome = waiting || assigned
                 ? executor.execute(request)
                 : executor.execute(request, turn -> decider.reconcile(ctx, turn));
 
-        Result result = tx.inTransaction(() -> finish(start, ctx, outcome, waiting));
+        Result result = tx.inTransaction(() -> finish(start, ctx, outcome, waiting, assigned));
+        // RF-S29: as telas da equipe recarregam a conversa (mensagem nova, prioridade, solicitações).
+        live.changed(com.clinicavet.assistant.platform.LiveUpdates.Topic.CONVERSATION, result.conversationId().value());
         log.info("Turno concluído [conversationId={}, novaConversa={}, modo={}, falha={}, prioridade={}, "
                         + "encaminhamento={}, pedidoRegistrado={}, pedidoExplicito={}, alerta={}]",
-                result.conversationId().value(), result.newConversation(), waiting ? "ESPERA" : "PRINCIPAL",
+                result.conversationId().value(), result.newConversation(), assigned ? "ASSUMIDA" : waiting ? "ESPERA" : "PRINCIPAL",
                 result.fallback(), result.priority(), result.handoffReason().map(Enum::name).orElse("-"),
                 result.staffRequestReason().map(Enum::name).orElse("-"),
                 ctx.explicitRequest().orElse("-"), ctx.alertFloor().map(Enum::name).orElse("-"));
@@ -183,7 +190,8 @@ public class HandleIncomingMessageUseCase {
         return new TurnStart(saved, resolved.started(), customer, recent, now);
     }
 
-    private Result finish(TurnStart start, TurnDecider.Context ctx, TurnOutcome outcome, boolean waiting) {
+    private Result finish(TurnStart start, TurnDecider.Context ctx, TurnOutcome outcome, boolean waiting,
+                          boolean assigned) {
         ConversationId id = start.conversation().id();
         Conversation current = conversations.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalStateException("conversa sumiu durante o turno"));
@@ -197,6 +205,9 @@ public class HandleIncomingMessageUseCase {
             throw new ConcurrentTurnException();
         }
         Instant now = clock.instant();
+        if (assigned) {
+            return finishAssigned(start, ctx, current, outcome, now);
+        }
         return waiting ? finishWaiting(start, ctx, current, outcome, now) : finishMain(start, ctx, current, outcome, now);
     }
 
@@ -323,6 +334,27 @@ public class HandleIncomingMessageUseCase {
                 metadata(failed, priority, recorded, secondary), now));
         return new Result(current.id(), start.newConversation(), reply, saved.status(), Optional.ofNullable(intent),
                 failed, saved.clinicalPriority(), saved.handoffReason());
+    }
+
+    /**
+     * {@code ASSIGNED} (Etapa S2, DA-47): um funcionário está com a conversa. O assistente não responde (resposta
+     * {@code null}: nada a enviar ao tutor), mas a prioridade é reavaliada pelo modelo e pelas expressões de alerta e
+     * só sobe (RN-S03). A tela da equipe destaca a conversa quando ela sobe (RF-S28).
+     */
+    private Result finishAssigned(TurnStart start, TurnDecider.Context ctx, Conversation current, TurnOutcome outcome,
+                                  Instant now) {
+        PriorityPolicy.Assessment priority = switch (outcome) {
+            case TurnOutcome.Valid valid -> PriorityPolicy.assess(current.clinicalPriority(),
+                    new PriorityPolicy.Inputs(valid.turn().priority(), valid.turn().allIntents(), valid.turn().signals(),
+                            valid.turn().possibleEmergency(), valid.turn().clinicalUncertainty(), ctx.alertFloor()));
+            case TurnOutcome.Failed failure -> PriorityPolicy.assess(current.clinicalPriority(),
+                    PriorityPolicy.Inputs.deterministicOnly(ctx.alertFloor()));
+        };
+        current.raisePriority(priority.effective());
+        current.registerActivity(now);
+        Conversation saved = conversations.save(current);
+        return new Result(current.id(), start.newConversation(), null, saved.status(), Optional.empty(),
+                outcome instanceof TurnOutcome.Failed, saved.clinicalPriority(), saved.handoffReason());
     }
 
     /** A última resposta do assistente nesta conversa já trouxe o próximo passo de agora? */

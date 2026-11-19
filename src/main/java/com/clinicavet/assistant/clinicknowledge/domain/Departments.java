@@ -29,6 +29,9 @@ public interface Departments {
     /** O setor padrão não pode ser desativado. */
     Department setActive(UUID id, boolean active);
 
+    /** O setor padrão (a Recepção): recebe o que não tem regra. */
+    Department defaultDepartment();
+
     /** Ids que existem e estão ativos, dentre os informados. */
     Set<UUID> activeAmong(Set<UUID> ids);
 

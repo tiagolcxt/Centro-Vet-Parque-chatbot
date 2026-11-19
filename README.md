@@ -17,11 +17,18 @@ Primeira camada de atendimento de uma clínica veterinária: conversa com tutore
 - Cada clínica tem setores (Recepção, Clínica, Pet shop) e auditoria.
 - As fronteiras entre módulos são verificadas pelo Spring Modulith (DA-52).
 
-Ainda não há aplicação web: a equipe usa a API `/app/api` (S2).
+**Etapa S2 — Caixa de entrada e solicitações por setor concluída e aceita (2026-11-19).**
+
+- Aplicação web em React (`web/`): Início, Atendimento, Solicitações em abas por setor, Clientes e pets.
+- A equipe assume conversas, responde, transfere, devolve ao assistente e anota.
+- O tutor recebe "Fulano (setor) vai continuar o seu atendimento por aqui".
+- Com a conversa assumida, o assistente não responde, mas a prioridade continua sendo avaliada.
+- As telas se atualizam em tempo real.
 
 ## Pré-requisitos
 
 - JDK 25 (o Gradle encontra pela toolchain; o Java padrão do terminal pode ser outro, a partir do 17)
+- Node 24 ou superior e npm (aplicação web)
 - **Docker em execução** (testes de integração com Testcontainers e banco de desenvolvimento)
 
 ## Configurar o ambiente de desenvolvimento
@@ -51,6 +58,26 @@ O `.env` não é versionado. As credenciais só existem nele (e, fora do desenvo
 
 No Windows (PowerShell), use `.\gradlew.bat`.
 
+## Aplicação web da equipe (Etapa S2)
+
+**Para usar com o `bootRun`.** Gere o build uma vez e depois de cada mudança na web. O Spring serve em http://localhost:8080/:
+
+```bash
+cd web
+npm install
+npm run build
+```
+
+**Para desenvolver a web com recarga automática.** Com o `bootRun` no ar, rode `npm run dev` em `web/` e abra http://localhost:5173/. O Vite repassa `/app/api` para a 8080.
+
+**Primeiro acesso:**
+
+1. Crie o primeiro administrador (seção "Login da equipe" abaixo).
+2. Abra `http://localhost:8080/#/convite?token=TOKEN` para definir a senha.
+3. Entre.
+
+Testes da web: `npm test` em `web/`.
+
 ## Conversar pelo terminal (Windows)
 
 Com a aplicação no ar (`.\gradlew.bat bootRun`), em outro terminal na pasta `assistant-backend`:
@@ -59,7 +86,16 @@ Com a aplicação no ar (`.\gradlew.bat bootRun`), em outro terminal na pasta `a
 powershell -ExecutionPolicy Bypass -File .\scripts\chat.ps1
 ```
 
-O script lê a `ASSISTANT_API_KEY` do `.env`, envia em UTF-8 (acentos funcionam) e mostra, depois de cada resposta, o status, a prioridade, a intenção e o motivo do encaminhamento. Comandos: `/pedidos` (solicitações da conversa), `/historico`, `/fila` (fila da equipe), `/devolver` e `/encerrar` (simulam a equipe), `/nova` (outro contato) e `/sair`. Para voltar como o mesmo cliente fictício em outra execução, use `-Contato ficticio-ana`.
+O script faz o papel do **tutor**. Ele lê a `ASSISTANT_API_KEY` do `.env`, envia em UTF-8 (acentos funcionam) e mostra, depois de cada resposta, o status, a prioridade, a intenção e o motivo do encaminhamento.
+
+Comandos:
+
+- `/atualizar`: mostra mensagens novas, como a resposta de um funcionário que assumiu a conversa;
+- `/historico`;
+- `/nova`: outro contato;
+- `/sair`.
+
+O lado da equipe fica na aplicação web. Com a conversa assumida, o assistente não responde, e o script avisa. Para voltar como o mesmo cliente fictício em outra execução, use `-Contato ficticio-ana`.
 
 **Somente dados fictícios:** as mensagens vão para a OpenAI, e o banco de desenvolvimento não tem as proteções da Etapa 7. Para o assistente conhecer a clínica fictícia, o `.env` precisa de `ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml`.
 

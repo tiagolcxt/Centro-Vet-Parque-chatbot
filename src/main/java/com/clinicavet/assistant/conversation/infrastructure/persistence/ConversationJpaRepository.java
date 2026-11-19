@@ -26,6 +26,17 @@ interface ConversationJpaRepository extends JpaRepository<ConversationEntity, UU
             """)
     List<ConversationEntity> findQueue(@Param("status") ConversationStatus status, Pageable pageable);
 
+    /** Caixa de entrada (RF-S20): conversas ativas, a mais urgente e a que espera há mais tempo primeiro. */
+    @Query("""
+            select c from ConversationEntity c where c.status in :statuses
+            order by c.clinicalPriority asc, c.handoffAt asc, c.lastActivityAt asc
+            """)
+    List<ConversationEntity> findInbox(@Param("statuses") Collection<ConversationStatus> statuses, Pageable pageable);
+
+    List<ConversationEntity> findByTutorIdOrderByStartedAtDesc(UUID tutorId);
+
+    List<ConversationEntity> findByAssigneeIdAndStatus(UUID assigneeId, ConversationStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from ConversationEntity c where c.id = :id")
     Optional<ConversationEntity> findByIdForUpdate(@Param("id") UUID id);
@@ -38,6 +49,11 @@ interface ConversationJpaRepository extends JpaRepository<ConversationEntity, UU
     List<ConversationEntity> findActiveForUpdate(@Param("channel") Channel channel,
                                                  @Param("externalContactId") String externalContactId,
                                                  @Param("statuses") Collection<ConversationStatus> statuses);
+}
+
+interface ConversationNoteJpaRepository extends JpaRepository<ConversationNoteEntity, UUID> {
+
+    List<ConversationNoteEntity> findByConversationIdOrderByCreatedAtAsc(UUID conversationId);
 }
 
 interface PriorityChangeJpaRepository extends JpaRepository<PriorityChangeEntity, UUID> {

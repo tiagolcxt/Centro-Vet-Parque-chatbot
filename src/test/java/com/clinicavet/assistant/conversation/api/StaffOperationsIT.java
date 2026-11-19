@@ -1,16 +1,19 @@
 package com.clinicavet.assistant.conversation.api;
 
-import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequest;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequestRepository;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.support.ApiClient;
 import com.clinicavet.assistant.support.FakeAssistantModel;
 import com.clinicavet.assistant.support.IntegrationTest;
+import com.clinicavet.assistant.support.StaffClient;
+import com.clinicavet.assistant.support.TestStaff;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import tools.jackson.databind.JsonNode;
 
 import java.util.Map;
@@ -19,8 +22,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Operações da equipe (Etapa 4): solicitação e conversa são independentes (ADR-0011); transição inválida
- * {@code 409}; desfecho ausente {@code 422} (DA-34).
+ * Operações da equipe (Etapa 4, rotas da Etapa S2 em {@code /app/api}): solicitação e conversa são independentes
+ * (ADR-0011); transição inválida {@code 409}; desfecho ausente {@code 422} (DA-34).
  */
 @IntegrationTest
 class StaffOperationsIT {
@@ -34,12 +37,17 @@ class StaffOperationsIT {
     @Autowired
     ServiceRequestRepository serviceRequests;
 
+    @Autowired
+    ApplicationContext context;
+
     ApiClient api;
+    StaffClient staff;
 
     @BeforeEach
     void setUp() {
         model.reset();
         api = ApiClient.authenticated(port);
+        staff = TestStaff.admin(port, context);
     }
 
     /** Conversa encaminhada por pedido explícito, com a solicitação HUMAN_CONTACT. */
@@ -55,13 +63,7 @@ class StaffOperationsIT {
     }
 
     private String conversationStatus(String id) {
-        JsonNode queue = api.get("/api/conversations?status=WAITING_HUMAN&limit=200").body();
-        for (JsonNode item : queue) {
-            if (item.path("id").asString().equals(id)) {
-                return "WAITING_HUMAN";
-            }
-        }
-        return "OUTRO";
+        return staff.get("/app/api/conversations/" + id).body().path("status").asString();
     }
 
     @Test
@@ -69,11 +71,13 @@ class StaffOperationsIT {
         String id = handedOff();
         String requestId = humanContact(id).id().value().toString();
 
-        ApiClient.Response inProgress = api.patch("/api/service-requests/" + requestId, Map.of("status", "IN_PROGRESS"));
-        ApiClient.Response resolved = api.patch("/api/service-requests/" + requestId,
+        StaffClient.Response inProgress = staff.patch("/app/api/service-requests/" + requestId,
+                Map.of("status", "IN_PROGRESS"));
+        StaffClient.Response resolved = staff.patch("/app/api/service-requests/" + requestId,
                 Map.of("status", "RESOLVED", "outcome", "HANDLED_OUTSIDE"));
 
         assertThat(inProgress.status()).isEqualTo(200);
+        assertThat(inProgress.body().path("assigneeId").asString()).as("em andamento = com quem iniciou").isNotEmpty();
         assertThat(resolved.status()).isEqualTo(200);
         assertThat(resolved.body().path("outcome").asString()).isEqualTo("HANDLED_OUTSIDE");
         assertThat(conversationStatus(id)).as("a conversa continua aguardando").isEqualTo("WAITING_HUMAN");
@@ -84,9 +88,10 @@ class StaffOperationsIT {
         String a = handedOff();
         String b = handedOff();
 
-        assertThat(api.post("/api/conversations/" + a + "/close", Map.of()).body().path("status").asString()).isEqualTo("CLOSED");
-        assertThat(api.post("/api/conversations/" + b + "/return-to-assistant", Map.of()).body().path("status").asString())
-                .isEqualTo("OPEN");
+        assertThat(staff.post("/app/api/conversations/" + a + "/close", Map.of()).body().path("status").asString())
+                .isEqualTo("CLOSED");
+        assertThat(staff.post("/app/api/conversations/" + b + "/return-to-assistant", Map.of()).body().path("status")
+                .asString()).isEqualTo("OPEN");
 
         assertThat(humanContact(a).status().name()).isEqualTo("PENDING");
         assertThat(humanContact(b).status().name()).isEqualTo("PENDING");
@@ -97,25 +102,28 @@ class StaffOperationsIT {
         String id = handedOff();
         String requestId = humanContact(id).id().value().toString();
 
-        assertThat(api.patch("/api/service-requests/" + requestId, Map.of("status", "RESOLVED", "outcome", "SCHEDULED_BY_STAFF"))
-                .status()).as("PENDING → RESOLVED sem IN_PROGRESS").isEqualTo(409);
-        api.post("/api/conversations/" + id + "/return-to-assistant", Map.of());
-        assertThat(api.post("/api/conversations/" + id + "/return-to-assistant", Map.of()).status())
+        assertThat(staff.patch("/app/api/service-requests/" + requestId,
+                Map.of("status", "RESOLVED", "outcome", "SCHEDULED_BY_STAFF")).status())
+                .as("PENDING → RESOLVED sem IN_PROGRESS").isEqualTo(409);
+        staff.post("/app/api/conversations/" + id + "/return-to-assistant", Map.of());
+        assertThat(staff.post("/app/api/conversations/" + id + "/return-to-assistant", Map.of()).status())
                 .as("já está OPEN").isEqualTo(409);
-        api.post("/api/conversations/" + id + "/close", Map.of());
-        assertThat(api.post("/api/conversations/" + id + "/close", Map.of()).status()).as("já encerrada").isEqualTo(409);
-        assertThat(api.patch("/api/conversations/" + id + "/priority", Map.of("priority", "P4_SERVICE_REQUEST")).status())
-                .as("conversa encerrada").isEqualTo(409);
+        staff.post("/app/api/conversations/" + id + "/close", Map.of());
+        assertThat(staff.post("/app/api/conversations/" + id + "/close", Map.of()).status()).as("já encerrada")
+                .isEqualTo(409);
+        assertThat(staff.patch("/app/api/conversations/" + id + "/priority", Map.of("priority", "P4_SERVICE_REQUEST"))
+                .status()).as("conversa encerrada").isEqualTo(409);
     }
 
     @Test
     void resolvingWithoutOutcome_is422_andOtherNeedsANote() {
         String id = handedOff();
         String requestId = humanContact(id).id().value().toString();
-        api.patch("/api/service-requests/" + requestId, Map.of("status", "IN_PROGRESS"));
+        staff.patch("/app/api/service-requests/" + requestId, Map.of("status", "IN_PROGRESS"));
 
-        ApiClient.Response noOutcome = api.patch("/api/service-requests/" + requestId, Map.of("status", "RESOLVED"));
-        ApiClient.Response otherWithoutNote = api.patch("/api/service-requests/" + requestId,
+        StaffClient.Response noOutcome = staff.patch("/app/api/service-requests/" + requestId,
+                Map.of("status", "RESOLVED"));
+        StaffClient.Response otherWithoutNote = staff.patch("/app/api/service-requests/" + requestId,
                 Map.of("status", "RESOLVED", "outcome", "OTHER"));
 
         assertThat(noOutcome.status()).isEqualTo(422);
@@ -127,24 +135,26 @@ class StaffOperationsIT {
     void listingRequestsByStatus_andUnknownIds_are404() {
         String id = handedOff();
 
-        JsonNode pending = api.get("/api/service-requests?status=PENDING").body();
+        JsonNode pending = staff.get("/app/api/service-requests?status=PENDING").body();
         boolean found = false;
         for (JsonNode item : pending) {
             found |= item.path("conversationId").asString().equals(id);
         }
 
         assertThat(found).isTrue();
-        assertThat(api.patch("/api/service-requests/" + UUID.randomUUID(), Map.of("status", "IN_PROGRESS")).status()).isEqualTo(404);
-        assertThat(api.post("/api/conversations/" + UUID.randomUUID() + "/close", Map.of()).status()).isEqualTo(404);
+        assertThat(staff.patch("/app/api/service-requests/" + UUID.randomUUID(), Map.of("status", "IN_PROGRESS"))
+                .status()).isEqualTo(404);
+        assertThat(staff.post("/app/api/conversations/" + UUID.randomUUID() + "/close", Map.of()).status())
+                .isEqualTo(404);
     }
 
     @Test
-    void staffRoutes_requireTheApiKey() {
-        ApiClient anonymous = api.withKey(null);
+    void staffRoutes_requireALoggedInEmployee_andTheOldServiceKeyRoutesAreGone() {
+        StaffClient anonymous = new StaffClient(port);
 
-        assertThat(anonymous.get("/api/conversations?status=WAITING_HUMAN").status()).isEqualTo(401);
-        assertThat(anonymous.get("/api/service-requests").status()).isEqualTo(401);
-        assertThat(anonymous.patch("/api/service-requests/" + UUID.randomUUID(), Map.of("status", "IN_PROGRESS")).status())
-                .isEqualTo(401);
+        assertThat(anonymous.get("/app/api/conversations").status()).isEqualTo(401);
+        assertThat(anonymous.get("/app/api/service-requests").status()).isEqualTo(401);
+        assertThat(api.get("/api/service-requests").status()).as("a chave de serviço não lista mais").isEqualTo(404);
+        assertThat(api.get("/app/api/conversations").status()).isEqualTo(401);
     }
 }

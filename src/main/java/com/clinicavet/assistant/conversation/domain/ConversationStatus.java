@@ -7,6 +7,8 @@ package com.clinicavet.assistant.conversation.domain;
 public enum ConversationStatus {
     OPEN,
     WAITING_HUMAN,
+    /** Assumida por um funcionário (DA-47): o assistente não responde; a prioridade continua sendo avaliada. */
+    ASSIGNED,
     CLOSED;
 
     /** Conversa ativa: no máximo uma por contato. */

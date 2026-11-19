@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.platform.application;
 
+import com.clinicavet.assistant.platform.AccountDisabled;
 import com.clinicavet.assistant.platform.Accounts;
 import com.clinicavet.assistant.platform.AuditLog;
 import com.clinicavet.assistant.platform.ClinicId;
@@ -13,6 +14,7 @@ import com.clinicavet.assistant.shared.exception.ConflictException;
 import com.clinicavet.assistant.shared.exception.DomainValidationException;
 import com.clinicavet.assistant.shared.exception.InvalidStateTransitionException;
 import com.clinicavet.assistant.shared.exception.ResourceNotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -60,17 +62,20 @@ public class AccountService implements Accounts {
     private final AuditLog audit;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
     /** Hash de referência para gastar o mesmo tempo quando o e-mail não existe. */
     private final String dummyHash;
 
     AccountService(UserAccountJpaRepository accounts, RoleJpaRepository roles, PasswordEncoder passwords,
-                   AuditLog audit, PlatformTransactionManager transactions, Clock clock) {
+                   AuditLog audit, PlatformTransactionManager transactions, Clock clock,
+                   ApplicationEventPublisher events) {
         this.accounts = accounts;
         this.roles = roles;
         this.passwords = passwords;
         this.audit = audit;
         this.tx = new TransactionTemplate(transactions);
         this.clock = clock;
+        this.events = events;
         this.dummyHash = passwords.encode("senha-de-referencia-sem-uso");
     }
 
@@ -191,6 +196,8 @@ public class AccountService implements Accounts {
             }
             account.disable(clock.instant());
             audit.record("user.disabled", "user", userId, null);
+            // RN-S07: atendimento e solicitações devolvem ao setor o que estava com a pessoa, nesta transação.
+            events.publishEvent(new AccountDisabled(userId, CurrentClinic.require()));
         });
     }
 

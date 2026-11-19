@@ -28,7 +28,7 @@ O briefing (seção 10.6) pede: *"Não criar entidades apenas porque aparecem na
 **Novas, que o briefing não lista:**
 
 - `config_version`: rascunho, publicação e histórico;
-- `conversation_note` e `service_request_note`: notas internas;
+- `internal_note`: notas internas de conversa ou de solicitação (uma tabela, com exatamente um dos dois ids; V7);
 - `service_request_event`: histórico da solicitação;
 - `inbound_message` e `outbound_message`: idempotência e *outbox*.
 
@@ -49,13 +49,13 @@ erDiagram
     tutor ||--o{ pet : tem
     tutor ||--o{ conversation : "inicia"
     conversation ||--o{ message : contem
-    conversation ||--o{ conversation_note : "anotada em"
+    conversation ||--o{ internal_note : "anotada em"
     conversation ||--o{ service_request : origina
     department ||--o{ service_request : "responsável por"
     employee ||--o{ service_request : "responsável (opcional)"
     employee ||--o{ conversation : "assumiu (opcional)"
     service_request ||--o{ service_request_event : historico
-    service_request ||--o{ service_request_note : "anotada em"
+    service_request ||--o{ internal_note : "anotada em"
     channel_account ||--o{ inbound_message : recebe
     message ||--o| outbound_message : "enviada por"
     clinic ||--o{ audit_event : registra
@@ -146,7 +146,7 @@ Um perfil em uso não pode ser apagado, só renomeado ou alterado.
 
 O custo é que a busca dentro do conteúdo não usa o banco, e o MVP não precisa disso.
 
-### conversation_note e service_request_note
+### internal_note (implementada na V7)
 
 Campos: id, clinic_id, conversation_id ou request_id, author_employee_id, text (até 2.000 caracteres) e created_at.
 
@@ -157,7 +157,7 @@ Notas não são editáveis, só acrescentadas: é o que garante o histórico.
 | Campo | Observação |
 |---|---|
 | id, clinic_id, request_id, occurred_at | |
-| type | CREATED, DATA_UPDATED, ASSIGNED, UNASSIGNED, TRANSFERRED, STATUS_CHANGED, CLOSED, REOPENED |
+| type | ASSIGNED, UNASSIGNED, TRANSFERRED, STATUS_CHANGED (V7). Criação e coleta de dados ficam na própria solicitação |
 | actor_employee_id | Nulo = assistente ou sistema |
 | from_value, to_value | Setor, responsável ou estado, conforme o tipo |
 | reason | Obrigatório em TRANSFERRED (RN-S06) |

@@ -8,6 +8,8 @@ import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.PriorityChange;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
+import com.clinicavet.assistant.shared.domain.InternalNote;
+import com.clinicavet.assistant.tutor.domain.TutorId;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
@@ -16,19 +18,60 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 @Repository
 class JpaConversationRepository implements ConversationRepository {
 
     private static final EnumSet<ConversationStatus> ACTIVE =
-            EnumSet.of(ConversationStatus.OPEN, ConversationStatus.WAITING_HUMAN);
+            EnumSet.of(ConversationStatus.OPEN, ConversationStatus.WAITING_HUMAN, ConversationStatus.ASSIGNED);
 
     private final ConversationJpaRepository jpa;
     private final PriorityChangeJpaRepository priorityChanges;
+    private final ConversationNoteJpaRepository notes;
 
-    JpaConversationRepository(ConversationJpaRepository jpa, PriorityChangeJpaRepository priorityChanges) {
+    JpaConversationRepository(ConversationJpaRepository jpa, PriorityChangeJpaRepository priorityChanges,
+                              ConversationNoteJpaRepository notes) {
         this.jpa = jpa;
         this.priorityChanges = priorityChanges;
+        this.notes = notes;
+    }
+
+    @Override
+    public List<Conversation> findInbox(int limit) {
+        return jpa.findInbox(ACTIVE, PageRequest.of(0, limit)).stream().map(ConversationEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<Conversation> findByIds(Set<ConversationId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpa.findAllById(ids.stream().map(ConversationId::value).toList()).stream()
+                .map(ConversationEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<Conversation> findByTutor(TutorId tutorId) {
+        return jpa.findByTutorIdOrderByStartedAtDesc(tutorId.value()).stream().map(ConversationEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<Conversation> findAssignedTo(UUID staffUserId) {
+        return jpa.findByAssigneeIdAndStatus(staffUserId, ConversationStatus.ASSIGNED).stream()
+                .map(ConversationEntity::toDomain).toList();
+    }
+
+    @Override
+    public void saveNote(ConversationId id, InternalNote note) {
+        notes.save(new ConversationNoteEntity(id.value(), note));
+    }
+
+    @Override
+    public List<InternalNote> findNotes(ConversationId id) {
+        return notes.findByConversationIdOrderByCreatedAtAsc(id.value()).stream().map(ConversationNoteEntity::toDomain)
+                .toList();
     }
 
     @Override

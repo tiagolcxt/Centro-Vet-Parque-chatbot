@@ -92,6 +92,7 @@ class ServiceRequestTest {
         void happyPath_collectingToResolved() {
             ServiceRequest request = pending();
 
+            request.assign(java.util.UUID.randomUUID(), T0);
             request.startProgress(T0.plusSeconds(10));
             request.resolve(RequestOutcome.SCHEDULED_BY_STAFF, null, T0.plusSeconds(20));
 
@@ -115,6 +116,7 @@ class ServiceRequestTest {
             ServiceRequest fromCollecting = collecting();
             ServiceRequest fromPending = pending();
             ServiceRequest fromInProgress = pending();
+            fromInProgress.assign(java.util.UUID.randomUUID(), T0);
             fromInProgress.startProgress(T0);
 
             fromCollecting.cancel(RequestOutcome.CUSTOMER_GAVE_UP, null, T0);
@@ -129,6 +131,7 @@ class ServiceRequestTest {
         @Test
         void finalStatuses_rejectEverything() {
             ServiceRequest resolved = pending();
+            resolved.assign(java.util.UUID.randomUUID(), T0);
             resolved.startProgress(T0);
             resolved.resolve(RequestOutcome.SCHEDULED_BY_STAFF, null, T0);
             ServiceRequest cancelled = collecting();

@@ -212,6 +212,7 @@ class PromptTemplates {
         return switch (status) {
             case OPEN -> "em atendimento pelo assistente";
             case WAITING_HUMAN -> "sinalizada para revisão da equipe";
+            case ASSIGNED -> "assumida por um funcionário";
             case CLOSED -> "encerrada";
         };
     }

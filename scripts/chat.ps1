@@ -7,12 +7,12 @@
     assistant-backend, envia o texto em UTF-8 (acentos funcionam) e mostra, depois de cada resposta, o status da
     conversa, a prioridade, o motivo do encaminhamento e a intenção.
 
+    O script faz o papel do tutor. O lado da equipe (fila, assumir, responder, devolver, encerrar, solicitações)
+    fica na aplicação web, com login (Etapa S2).
+
     Comandos durante o chat:
-      /pedidos     solicitações desta conversa (agendamento, informação, atendimento humano)
+      /atualizar   mostra as mensagens novas (ex.: a resposta de um funcionário que assumiu a conversa)
       /historico   mensagens gravadas desta conversa
-      /fila        fila da equipe (conversas aguardando atendimento)
-      /devolver    simula a equipe devolvendo a conversa ao assistente
-      /encerrar    simula a equipe encerrando a conversa
       /nova        começa de novo com um contato fictício novo (sem cadastro)
       /ajuda       mostra os comandos
       /sair        termina
@@ -105,42 +105,42 @@ function Open-Conversation([string]$contact) {
 }
 
 function Show-Help {
-    Write-Host "Comandos: /pedidos  /historico  /fila  /devolver  /encerrar  /nova  /ajuda  /sair" -ForegroundColor DarkGray
+    Write-Host "Comandos: /atualizar  /historico  /nova  /ajuda  /sair" -ForegroundColor DarkGray
 }
 
-function Show-Requests([string]$conversationId) {
-    $found = $false
-    foreach ($status in "COLLECTING", "PENDING", "IN_PROGRESS", "RESOLVED", "CANCELLED") {
-        $list = (Invoke-Api GET "/api/service-requests?status=$status").Body
-        foreach ($r in @($list)) {
-            if ($r -and $r.conversationId -eq $conversationId) {
-                $found = $true
-                $line = "  [$($r.type) / $($r.status)] $($r.summary)"
-                if ($r.outcome) { $line += " | desfecho: $($r.outcome)" }
-                Write-Host $line -ForegroundColor Cyan
-            }
-        }
+function Get-Messages([string]$conversationId) {
+    return @((Invoke-Api GET "/api/conversations/$conversationId/messages?size=100").Body.content)
+}
+
+function Format-Author($m) {
+    switch ($m.author) {
+        "CUSTOMER" { return "Você" }
+        "STAFF" { return "Equipe" }
+        default { return "Assistente" }
     }
-    if (-not $found) { Write-Host "  (nenhuma solicitação nesta conversa)" -ForegroundColor DarkGray }
 }
 
 function Show-History([string]$conversationId) {
-    $page = (Invoke-Api GET "/api/conversations/$conversationId/messages?size=100").Body
-    foreach ($m in @($page.content)) {
-        $who = if ($m.author -eq "CUSTOMER") { "Você" } else { "Assistente" }
-        Write-Host ("  {0}: {1}" -f $who, $m.content) -ForegroundColor Gray
+    foreach ($m in (Get-Messages $conversationId)) {
+        Write-Host ("  {0}: {1}" -f (Format-Author $m), $m.content) -ForegroundColor Gray
     }
 }
 
-function Show-Queue {
-    $queue = (Invoke-Api GET "/api/conversations?status=WAITING_HUMAN").Body
-    if (-not $queue -or @($queue).Count -eq 0) {
-        Write-Host "  (fila vazia)" -ForegroundColor DarkGray
-        return
+# Mostra só o que chegou depois da última mensagem vista (resposta da equipe, aviso de que alguém assumiu).
+function Show-New([string]$conversationId) {
+    $all = Get-Messages $conversationId
+    $new = @($all | Select-Object -Skip $script:seen)
+    $script:seen = $all.Count
+    $shown = $false
+    foreach ($m in $new) {
+        if ($m.author -ne "CUSTOMER") {
+            $shown = $true
+            $color = if ($m.author -eq "STAFF") { "Magenta" } else { "Green" }
+            Write-Host ("{0}: " -f (Format-Author $m)) -ForegroundColor $color -NoNewline
+            Write-Host $m.content
+        }
     }
-    foreach ($q in @($queue)) {
-        Write-Host ("  {0}  {1}  motivo={2}" -f $q.id, $q.priority, $q.handoffReason) -ForegroundColor Cyan
-    }
+    if (-not $shown) { Write-Host "  (nada novo)" -ForegroundColor DarkGray }
 }
 
 # ---- conversa ----
@@ -149,6 +149,7 @@ Write-Host "Chat de teste do assistente — SOMENTE DADOS FICTÍCIOS" -Foregroun
 Write-Host "Contato fictício: $Contato   API: $BaseUrl" -ForegroundColor DarkGray
 Show-Help
 $conversationId = Open-Conversation $Contato
+$script:seen = (Get-Messages $conversationId).Count
 Write-Host "Conversa: $conversationId" -ForegroundColor DarkGray
 Write-Host ""
 
@@ -164,21 +165,14 @@ while ($true) {
             break
         } elseif ($command -eq "/ajuda") {
             Show-Help
-        } elseif ($command -eq "/pedidos") {
-            Show-Requests $conversationId
+        } elseif ($command -eq "/atualizar") {
+            Show-New $conversationId
         } elseif ($command -eq "/historico") {
             Show-History $conversationId
-        } elseif ($command -eq "/fila") {
-            Show-Queue
-        } elseif ($command -eq "/devolver") {
-            $r = Invoke-Api POST "/api/conversations/$conversationId/return-to-assistant"
-            Write-Host "  Equipe devolveu a conversa: status=$($r.Body.status) (HTTP $($r.Status))" -ForegroundColor Magenta
-        } elseif ($command -eq "/encerrar") {
-            $r = Invoke-Api POST "/api/conversations/$conversationId/close"
-            Write-Host "  Equipe encerrou a conversa: status=$($r.Body.status) (HTTP $($r.Status))" -ForegroundColor Magenta
         } elseif ($command -eq "/nova") {
             $Contato = "ficticio-" + [guid]::NewGuid().ToString().Substring(0, 8)
             $conversationId = Open-Conversation $Contato
+            $script:seen = (Get-Messages $conversationId).Count
             Write-Host "  Novo contato fictício: $Contato   conversa: $conversationId" -ForegroundColor DarkGray
         } else {
             Write-Host "  Comando desconhecido." -ForegroundColor DarkGray
@@ -196,8 +190,13 @@ while ($true) {
                 Write-Host "  (a conversa anterior expirou ou foi encerrada: nova conversa $conversationId)" -ForegroundColor DarkGray
             }
             Write-Host ""
-            Write-Host "Assistente: " -ForegroundColor Green -NoNewline
-            Write-Host $b.reply
+            if ($null -eq $b.reply) {
+                Write-Host "  (sem resposta automática: um funcionário está com a conversa. Use /atualizar)" -ForegroundColor Magenta
+            } else {
+                Write-Host "Assistente: " -ForegroundColor Green -NoNewline
+                Write-Host $b.reply
+            }
+            $script:seen = (Get-Messages $conversationId).Count
             $meta = "  status=$($b.status) | prioridade=$($b.priority) | intenção=$($b.intent)"
             if ($b.handoffReason) { $meta += " | encaminhamento=$($b.handoffReason)" }
             if ($b.staffRequestReason) { $meta += " | pedido para a equipe=$($b.staffRequestReason)" }

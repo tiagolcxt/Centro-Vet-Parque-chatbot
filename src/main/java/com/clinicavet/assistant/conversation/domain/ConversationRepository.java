@@ -2,9 +2,13 @@ package com.clinicavet.assistant.conversation.domain;
 
 import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
+import com.clinicavet.assistant.shared.domain.InternalNote;
+import com.clinicavet.assistant.tutor.domain.TutorId;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 public interface ConversationRepository {
 
@@ -23,7 +27,7 @@ public interface ConversationRepository {
      */
     Optional<Conversation> findByIdForUpdate(ConversationId id);
 
-    /** A conversa ativa ({@code OPEN} ou {@code WAITING_HUMAN}) do contato, se houver (ADR-0009). */
+    /** A conversa ativa ({@code OPEN}, {@code WAITING_HUMAN} ou {@code ASSIGNED}) do contato, se houver (ADR-0009). */
     Optional<Conversation> findActiveByContact(ContactIdentity contact);
 
     /** Como {@link #findActiveByContact}, travando a linha encontrada. Exige transação ativa. */
@@ -34,6 +38,19 @@ public interface ConversationRepository {
      * nível, a que espera há mais tempo (encaminhamento ou última atividade).
      */
     List<Conversation> findByStatusInQueueOrder(ConversationStatus status, int limit);
+
+    /** Ativas ({@code OPEN}, {@code WAITING_HUMAN}, {@code ASSIGNED}) na ordem da caixa de entrada (RF-S20). */
+    List<Conversation> findInbox(int limit);
+
+    List<Conversation> findByIds(Set<ConversationId> ids);
+
+    List<Conversation> findByTutor(TutorId tutorId);
+
+    List<Conversation> findAssignedTo(UUID staffUserId);
+
+    void saveNote(ConversationId id, InternalNote note);
+
+    List<InternalNote> findNotes(ConversationId id);
 
     void savePriorityChange(PriorityChange change);
 

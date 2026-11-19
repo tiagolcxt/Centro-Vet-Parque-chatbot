@@ -80,6 +80,12 @@ class ConversationEntity {
     @Column(name = "human_offer_made", nullable = false)
     private boolean humanOfferMade;
 
+    @Column(name = "assignee_user_id", columnDefinition = "BINARY(16)")
+    private UUID assigneeId;
+
+    @Column(name = "waiting_department_id", columnDefinition = "BINARY(16)")
+    private UUID waitingDepartmentId;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -103,6 +109,8 @@ class ConversationEntity {
         entity.handoffReason = conversation.handoffReason().orElse(null);
         entity.handoffAt = conversation.handoffAt().orElse(null);
         entity.humanOfferMade = conversation.humanOfferMade();
+        entity.assigneeId = conversation.assigneeId().orElse(null);
+        entity.waitingDepartmentId = conversation.waitingDepartmentId().orElse(null);
         entity.version = conversation.version();
         return entity;
     }
@@ -111,6 +119,6 @@ class ConversationEntity {
         return Conversation.restore(new ConversationId(id), new ContactIdentity(channel, externalContactId),
                 tutorId == null ? null : new TutorId(tutorId), status, currentIntent, closeReason,
                 startedAt, lastActivityAt, closedAt, clinicalPriority, handoffReason, handoffAt, humanOfferMade,
-                version);
+                assigneeId, waitingDepartmentId, version);
     }
 }

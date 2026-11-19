@@ -32,6 +32,16 @@ class JpaTutorRepository implements TutorRepository {
     }
 
     @Override
+    public List<Tutor> search(String text, int limit) {
+        String clean = text == null ? "" : text.strip().toLowerCase(java.util.Locale.ROOT).replaceAll("[%_\\\\]", "");
+        if (clean.length() < 2) {
+            return List.of();
+        }
+        return jpa.search("%" + clean + "%", org.springframework.data.domain.Limit.of(limit)).stream()
+                .map(TutorEntity::toDomain).toList();
+    }
+
+    @Override
     public Optional<Tutor> findByContact(ContactIdentity contact) {
         return jpa.findByChannelAndExternalContactId(contact.channel(), contact.externalContactId())
                 .map(TutorEntity::toDomain);

@@ -20,6 +20,8 @@ public record ConversationExpirationPolicy(Duration openTimeout, Duration waitin
         return switch (Objects.requireNonNull(status, "status")) {
             case OPEN -> openTimeout;
             case WAITING_HUMAN -> waitingHumanTimeout;
+            // Assumida não expira por inatividade: quem assumiu encerra ou devolve (modelo de dados, seção 5).
+            case ASSIGNED -> throw new IllegalArgumentException("conversa assumida não expira");
             case CLOSED -> throw new IllegalArgumentException("conversa encerrada não expira");
         };
     }
