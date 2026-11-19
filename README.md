@@ -10,7 +10,7 @@ Primeira camada de atendimento de uma clínica veterinária: conversa com tutore
 
 **Próximo passo: SaaS multi-clínica (planejamento aprovado em 2026-11-18, DA-42 a DA-51).** O assistente vira parte de uma plataforma com aplicação web, filas por setor, configuração sem YAML e WhatsApp oficial. Ver [Product Blueprint](docs/product/saas/product-blueprint.md) e [roadmap do SaaS](docs/plans/saas-roadmap.md).
 
-**Etapa S1 — Fundação multi-tenant implementada, aguardando aceite (2026-11-18).**
+**Etapa S1 — Fundação multi-tenant concluída e aceita (2026-11-19).**
 
 - Todos os dados pertencem a uma clínica (`clinic_id`), e uma clínica não enxerga a outra (ADR-0021).
 - Funcionários têm login individual, com perfis editáveis e permissões (ADR-0024).

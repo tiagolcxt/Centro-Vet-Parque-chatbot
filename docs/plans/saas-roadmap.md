@@ -72,7 +72,7 @@ S1 Fundação multi-tenant ─► S2 Caixa de entrada e solicitações ─► S3
 - [x] Os testes anteriores continuam verdes com `clinic_id`: 523 no total em 2026-11-18. A bateria com IA real não foi rodada nesta etapa.
 - [ ] ⚑ Pedido de verificação na Meta enviado, com data registrada. Depende do responsável: dados da empresa.
 
-**Situação (2026-11-18): implementada, aguardando aceite.**
+**Situação: implementada em 2026-11-18 e aceita pelo responsável em 2026-11-19.**
 
 O que foi feito:
 
