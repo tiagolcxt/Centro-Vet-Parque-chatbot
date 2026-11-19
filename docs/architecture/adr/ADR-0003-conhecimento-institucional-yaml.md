@@ -1,6 +1,6 @@
 # ADR-0003 — Conhecimento institucional em YAML tipado e validado
 
-- **Status:** Aceito, com pendências (P-11: conteúdo real). Implementado na Etapa 3, com o desvio descrito no fim
+- **Status:** Aceito, com pendências (P-11: conteúdo real). Implementado na Etapa 3, com o desvio descrito no fim. **Armazenamento superado pelo [ADR-0026](ADR-0026-configuracao-versionada-no-banco.md)** (2026-11-18): o modelo tipado, o `null` como desconhecido, a validade e a validação continuam; o YAML vira formato de importação
 - **Data:** 2026-11-11
 - **Decisão:** DA-03
 

@@ -1,6 +1,6 @@
 # Matriz de riscos
 
-> Versão 2026-11-11. Origem: [revisão técnica](etapa-0-revisao-tecnica.md), seção 12, atualizada com as decisões do [registro](registro-de-decisoes.md).
+> Versão 2026-11-11, com os riscos do SaaS (R-30 a R-39) acrescentados em 2026-11-18. Origem: [revisão técnica](etapa-0-revisao-tecnica.md), seção 12, atualizada com as decisões do [registro](registro-de-decisoes.md).
 > **P** = probabilidade e **I** = impacto (A alta, M média, B baixa), avaliados **após** as mitigações já decididas, salvo indicação.
 > "Etapa" é onde a mitigação é implementada e verificada.
 
@@ -36,3 +36,13 @@
 | R-27 | Critérios clínicos ilustrativos usados como se fossem aprovados | Segurança / responsabilidade | B | A | Lista ilustrativa só com dados fictícios; ambiente real recusa iniciar sem P-20 (ADR-0014, 0018) | E7 | — |
 | R-28 | Tom inadequado em situação delicada (luto, desespero, dificuldade financeira): frio, comercial ou emotivo demais | UX / reputação | M | A | Diretrizes no prompt; sinais com tratamento específico; RN-D08 e RN-D14; avaliação qualitativa com a clínica (E6) | E4, E6 | Subjetivo; depende de avaliação humana |
 | R-29 | Conversa em acompanhamento (P3) sem contexto do atendimento anterior, por causa do ADR-0009 | UX | M | M | Referência mínima às solicitações em aberto (DA-37) | E5 | — |
+| R-30 | **Verificação na Meta demora semanas** e atrasa a S4 | Prazo / externo | M | A | Pedido feito já na S1; S2 e S3 não dependem do WhatsApp; opção B (provedor intermediário) reavaliada se travar (DA-46, ADR-0023) | S1, S4 | Prazo fora do nosso controle |
+| R-31 | **Política do WhatsApp contra IA de uso geral** interpretada contra o assistente | Externo / continuidade | B | A | Assistente restrito ao escopo da clínica, documentado; a equipe consegue operar sem a IA (princípio de produto) | S4, S5 | Meta decide como quiser |
+| R-32 | **Custo por mensagem do WhatsApp** maior que o previsto, ou mudando | Negócio | M | M | Conferir a tabela oficial antes de definir o preço; custo por conversa medido (plano de validação) | S4, S6 | Preço da Meta pode mudar de novo |
+| R-33 | **Vazamento entre clínicas** por consulta sem filtro de `clinic_id` | Segurança / LGPD | B | A | `@TenantId`; teste das consultas nativas; testes de API com duas clínicas; 404 em acesso cruzado (DA-43, ADR-0021) | S1 em diante | Código novo fora do padrão; o teste de arquitetura reduz |
+| R-34 | **Equipe não adota a aplicação** e continua no celular | Adoção | M | A | Nível 1 do piloto começa pela equipe; tela Início responde "o que eu faço agora"; responsivo; revisão semanal (DA-48) | S2, S6 | Depende da rotina da clínica |
+| R-35 | **Ninguém assume** as conversas encaminhadas (aviso só dentro da aplicação) | Operação | M | A | Destaque em tempo real; indicador de "aguardando funcionário"; o tutor sempre recebe o próximo passo; P-14 definida com a clínica (DA-47) | S2, S6 | Sem aviso fora da aplicação no MVP |
+| R-36 | **Configuração errada publicada** pela clínica (ex.: preço digitado errado) | Confiabilidade | M | M | Simulador; diferenças legíveis antes de publicar; histórico com restauração; auditoria (ADR-0026) | S3 | Erro plausível passa pela validação |
+| R-37 | **Complexidade da aplicação web** atrasa o MVP (segunda linguagem, tempo real) | Prazo / manutenção | M | M | Escopo de telas enxuto (seis itens de menu); SSE em vez de WebSocket; componentes simples (DA-44) | S2 | — |
+| R-38 | **Dados reais antes da barreira**: a clínica começa a usar com tutores reais antes da S6 | LGPD | B | A | Número de teste na S4; barreira G1–G12 mais DA-50; nível de ativação começa em 1 | S4–S6 | Depende de disciplina |
+| R-39 | **Conta de funcionário compartilhada** (prática comum em recepção) | Segurança / auditoria | M | M | Login individual, sessões por pessoa, treinamento; a auditoria mostra uso simultâneo | S1, S6 | Prática difícil de impedir só com software |

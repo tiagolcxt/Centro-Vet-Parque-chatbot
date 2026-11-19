@@ -46,3 +46,20 @@ O sistema tratará dados pessoais de tutores (nome, telefone, conteúdo livre de
 
 - A Etapa 7 tem itens que não são código (definições da clínica e validação jurídica) e pode atrasar o uso real mesmo com o software pronto.
 - O "pronto" das Etapas 1 a 6 é sempre "pronto com dados fictícios".
+
+## Revisão SaaS (2026-11-18, DA-50)
+
+No SaaS, a **clínica é a controladora** dos dados dos seus clientes e a **plataforma é a operadora**. Isso é uma leitura inicial, a validar com advogado.
+
+**Antes de qualquer dado real (Etapa S6 do [roadmap SaaS](../../plans/saas-roadmap.md)), além do checklist G1–G12:**
+
+- contrato de tratamento de dados com cada clínica;
+- lista de suboperadores (OpenAI, Meta), com a transferência internacional (art. 33);
+- aviso de uso de IA ao tutor (P-04);
+- prazo de retenção definido com a clínica (P-03);
+- exportação e eliminação de dados do titular pela aplicação (RF-S43);
+- auditoria por clínica (RF-S07);
+- registro de acesso de suporte da plataforma (RN-S12);
+- revisão jurídica registrada.
+
+A Etapa 7 do roadmap do assistente passa a ser cumprida dentro da Etapa S6.

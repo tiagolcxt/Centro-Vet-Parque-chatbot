@@ -8,6 +8,8 @@ Primeira camada de atendimento de uma clínica veterinária: conversa com tutore
 
 **Etapa 5 — Coleta de dados e solicitações de agendamento concluída e aceita**. Há API de conversa autenticada por API Key, conversa com o modelo (`gpt-6-luna`) com histórico persistido e ciclo de vida, base institucional em YAML validada na inicialização e um validador que barra valores sem fonte, confirmação de agendamento, promessas sem processo e doses. Dúvidas que a base não responde viram pedidos de informação para a equipe. Pedidos de atendimento humano, possíveis emergências, sintomas e reclamações vão para a fila da equipe, com prioridade clínica (P1 a P6) que só a equipe rebaixa. A equipe tem rotas para a fila, para devolver ou encerrar conversas e para resolver solicitações. O assistente coleta tutor e pet com proveniência por campo (mencionada, confirmada, cadastrada, a reconfirmar) e organiza pedidos de agendamento que só ficam registrados com pet, motivo e nome do tutor, sem nunca confirmar dia nem horário. Textos de emergência e prazos ainda são provisórios (P-01, P-02). As regras de coleta e agendamento usam valores provisórios (P-06, P-07, P-08, P-13). Roadmap em [docs/plans/implementation-roadmap.md](docs/plans/implementation-roadmap.md).
 
+**Próximo passo: SaaS multi-clínica (planejamento aprovado em 2026-11-18, DA-42 a DA-51).** O assistente vira parte de uma plataforma com aplicação web, filas por setor, configuração sem YAML e WhatsApp oficial. Ver [Product Blueprint](docs/product/saas/product-blueprint.md) e [roadmap do SaaS](docs/plans/saas-roadmap.md). Nenhum código do SaaS foi escrito ainda.
+
 ## Pré-requisitos
 
 - JDK 25 (o Gradle encontra pela toolchain; o Java padrão do terminal pode ser outro, a partir do 17)
@@ -74,6 +76,9 @@ Troque `ID` pelo `id` devolvido no primeiro comando. Contratos e códigos de err
 
 | Assunto | Onde |
 |---|---|
+| SaaS: Blueprint, PRD, fluxos e telas | [docs/product/saas/](docs/product/saas/product-blueprint.md) — [PRD](docs/product/saas/prd.md), [fluxos](docs/product/saas/fluxos-operacionais.md), [UX](docs/product/saas/ux-navegacao.md) |
+| SaaS: arquitetura e dados | [módulos](docs/architecture/saas-modulos-e-arquitetura.md), [modelo de dados](docs/architecture/saas-modelo-de-dados.md) |
+| SaaS: roadmap, backlog e validação | [roadmap](docs/plans/saas-roadmap.md), [backlog](docs/plans/saas-backlog.md), [plano de validação](docs/plans/saas-plano-de-validacao.md) |
 | Proposta técnica | [docs/plans/etapa-0-analise-e-proposta.md](docs/plans/etapa-0-analise-e-proposta.md) |
 | Decisões e pendências | [docs/plans/registro-de-decisoes.md](docs/plans/registro-de-decisoes.md) |
 | ADRs | [docs/architecture/adr/](docs/architecture/adr/README.md) |

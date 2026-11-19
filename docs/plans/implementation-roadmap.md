@@ -1,5 +1,7 @@
 # Roadmap de implementação
 
+> **2026-11-18:** o produto evoluiu para o SaaS. O roadmap atual é o [roadmap do SaaS](saas-roadmap.md); a Etapa 6 deste documento passa para a S5 e a Etapa 7 para a S6. Este documento fica como histórico do assistente.
+>
 > **Versão 2 — 2026-11-11.** Base: [proposta técnica v2](etapa-0-analise-e-proposta.md), [registro de decisões](registro-de-decisoes.md), [ADRs](../architecture/adr/README.md).
 
 **Regras gerais**

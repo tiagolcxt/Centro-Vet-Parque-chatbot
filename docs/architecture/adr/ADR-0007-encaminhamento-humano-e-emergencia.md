@@ -120,3 +120,11 @@ Motivo: no teste manual do responsável, quase tudo terminava em "sua conversa f
 - **Item 6:** com o prazo vencido, a resposta traz o contato direto aprovado ou o próximo passo.
 - **Provisório:** o que transfere (P-12) e se P3 transfere (P-20) seguem com a clínica.
 - Testes: `PriorityAndHandoffPolicyTest.da40_…`, `ReplyComposerTest.da40_…`, `NextStepTest`, `GuidelineScenariosIT`, `SensitiveTopicAndRecoveryIT` e `ResolutionAiIT` (IA real).
+
+## Revisão SaaS (2026-11-18, DA-47)
+
+Com a aplicação web, o encaminhamento ganha um estado a mais e um aviso à equipe:
+
+- **Aviso à equipe.** No MVP, a equipe é avisada **só dentro da aplicação**: a conversa ou a solicitação aparece destacada no setor, em tempo real. Aviso por WhatsApp, e-mail ou push para funcionários fica fora do MVP.
+- **O que o tutor ouve.** A regra de nunca dizer que alguém foi avisado continua. O tutor ouve "encaminhei para a Recepção" enquanto a conversa está em `WAITING_HUMAN`, e "Ana, da Recepção, está com o seu pedido" depois que alguém assume (estado novo `ASSIGNED`, [modelo de dados](../saas-modelo-de-dados.md#5-ciclos-de-vida)).
+- **Conversa assumida.** O assistente para de responder, mas a prioridade continua sendo avaliada a cada mensagem. Uma possível emergência destaca a conversa para o responsável e para o setor ([fluxos](../../product/saas/fluxos-operacionais.md#10-possível-emergência)).

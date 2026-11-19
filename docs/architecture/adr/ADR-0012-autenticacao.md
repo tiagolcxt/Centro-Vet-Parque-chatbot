@@ -1,6 +1,6 @@
 # ADR-0012 — Autenticação: API Key em testes controlados, autenticação individual para dados reais
 
-- **Status:** Aceito, com pendências (P-17, PT-07)
+- **Status:** Aceito, com pendências (P-17, PT-07). **Mecanismo revisto pelo [ADR-0024](ADR-0024-identidade-perfis-permissoes.md)** (2026-11-18)
 - **Data:** 2026-11-11
 - **Decisão:** DA-06
 
@@ -41,3 +41,14 @@ A API expõe conversas e dados pessoais de tutores. No canal API, o chamador inf
 
 - Nenhuma demonstração ou piloto com dados reais é possível antes da Etapa 7, por construção.
 - A Etapa 7 não é opcional: é condição de entrada em produção (ADR-0014).
+
+## Revisão SaaS (2026-11-18)
+
+O mecanismo de autenticação individual, autorização e auditoria está decidido no [ADR-0024](ADR-0024-identidade-perfis-permissoes.md) (DA-49):
+
+- sessão por usuário;
+- perfis editáveis;
+- catálogo fixo de permissões;
+- escopo de setor.
+
+A `X-API-Key` fica só para testes e integrações de serviço. Os perfis reais da clínica continuam pendentes (P-17).
