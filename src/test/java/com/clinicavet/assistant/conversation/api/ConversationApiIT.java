@@ -8,7 +8,7 @@ import com.clinicavet.assistant.conversation.application.ModelReply;
 import com.clinicavet.assistant.conversation.application.TokenEstimator;
 import com.clinicavet.assistant.conversation.domain.CloseReason;
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.Intent;

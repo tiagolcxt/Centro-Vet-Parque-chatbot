@@ -1,7 +1,7 @@
 package com.clinicavet.assistant.conversation.api;
 
 import com.clinicavet.assistant.conversation.application.ConversationSettings;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;

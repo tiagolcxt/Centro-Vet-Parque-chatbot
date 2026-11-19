@@ -117,6 +117,8 @@ assistant:
   security:
     # X-Api-Key de /api/** (ADR-0012). Só no .env ou em variável de ambiente; sem ela, a aplicação não sobe.
     api-key: ${ASSISTANT_API_KEY:}
+    # Clínica dona da chave (ADR-0021). Padrão: a clínica fictícia criada pela V5.
+    api-key-clinic: ${ASSISTANT_API_KEY_CLINIC:00000000-0000-4000-8000-000000000001}
   conversation:
     expiration:
       # PROVISÓRIO (P-05): valores de desenvolvimento, sem decisão da clínica. Não usar como definitivos.

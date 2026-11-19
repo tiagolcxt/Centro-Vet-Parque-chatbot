@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.tutor.domain;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.domain.Timestamps;
 
 import java.time.Duration;

@@ -1,7 +1,7 @@
 package com.clinicavet.assistant.conversation.application;
 
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;

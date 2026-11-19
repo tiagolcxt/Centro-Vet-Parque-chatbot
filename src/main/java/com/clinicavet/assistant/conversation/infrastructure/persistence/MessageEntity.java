@@ -2,7 +2,7 @@ package com.clinicavet.assistant.conversation.infrastructure.persistence;
 
 import com.clinicavet.assistant.conversation.domain.AssistantMetadata;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.conversation.domain.MessageAuthor;
@@ -15,6 +15,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.TenantId;
 import org.springframework.data.domain.Persistable;
 
 import java.time.Instant;
@@ -36,6 +37,11 @@ class MessageEntity implements Persistable<UUID> {
     @Id
     @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
+
+    // Clínica dona da linha (ADR-0021): preenchida e filtrada pelo Hibernate a partir do CurrentClinic.
+    @TenantId
+    @Column(name = "clinic_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID clinicId;
 
     @Column(name = "conversation_id", columnDefinition = "BINARY(16)", nullable = false)
     private UUID conversationId;

@@ -38,7 +38,7 @@ flowchart TB
     WEB --> CU
     WEB --> TE
     WEB --> CFG
-    CONV --> AS
+    AS -.->|implementa AssistantModel| CONV
     AS --> OAI
     AS -->|versão publicada| CFG
     CONV --> CU
@@ -57,8 +57,8 @@ flowchart TB
 | `clinicknowledge` (clinic-configuration) | Informações da clínica com validade; setores; serviços; regras de encaminhamento; rascunho, publicação e histórico | `config_version` (documento com informações, serviços e regras), `department` | `PublishedConfiguration.current()` → `ClinicKnowledge` (o objeto de hoje), `Departments`, `RoutingRules.departmentFor(type, service)`; casos de uso de edição e publicação | `platform` |
 | `team` | Funcionários (cargo, registro, setores), disponibilidade | `employee`, `employee_department` | `StaffDirectory`: quem está disponível no setor X; nome de exibição de um funcionário | `platform`, `clinicknowledge` (setores) |
 | `tutor` (customer) | Tutor (com o contato do canal), pets, proveniência, pedidos do titular | `tutor`, `pet`, `data_provenance` | `CustomerRecords` (já existe); busca; exportação e anonimização | `platform` |
-| `conversation` | Turno (orquestração, ADR-0017), mensagens, estados, prioridade, assumir, devolver, transferir, responder, notas da conversa | `conversation`, `message`, `priority_change`, `conversation_note` | Casos de uso do turno e da caixa de entrada; consulta de conversas; porta `OutboundMessages` (implementada pelo `channel`) | `ai`, `tutor`, `servicerequest`, `clinicknowledge`, `team`, `platform` |
-| `ai` (assistant) | Montagem do prompt, chamada ao modelo, esquema de saída, validação da resposta | nenhuma | `AssistantExecutor` (já existe) | `clinicknowledge` (leitura), `platform` |
+| `conversation` | Turno (orquestração, ADR-0017), mensagens, estados, prioridade, assumir, devolver, transferir, responder, notas da conversa | `conversation`, `message`, `priority_change`, `conversation_note` | Casos de uso do turno e da caixa de entrada; consulta de conversas; porta `OutboundMessages` (implementada pelo `channel`) | `tutor`, `servicerequest`, `clinicknowledge`, `team`, `platform` (o `ai` entra pela porta `AssistantModel`, que o `conversation` define) |
+| `ai` (assistant) | Montagem do prompt, chamada ao modelo, esquema de saída, validação da resposta | nenhuma | implementa a porta `AssistantModel` do `conversation` | `conversation` (porta), `clinicknowledge` (leitura), `platform` |
 | `servicerequest` | Solicitações: setor, responsável, estado, resultado, eventos e notas | `service_request`, `service_request_event`, `service_request_note` | Abrir, atualizar coleta, atribuir, transferir, mudar estado, encerrar; consultas por setor | `team`, `clinicknowledge` (setores), `platform` |
 | `channel` | Webhook da Meta, idempotência de entrada, *outbox* de saída, status de entrega, janela de 24 horas, conta do canal por clínica | `channel_account`, `inbound_message`, `outbound_message` | Implementa `OutboundMessages`; entrega `IncomingMessage` ao `conversation` | `conversation` (entrada), `platform` |
 
@@ -69,7 +69,7 @@ flowchart TB
 - O `team` não conhece conversas. O `conversation` pergunta ao `team` quem é o funcionário; o `team` nunca pergunta nada ao `conversation`.
 - O `ai` lê **só a versão publicada** da configuração (RN-S08).
 
-**Verificação.** Um teste de arquitetura falha se um pacote acessar `domain` ou `infrastructure` de outro módulo, ou se surgir dependência fora da tabela. A ferramenta (Spring Modulith ou ArchUnit) está em aberto na PT-16, escolhida pela compatibilidade com o Boot 4.0.5.
+**Verificação.** O `ModularityTest` (Spring Modulith 2.0.9, DA-52) falha se surgir um ciclo ou se um módulo acessar um pacote de outro que não está declarado como público (`@NamedInterface`). O que é público em cada módulo, e a dívida que ficou, estão no ADR-0020.
 
 ## 4. Multi-tenant (DA-43, ADR-0021)
 

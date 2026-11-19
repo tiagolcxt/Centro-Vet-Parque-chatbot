@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.domain;
 
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.exception.DomainValidationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

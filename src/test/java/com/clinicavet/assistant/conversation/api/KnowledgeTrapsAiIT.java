@@ -2,7 +2,7 @@ package com.clinicavet.assistant.conversation.api;
 
 import com.clinicavet.assistant.conversation.application.validation.Fact;
 import com.clinicavet.assistant.conversation.application.validation.FactExtractor;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequestRepository;
 import com.clinicavet.assistant.support.ApiClient;

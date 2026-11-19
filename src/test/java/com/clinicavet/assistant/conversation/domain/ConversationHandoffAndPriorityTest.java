@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.domain;
 
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
 import com.clinicavet.assistant.servicerequest.domain.RequestField;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;

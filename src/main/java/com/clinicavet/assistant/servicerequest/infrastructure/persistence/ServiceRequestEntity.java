@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.servicerequest.infrastructure.persistence;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
@@ -15,6 +15,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.TenantId;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -27,6 +28,11 @@ class ServiceRequestEntity {
     @Id
     @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
+
+    // Clínica dona da linha (ADR-0021): preenchida e filtrada pelo Hibernate a partir do CurrentClinic.
+    @TenantId
+    @Column(name = "clinic_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID clinicId;
 
     @Column(name = "conversation_id", columnDefinition = "BINARY(16)", nullable = false)
     private UUID conversationId;

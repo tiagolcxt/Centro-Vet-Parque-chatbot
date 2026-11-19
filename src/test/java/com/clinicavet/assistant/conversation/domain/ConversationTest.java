@@ -1,5 +1,6 @@
 package com.clinicavet.assistant.conversation.domain;
 
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.shared.domain.Channel;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;

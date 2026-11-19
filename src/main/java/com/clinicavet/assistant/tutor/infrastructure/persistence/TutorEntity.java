@@ -11,6 +11,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.TenantId;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -22,6 +23,11 @@ class TutorEntity {
     @Id
     @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
+
+    // Clínica dona da linha (ADR-0021): preenchida e filtrada pelo Hibernate a partir do CurrentClinic.
+    @TenantId
+    @Column(name = "clinic_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID clinicId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "channel", columnDefinition = "VARCHAR(20)", nullable = false)

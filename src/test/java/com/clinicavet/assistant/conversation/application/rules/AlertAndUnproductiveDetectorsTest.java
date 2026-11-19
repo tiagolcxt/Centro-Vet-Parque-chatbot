@@ -4,7 +4,7 @@ import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
 import com.clinicavet.assistant.clinicknowledge.infrastructure.KnowledgeFileLoader;
 import com.clinicavet.assistant.conversation.domain.AssistantMetadata;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.HandoffPolicy.Unproductive;
 import com.clinicavet.assistant.conversation.domain.Intent;
 import com.clinicavet.assistant.conversation.domain.Message;

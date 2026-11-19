@@ -3,7 +3,7 @@ package com.clinicavet.assistant.conversation.infrastructure.persistence;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.CloseReason;
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.HandoffReason;
 import com.clinicavet.assistant.conversation.domain.Intent;
@@ -17,6 +17,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.TenantId;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -28,6 +29,11 @@ class ConversationEntity {
     @Id
     @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
+
+    // Clínica dona da linha (ADR-0021): preenchida e filtrada pelo Hibernate a partir do CurrentClinic.
+    @TenantId
+    @Column(name = "clinic_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID clinicId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "channel", columnDefinition = "VARCHAR(20)", nullable = false)

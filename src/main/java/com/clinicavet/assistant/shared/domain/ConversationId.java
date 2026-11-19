@@ -1,4 +1,4 @@
-package com.clinicavet.assistant.conversation.domain;
+package com.clinicavet.assistant.shared.domain;
 
 import java.util.Objects;
 import java.util.UUID;

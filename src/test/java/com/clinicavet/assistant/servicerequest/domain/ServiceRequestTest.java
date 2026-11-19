@@ -1,7 +1,7 @@
 package com.clinicavet.assistant.servicerequest.domain;
 
 import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.exception.InvalidStateTransitionException;
 import com.clinicavet.assistant.shared.exception.MissingRequiredFieldsException;
 import com.clinicavet.assistant.tutor.domain.PetId;

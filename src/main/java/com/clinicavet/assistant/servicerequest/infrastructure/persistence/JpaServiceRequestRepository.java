@@ -1,6 +1,7 @@
 package com.clinicavet.assistant.servicerequest.infrastructure.persistence;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.platform.CurrentClinic;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequest;
@@ -21,16 +22,20 @@ interface ServiceRequestJpaRepository extends JpaRepository<ServiceRequestEntity
 
     List<ServiceRequestEntity> findByConversationIdOrderByCreatedAtAsc(UUID conversationId);
 
-    /** DA-37: solicitações em aberto de OUTRAS conversas do mesmo contato, da mais recente para a mais antiga. */
+    /**
+     * DA-37: solicitações em aberto de OUTRAS conversas do mesmo contato, da mais recente para a mais antiga.
+     * Consulta nativa: o Hibernate não aplica o @TenantId, então a clínica vai explícita (ADR-0021).
+     */
     @Query(value = """
             SELECT sr.* FROM service_request sr
             JOIN conversation c ON c.id = sr.conversation_id
-            WHERE c.channel = :channel AND c.external_contact_id = :externalContactId
+            WHERE sr.clinic_id = :clinic AND c.clinic_id = :clinic
+              AND c.channel = :channel AND c.external_contact_id = :externalContactId
               AND sr.conversation_id <> :excluded AND sr.status IN ('PENDING', 'IN_PROGRESS')
             ORDER BY sr.created_at DESC
             LIMIT :limit
             """, nativeQuery = true)
-    List<ServiceRequestEntity> findOpenOfContactExcept(@Param("channel") String channel,
+    List<ServiceRequestEntity> findOpenOfContactExcept(@Param("clinic") UUID clinic, @Param("channel") String channel,
                                                        @Param("externalContactId") String externalContactId,
                                                        @Param("excluded") UUID excluded, @Param("limit") int limit);
 }
@@ -67,7 +72,7 @@ class JpaServiceRequestRepository implements ServiceRequestRepository {
 
     @Override
     public List<ServiceRequest> findOpenOfContactExcept(ContactIdentity contact, ConversationId excluded, int limit) {
-        return jpa.findOpenOfContactExcept(contact.channel().name(), contact.externalContactId(), excluded.value(), limit)
+        return jpa.findOpenOfContactExcept(CurrentClinic.require().value(), contact.channel().name(), contact.externalContactId(), excluded.value(), limit)
                 .stream().map(ServiceRequestEntity::toDomain).toList();
     }
 }

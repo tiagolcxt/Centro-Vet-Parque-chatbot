@@ -5,7 +5,7 @@ import com.clinicavet.assistant.conversation.application.AssistantRequest;
 import com.clinicavet.assistant.conversation.application.HandoffSettings;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.HandoffReason;

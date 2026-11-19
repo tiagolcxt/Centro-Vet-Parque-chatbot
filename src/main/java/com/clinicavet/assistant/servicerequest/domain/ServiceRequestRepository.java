@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.servicerequest.domain;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
 
 import java.util.List;

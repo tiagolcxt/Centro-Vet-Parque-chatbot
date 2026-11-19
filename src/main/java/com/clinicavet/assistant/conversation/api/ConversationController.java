@@ -3,7 +3,7 @@ package com.clinicavet.assistant.conversation.api;
 import com.clinicavet.assistant.conversation.application.HandleIncomingMessageUseCase;
 import com.clinicavet.assistant.conversation.application.OpenConversationUseCase;
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
 import com.clinicavet.assistant.shared.domain.Channel;

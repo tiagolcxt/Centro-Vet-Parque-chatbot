@@ -1,7 +1,7 @@
 package com.clinicavet.assistant.conversation.infrastructure.persistence;
 
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.PriorityChange;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
+import org.hibernate.annotations.TenantId;
 import org.springframework.data.domain.Persistable;
 
 import java.time.Instant;
@@ -23,6 +24,11 @@ class PriorityChangeEntity implements Persistable<UUID> {
     @Id
     @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
+
+    // Clínica dona da linha (ADR-0021): preenchida e filtrada pelo Hibernate a partir do CurrentClinic.
+    @TenantId
+    @Column(name = "clinic_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID clinicId;
 
     @Column(name = "conversation_id", columnDefinition = "BINARY(16)", nullable = false)
     private UUID conversationId;

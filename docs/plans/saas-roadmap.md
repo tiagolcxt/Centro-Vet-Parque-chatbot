@@ -66,11 +66,27 @@ S1 Fundação multi-tenant ─► S2 Caixa de entrada e solicitações ─► S3
 
 **Aceite:**
 
-- [ ] O administrador cria perfis, convida funcionários e define setores pela API.
-- [ ] Testes provam que a clínica A não vê nada da B, inclusive nas consultas nativas.
-- [ ] Um perfil sem permissão recebe 403; um id de outra clínica recebe 404.
-- [ ] Os 503 testes atuais continuam verdes com `clinic_id`.
-- [ ] Pedido de verificação na Meta enviado, com data registrada.
+- [x] O administrador cria perfis, convida funcionários e define setores pela API (`StaffAccessIT`).
+- [x] Testes provam que a clínica A não vê nada da B, inclusive nas consultas nativas (`ClinicIsolationIT`, `TenancyRulesTest`).
+- [x] Um perfil sem permissão recebe 403; um id de outra clínica recebe 404.
+- [x] Os testes anteriores continuam verdes com `clinic_id`: 523 no total em 2026-11-18. A bateria com IA real não foi rodada nesta etapa.
+- [ ] ⚑ Pedido de verificação na Meta enviado, com data registrada. Depende do responsável: dados da empresa.
+
+**Situação (2026-11-18): implementada, aguardando aceite.**
+
+O que foi feito:
+
+- V5 (clínica e `clinic_id`) e V6 (setores, perfis, contas, funcionários, auditoria);
+- módulos `platform` e `team`;
+- login com sessão e CSRF;
+- Spring Modulith (DA-52).
+
+Detalhes nos ADRs 0020, 0021 e 0024.
+
+Ficou para depois:
+
+- envio do convite por e-mail (S1-7): na S1, o link volta para o administrador;
+- itens que dependem das filas: escopo de setor e RN-S07 (S2).
 
 ---
 

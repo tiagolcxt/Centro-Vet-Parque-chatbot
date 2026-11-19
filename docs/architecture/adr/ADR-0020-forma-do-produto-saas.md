@@ -1,7 +1,7 @@
 # ADR-0020 — Forma do produto SaaS: setores como configuração e mapa de módulos
 
-- **Status:** Aceito (opção A, 2026-11-18). A ferramenta de verificação está pendente (PT-16)
-- **Decisão:** DA-42
+- **Status:** Aceito (opção A, 2026-11-18). Ferramenta de verificação: Spring Modulith (DA-52)
+- **Decisão:** DA-42, DA-52
 - **Data:** 2026-11-18
 
 ## Contexto
@@ -18,7 +18,7 @@ As três filas pedidas têm o mesmo comportamento: ver, filtrar, atribuir, trans
    - O responsável é campo da solicitação, e o histórico fica em `service_request_event`.
    - A unidade entra depois, por migração (`unit_id`).
 4. **Mapa de módulos:** `platform`, `clinicknowledge` (configuração), `team`, `tutor` (customer), `conversation`, `ai` (assistant), `servicerequest` e `channel`. As dependências permitidas estão em [saas-modulos-e-arquitetura.md](../saas-modulos-e-arquitetura.md). Os pacotes atuais não são renomeados.
-5. Um módulo usa outro só pela API pública. Um teste de arquitetura verifica isso, com a ferramenta definida na PT-16.
+5. Um módulo usa outro só pela API pública. Um teste de arquitetura verifica isso, com o Spring Modulith 2.0.x em escopo de teste (DA-52).
 
 ## Alternativas
 
@@ -31,3 +31,27 @@ As três filas pedidas têm o mesmo comportamento: ver, filtrar, atribuir, trans
 
 - Uma regra que só um setor tenha vira, primeiro, uma configuração. Só vira módulo quando houver um domínio próprio (ex.: agenda de banho e tosa, versão futura C).
 - O escopo de permissão por setor (DA-49) é o que separa o que cada setor vê.
+
+## Implementação (Etapa S1, 2026-11-18)
+
+**Verificação.** A verificação das fronteiras usa o Spring Modulith 2.0.9 em escopo de teste: `ModularityTest` chama `ApplicationModules.verify()`. As anotações (`spring-modulith-api`) só entram na compilação.
+
+**Ciclos desfeitos.** `tutor` e `servicerequest` usavam o `ConversationId` do `conversation`, que por sua vez os usa. O `ConversationId` foi para `shared.domain`.
+
+**API pública de cada módulo:**
+
+| Módulo | O que é público |
+|---|---|
+| `shared` | É módulo aberto: tudo é público |
+| `platform` | O pacote-base: `CurrentClinic`, `ClinicId`, `StaffUser`, `Accounts`, `Roles`, `AuditLog`, `Permission`, `Clinics` |
+| `clinicknowledge`, `tutor`, `servicerequest`, `conversation` | O pacote `domain`, declarado com `@NamedInterface` |
+| `conversation` | O pacote `application`, chamado `assistant-port`: o módulo `ai` implementa o `AssistantModel` |
+
+**Dívida registrada.** O `conversation` ainda usa os repositórios de domínio do `tutor` e do `servicerequest`, como o ADR-0017 decidiu. As APIs por caso de uso entram quando cada módulo for mexido: `servicerequest` na S2.
+
+**Módulos novos:**
+
+- `platform`: clínica, contas, perfis, auditoria e segurança. O antigo `shared.security` mudou para cá.
+- `team`: funcionários e padrões da clínica.
+
+**Setores.** Ficam no `clinicknowledge`: `Departments`, `department`.

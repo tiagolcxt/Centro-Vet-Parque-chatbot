@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.servicerequest.domain;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.shared.domain.Texts;
 import com.clinicavet.assistant.shared.domain.Timestamps;
 import com.clinicavet.assistant.shared.exception.DomainValidationException;

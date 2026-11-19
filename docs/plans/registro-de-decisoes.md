@@ -1,7 +1,7 @@
 # Registro de decisões
 
 > Fonte única de verdade sobre **o que foi decidido, o que foi mantido e o que está em aberto**.
-> Atualizado em 2026-11-18 (planejamento SaaS: D1–D10 → DA-42 a DA-51; PT-16 aberta). Em 2026-11-17: respostas úteis → DA-41; atendimento resolutivo → DA-40; modelo de informações → DA-39; P-10, parte técnica → DA-38; valores provisórios de P-06, P-07, P-08, P-13 e P-15 na Etapa 5; PT-09 → DA-35; PT-12 → DA-36; PT-15 → DA-37; PT-10 → DA-30; PT-14 → DA-31; PT-02 → DA-32; PT-06 → DA-33; PT-08 → DA-34). Em 2026-11-16: P-09 → DA-28; PT-11 → DA-29. Antes, em 2026-11-11: PT-01, PT-03, PT-04 e PT-05 decididas; Diretrizes de Atendimento incorporadas como DA-22 a DA-26, após a [revisão técnica](etapa-0-revisao-tecnica.md) e a consolidação de decisões pelo responsável pelo projeto.
+> Atualizado em 2026-11-18 (planejamento SaaS: D1–D10 → DA-42 a DA-51; PT-16 → DA-52). Em 2026-11-17: respostas úteis → DA-41; atendimento resolutivo → DA-40; modelo de informações → DA-39; P-10, parte técnica → DA-38; valores provisórios de P-06, P-07, P-08, P-13 e P-15 na Etapa 5; PT-09 → DA-35; PT-12 → DA-36; PT-15 → DA-37; PT-10 → DA-30; PT-14 → DA-31; PT-02 → DA-32; PT-06 → DA-33; PT-08 → DA-34). Em 2026-11-16: P-09 → DA-28; PT-11 → DA-29. Antes, em 2026-11-11: PT-01, PT-03, PT-04 e PT-05 decididas; Diretrizes de Atendimento incorporadas como DA-22 a DA-26, após a [revisão técnica](etapa-0-revisao-tecnica.md) e a consolidação de decisões pelo responsável pelo projeto.
 > Uma recomendação da revisão **só** aparece como decisão se foi aprovada explicitamente; as demais estão na seção 4.
 
 **Convenções:**
@@ -68,6 +68,7 @@
 | DA-49 | **Identidade e perfis** (ADR-0024): usuário de uma clínica, e-mail único; catálogo fixo de permissões `modulo:acao`; perfis editáveis com escopo de setor; seis perfis iniciais como modelo; desativação preserva autoria; API Key só para testes e integrações | D8, aprovada em 2026-11-18 (opção A) | 0024, 0012 |
 | DA-50 | **LGPD antes de dados reais** (ADR-0014, revisão): clínica controladora e plataforma operadora; contrato de tratamento; lista de suboperadores; aviso de IA; retenção definida com a clínica; revisão jurídica antes da Etapa S6 | D9, aprovada em 2026-11-18 (opção A) | 0014 |
 | DA-51 | **Documentação do SaaS** em Markdown no repositório (`docs/product/saas`, `docs/architecture`, `docs/plans`), versionada com o código; o documento de planejamento fica como resumo | D10, aprovada em 2026-11-18 (opção A) | — |
+| DA-52 | **Verificação das fronteiras entre módulos** (ADR-0020): Spring Modulith 2.0.x, só em escopo de teste (`ApplicationModules.verify()`), sem o registro de eventos; API pública de cada módulo declarada com `@NamedInterface`; ciclos atuais (`tutor` e `servicerequest` usando tipos do `conversation`) desfeitos movendo os tipos compartilhados para `shared` | PT-16, aprovada em 2026-11-18 (opção A) | 0020 |
 
 ## 2. Decisões mantidas da proposta original
 
@@ -137,7 +138,7 @@
 | PT-13 | ~~Lista de expressões de alerta~~ | **Decidida → DA-27** (opção A) | — | — |
 | PT-14 | ~~Limiares de conversa improdutiva~~ | **Decidida → DA-31** (opção A) | — | — |
 | PT-15 | ~~Referência a solicitações anteriores~~ | **Decidida → DA-37** (opção A) | — | — |
-| PT-16 | Ferramenta de verificação das fronteiras entre módulos (ADR-0020) | Spring Modulith × ArchUnit, escolhida pela compatibilidade com o Spring Boot 4.0.5 | S1 | Teste de arquitetura (RNF-S10) |
+| PT-16 | ~~Ferramenta de verificação das fronteiras~~ | **Decidida → DA-52** (opção A, Spring Modulith) | — | — |
 
 ## 4. Recomendações da revisão técnica não aprovadas nesta rodada
 

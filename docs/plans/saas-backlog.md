@@ -2,7 +2,7 @@
 
 > Versão 1 — 2026-11-18. Ordem: [roadmap SaaS](saas-roadmap.md). Requisitos: [PRD](../product/saas/prd.md).
 > **Tamanho:** P (até 1 dia), M (2 a 3 dias), G (4 dias ou mais: quebrar antes de começar). É uma estimativa relativa, não um prazo.
-> Cada item só é "feito" com testes, documentação e aceite (regras do roadmap). Itens marcados ⚑ dependem de algo fora do código.
+> Cada item só é "feito" com testes, documentação e aceite (regras do roadmap). Itens marcados ⚑ dependem de algo fora do código. ✅ = implementado; ◐ = parcial (o resto está descrito no item).
 
 ## S0 — Descoberta
 
@@ -20,19 +20,19 @@
 
 | # | Item | Tamanho | Depende de | Requisitos |
 |---|---|---|---|---|
-| S1-1 | Decidir a PT-16 (Spring Modulith × ArchUnit) com uma prova de conceito no Boot 4.0.5 | P | — | RNF-S10 |
-| S1-2 | Confirmar que o `@TenantId` cobre as consultas do projeto (ADR-0021, consequências) | P | — | RNF-S01 |
-| S1-3 | V5: tabela `clinic`, clínica fictícia, `clinic_id` em todas as tabelas, chaves únicas por clínica | M | S1-2 | RNF-S01 |
-| S1-4 | `TenantContext` e resolver; `@TenantId` nas entidades; consultas nativas com `clinic_id`; teste que lista as consultas nativas | M | S1-3 | RNF-S01 |
-| S1-5 | Suporte de teste com duas clínicas e adaptação dos testes atuais | M | S1-4 | RNF-S01, RNF-S09 |
-| S1-6 | `platform`: `user_account`, sessão Spring Security, login e logout, CSRF, hash de senha, bloqueio | G → quebrar em sessão / login / bloqueio | S1-3 | RF-S02, RNF-S02 |
-| S1-7 | Convite e definição de senha por e-mail (porta `Mailer`; SMTP fictício nos testes) | M | S1-6 | RF-S02, RF-S03 |
-| S1-8 | Catálogo de permissões, `role`, os seis perfis-modelo e a verificação por ação | M | S1-6 | RF-S04 |
-| S1-9 | `team`: `employee`, setores do funcionário, cargo e registro; desativação | M | S1-8 | RF-S03, RF-S05 |
-| S1-10 | `department` com os setores padrão; Recepção como padrão | P | S1-3 | RF-S12 |
-| S1-11 | `audit_event` e `AuditLog`, usados por login, perfis e equipe | M | S1-6 | RF-S07 |
-| S1-12 | API Key restrita a testes e integrações (ADR-0012 revisto) | P | S1-6 | — |
-| S1-13 | Teste de arquitetura das fronteiras e do `@TenantId` | P | S1-1, S1-4 | RNF-S10 |
+| S1-1 ✅ | Decidir a PT-16 (Spring Modulith × ArchUnit) com uma prova de conceito no Boot 4.0.5 | P | — | RNF-S10 |
+| S1-2 ✅ | Confirmar que o `@TenantId` cobre as consultas do projeto (ADR-0021, consequências) | P | — | RNF-S01 |
+| S1-3 ✅ | V5: tabela `clinic`, clínica fictícia, `clinic_id` em todas as tabelas, chaves únicas por clínica | M | S1-2 | RNF-S01 |
+| S1-4 ✅ | `TenantContext` e resolver; `@TenantId` nas entidades; consultas nativas com `clinic_id`; teste que lista as consultas nativas | M | S1-3 | RNF-S01 |
+| S1-5 ✅ | Suporte de teste com duas clínicas e adaptação dos testes atuais | M | S1-4 | RNF-S01, RNF-S09 |
+| S1-6 ✅ | `platform`: `user_account`, sessão Spring Security, login e logout, CSRF, hash de senha, bloqueio | G → quebrar em sessão / login / bloqueio | S1-3 | RF-S02, RNF-S02 |
+| S1-7 ◐ | Convite e definição de senha: link de uso único devolvido ao administrador (feito); **envio por e-mail** (porta `Mailer`) adiado | M | S1-6 | RF-S02, RF-S03 |
+| S1-8 ✅ | Catálogo de permissões, `role`, os seis perfis-modelo e a verificação por ação | M | S1-6 | RF-S04 |
+| S1-9 ✅ | `team`: `employee`, setores do funcionário, cargo e registro; desativação | M | S1-8 | RF-S03, RF-S05 |
+| S1-10 ✅ | `department` com os setores padrão; Recepção como padrão | P | S1-3 | RF-S12 |
+| S1-11 ✅ | `audit_event` e `AuditLog`, usados por login, perfis e equipe | M | S1-6 | RF-S07 |
+| S1-12 ◐ | API Key restrita a testes e integrações (ADR-0012 revisto): não abre `/app/api` (feito); as rotas da equipe que ainda estão em `/api` mudam na S2 | P | S1-6 | — |
+| S1-13 ✅ | Teste de arquitetura das fronteiras e do `@TenantId` | P | S1-1, S1-4 | RNF-S10 |
 | S1-14 ⚑ | Pedido de verificação do negócio e acesso como *Tech Provider* na Meta | P (+ espera) | Dados da empresa | DA-46 |
 
 ## S2 — Caixa de entrada e solicitações por setor

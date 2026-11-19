@@ -3,7 +3,7 @@ package com.clinicavet.assistant.conversation.application;
 import com.clinicavet.assistant.clinicknowledge.domain.ClinicKnowledge;
 import com.clinicavet.assistant.clinicknowledge.domain.OpeningHours;
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.Message;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;

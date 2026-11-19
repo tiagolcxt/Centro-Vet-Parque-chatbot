@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.conversation.api;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.servicerequest.domain.RequestType;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequest;
 import com.clinicavet.assistant.servicerequest.domain.ServiceRequestRepository;

@@ -5,7 +5,7 @@ import com.clinicavet.assistant.conversation.application.rules.ExplicitHumanRequ
 import com.clinicavet.assistant.conversation.domain.AssistantMetadata;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Conversation;
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.HandoffReason;

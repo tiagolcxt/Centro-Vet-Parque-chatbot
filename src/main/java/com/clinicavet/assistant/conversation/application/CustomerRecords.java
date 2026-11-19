@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.conversation.application;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.tutor.domain.DataField;
 import com.clinicavet.assistant.tutor.domain.Pet;
 import com.clinicavet.assistant.tutor.domain.PetRepository;

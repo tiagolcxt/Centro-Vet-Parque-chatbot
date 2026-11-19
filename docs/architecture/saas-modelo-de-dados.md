@@ -61,7 +61,7 @@ erDiagram
     clinic ||--o{ audit_event : registra
 ```
 
-Todas as tabelas, exceto `clinic`, têm `clinic_id` não nulo.
+Todas as tabelas, exceto `clinic` e as tabelas de coleção (seção 7), têm `clinic_id` não nulo. `user_account` tem `clinic_id`, mas é lida sem o filtro automático no login (ADR-0021, implementação).
 
 ## 3. Entidades novas
 
@@ -267,7 +267,7 @@ DRAFT → PUBLISHED → ARCHIVED.
 
 ## 7. Regras multi-tenant no schema
 
-- Toda tabela exceto `clinic` tem `clinic_id NOT NULL` com FK.
+- Toda tabela exceto `clinic` tem `clinic_id NOT NULL` com FK. Exceção: as tabelas de coleção (`role_permission`, `employee_department`) herdam a clínica pela FK do dono, com exclusão em cascata (V6).
 - Todo índice usado em listagem começa por `clinic_id`.
 - Toda chave única de negócio inclui `clinic_id`, com duas exceções globais de propósito: `user_account.email` e `channel_account.phone_number_id`. As duas resolvem a clínica antes de existir sessão.
 - Nenhuma consulta nativa sem `clinic_id` (teste automático).

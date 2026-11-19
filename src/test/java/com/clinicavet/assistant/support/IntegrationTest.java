@@ -18,6 +18,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "assistant.security.api-key=" + IntegrationTest.API_KEY,
+        "assistant.security.additional-api-keys=" + IntegrationTest.OTHER_CLINIC + "=" + IntegrationTest.OTHER_CLINIC_API_KEY,
         "assistant.conversation.expiration.open=30m",
         "assistant.conversation.expiration.waiting-human=2h",
         "assistant.conversation.retry-backoff=0s",
@@ -28,4 +29,10 @@ public @interface IntegrationTest {
 
     /** Chave fictícia, só de teste. */
     String API_KEY = "chave-de-teste-ficticia-0123456789abcdef";
+
+    /** Segunda clínica fictícia, para os testes de isolamento (ADR-0021). Criada por {@code OtherClinic.ensure}. */
+    String OTHER_CLINIC = "00000000-0000-4000-8000-000000000002";
+
+    /** Chave fictícia da segunda clínica. */
+    String OTHER_CLINIC_API_KEY = "chave-ficticia-da-outra-clinica-0123456789";
 }

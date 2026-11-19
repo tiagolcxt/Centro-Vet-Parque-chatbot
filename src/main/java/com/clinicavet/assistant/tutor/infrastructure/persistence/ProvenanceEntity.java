@@ -1,6 +1,6 @@
 package com.clinicavet.assistant.tutor.infrastructure.persistence;
 
-import com.clinicavet.assistant.conversation.domain.ConversationId;
+import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.tutor.domain.DataField;
 import com.clinicavet.assistant.tutor.domain.DataSubject;
 import com.clinicavet.assistant.tutor.domain.Provenance;
@@ -13,6 +13,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.TenantId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -29,6 +30,11 @@ class ProvenanceEntity {
     @Id
     @Column(name = "id", columnDefinition = "BINARY(16)")
     private UUID id;
+
+    // Clínica dona da linha (ADR-0021): preenchida e filtrada pelo Hibernate a partir do CurrentClinic.
+    @TenantId
+    @Column(name = "clinic_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID clinicId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "subject", columnDefinition = "VARCHAR(10)", nullable = false)

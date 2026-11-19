@@ -30,7 +30,7 @@ Formato: contexto, decisão, alternativas consideradas, consequências. Os IDs d
 | [0017](ADR-0017-orquestracao-do-turno-entre-modulos.md) | Orquestração do turno entre módulos | Aceito | DA-32 | — |
 | [0018](ADR-0018-prioridade-clinica.md) | Prioridade clínica separada do estado operacional | Aceito, com pendências | DA-23 | P-02, P-20 |
 | [0019](ADR-0019-sinais-de-alerta-aprovados.md) | Lista de sinais de alerta aprovada como verificação determinística | Aceito, com pendências | DA-27 | P-20 |
-| [0020](ADR-0020-forma-do-produto-saas.md) | Forma do produto SaaS: setores como configuração e mapa de módulos | Aceito, com pendências | DA-42 | PT-16 |
+| [0020](ADR-0020-forma-do-produto-saas.md) | Forma do produto SaaS: setores como configuração e mapa de módulos | Aceito | DA-42, DA-52 | — |
 | [0021](ADR-0021-multi-tenant.md) | Multi-tenant: banco e schema únicos com `clinic_id` | Aceito | DA-43 | — |
 | [0022](ADR-0022-aplicacao-web-react.md) | Aplicação web em React servida pelo Spring | Aceito | DA-44 | — |
 | [0023](ADR-0023-integracao-whatsapp.md) | Integração com o WhatsApp pela Cloud API oficial | Aceito | DA-46 | — |
