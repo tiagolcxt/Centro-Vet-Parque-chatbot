@@ -19,3 +19,39 @@ describe("rótulos", () => {
     expect(minutesLabel(null)).toBe("");
   });
 });
+
+describe("resumo do pedido", () => {
+  it("leva só os dados preenchidos, um por linha", async () => {
+    const { requestSummaryText } = await import("./labels");
+    const text = requestSummaryText(
+      {
+        id: "1",
+        conversationId: "c",
+        type: "APPOINTMENT",
+        status: "PENDING",
+        summary: null,
+        tutorName: "Tutora Fictícia",
+        petName: "Rex",
+        reason: "vacina",
+        preferredPeriod: "manhã",
+        outcome: null,
+        departmentId: "d",
+        assigneeId: null,
+        assigneeName: null,
+        priority: null,
+        createdAt: "2026-11-21T12:00:00Z",
+        nextAction: null,
+      },
+      "Clínica",
+    );
+    expect(text.split("\n")).toEqual([
+      "Agendamento — Pendente",
+      "Tutor: Tutora Fictícia",
+      "Pet: Rex",
+      "Motivo: vacina",
+      "Período preferido: manhã",
+      "Setor: Clínica",
+      expect.stringMatching(/^Pedido de /),
+    ]);
+  });
+});

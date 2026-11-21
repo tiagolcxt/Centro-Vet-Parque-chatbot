@@ -64,6 +64,10 @@ public final class StaffClient {
         return send(withBody(path, "PUT", body));
     }
 
+    public Response delete(String path) {
+        return send(withBody(path, "DELETE", Map.of()));
+    }
+
     public Response patch(String path, Object body) {
         return send(withBody(path, "PATCH", body));
     }
@@ -83,6 +87,19 @@ public final class StaffClient {
             builder.header("X-XSRF-TOKEN", token);
         }
         return builder;
+    }
+
+    /** GET sem ler o corpo como JSON (arquivos, como a planilha de pedidos). */
+    public HttpResponse<String> raw(String path) {
+        try {
+            return http.send(HttpRequest.newBuilder(URI.create(base + path)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
     }
 
     private String xsrf() {

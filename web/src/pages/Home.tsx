@@ -4,6 +4,28 @@ import { useApp, useLoad } from "../app-context";
 import { PriorityBadge } from "../components/Badges";
 import { handoffReasonLabel, minutesLabel, priorityShort, requestTypeLabel, timeLabel } from "../labels";
 import type { InboxItem, RequestItem } from "../types";
+import type { Overview } from "../config/draft";
+import { ValidityWarnings } from "./Config";
+
+interface BasicMetrics {
+  received: number;
+  conversations: number;
+  answered: number;
+  answeredByAssistant: number;
+  medianFirstReplySeconds: number | null;
+  requestsCreated: number;
+  requestsResolved: number;
+  requestsOpen: number;
+}
+
+/** "2 min", "40 s", "1 h 5 min". */
+export function durationLabel(seconds: number | null): string {
+  if (seconds === null) return "—";
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
 
 /** "O que eu preciso fazer agora?" (RF-S70). Urgentes primeiro; depois três cartões com número grande. */
 export function Home() {
@@ -20,6 +42,9 @@ export function Home() {
     () => (can("request:view") ? api.get<RequestItem[]>("/service-requests?unassigned=true") : Promise.resolve([])),
     [liveTick],
   );
+
+  const metrics = useLoad(() => api.get<BasicMetrics>("/metrics/basic?days=7"), [liveTick]);
+  const overview = useLoad(() => api.get<Overview>("/config/overview"), []);
 
   const conversations = inbox.data ?? [];
   const urgent = conversations.filter(
@@ -97,6 +122,57 @@ export function Home() {
           </ul>
         </section>
       </div>
+      {can("config:edit") && overview.data && (
+        <>
+          <ValidityWarnings overview={overview.data} />
+          {overview.data.draftDiffers && (
+            <p className="small">
+              Há um rascunho da configuração ainda não publicado. <a href="#/configuracao/inicio">Revisar e publicar</a>
+            </p>
+          )}
+          {!overview.data.published && (
+            <p className="small">
+              O assistente ainda não tem informações da clínica. <a href="#/configuracao/primeiros-passos">Configurar agora</a>
+            </p>
+          )}
+        </>
+      )}
+
+      {metrics.data && (
+        <section className="card metrics" aria-label="Últimos 7 dias">
+          <header>
+            <h2>Últimos 7 dias</h2>
+          </header>
+          <dl className="metric-grid">
+            <div>
+              <dt>Mensagens recebidas</dt>
+              <dd>{metrics.data.received}</dd>
+            </div>
+            <div>
+              <dt>Conversas respondidas</dt>
+              <dd>
+                {metrics.data.answered} de {metrics.data.conversations}
+              </dd>
+            </div>
+            <div>
+              <dt>Só pelo assistente</dt>
+              <dd>{metrics.data.answeredByAssistant}</dd>
+            </div>
+            <div>
+              <dt>Tempo até a 1ª resposta</dt>
+              <dd>{durationLabel(metrics.data.medianFirstReplySeconds)}</dd>
+            </div>
+            <div>
+              <dt>Pedidos abertos na semana</dt>
+              <dd>{metrics.data.requestsCreated}</dd>
+            </div>
+            <div>
+              <dt>Pedidos resolvidos</dt>
+              <dd>{metrics.data.requestsResolved}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
       {urgent.length === 0 && conversations.some((c) => c.priority === "P1_POSSIBLE_EMERGENCY") && (
         <p className="muted small">
           <AlertTriangle size={14} aria-hidden /> Há conversa P1 já assumida: veja em "Comigo" ou em Atendimento.

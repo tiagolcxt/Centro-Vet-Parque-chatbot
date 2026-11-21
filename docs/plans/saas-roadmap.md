@@ -165,13 +165,42 @@ Ficou para depois:
 
 **Aceite:**
 
-- [ ] Uma clínica fictícia nova é configurada do zero, por alguém que não é técnico, em até 15 minutos, partindo de um modelo. O tempo é medido no teste de usabilidade (S3-12).
-- [ ] Os quatro modelos geram configurações válidas, que o simulador aceita.
-- [ ] A importação de planilha cria os serviços. A análise de conversas exportadas sugere perguntas frequentes sem gravar as conversas.
-- [ ] O administrador muda um preço, testa no simulador e publica. A próxima mensagem do assistente usa o novo valor e a auditoria registra.
-- [ ] A clínica fictícia foi migrada por importação, e o carregamento por arquivo sai do caminho principal.
-- [ ] Uma configuração inválida não é publicada, e a aplicação não cai.
-- [ ] A equipe usa respostas prontas na caixa de entrada. A tela Início mostra os indicadores básicos.
+- [ ] Uma clínica fictícia nova é configurada do zero, por alguém que não é técnico, em até 15 minutos, partindo de um modelo. O tempo é medido no teste de usabilidade (S3-12): **não feito**, depende de alguém da clínica.
+- [x] Os quatro modelos geram configurações válidas, que o simulador aceita (`ConfigIT`).
+- [x] A importação de planilha cria os serviços. A análise de conversas exportadas sugere perguntas frequentes sem gravar as conversas (`ConfigIT`, `ConfigImportsTest`; conferido no navegador).
+- [x] O administrador muda um preço, testa no simulador e publica. A próxima mensagem do assistente usa o novo valor e a auditoria registra (`ConfigIT`; conferido no navegador em 2026-11-21, com o modelo real respondendo "R$ 170,00" no simulador).
+- [x] A clínica fictícia foi migrada por importação, e o carregamento por arquivo sai do caminho principal.
+- [x] Uma configuração inválida não é publicada, e a aplicação não cai.
+- [x] A equipe usa respostas prontas na caixa de entrada. A tela Início mostra os indicadores básicos (`TeamToolsIT`; conferido no navegador).
+
+**Situação: implementada e aceita pelo responsável em 2026-11-21**, com as três decisões de implementação abaixo. O teste de usabilidade (S3-12) segue pendente.
+
+O que foi feito:
+
+- V8: `config_version` (rascunho, publicada e arquivada, com no máximo um rascunho e uma publicada por clínica, garantido por índice único) e `quick_reply`;
+- o assistente lê a versão publicada da clínica atual a cada mensagem (`ClinicKnowledge` dinâmico, com cache por clínica limpo ao publicar). Clínica sem versão publicada: base vazia, e o assistente encaminha;
+- carga inicial: o YAML de `ASSISTANT_KNOWLEDGE_FILE` é importado e publicado só se a clínica fictícia ainda não tem versão publicada. Arquivo inválido vai para o log e não impede a aplicação de subir;
+- rascunho, publicação, histórico, diferenças legíveis e restauração, com auditoria;
+- simulador: o mesmo turno do assistente, sobre o rascunho, com data e hora simuladas, numa transação desfeita no fim (nada é gravado e nenhum aviso em tempo real sai);
+- setor de cada serviço (`services.<id>.department`, opcional): usado pelo encaminhamento da S5, fora do prompt;
+- quatro modelos por tipo de negócio: ligam os setores e sugerem serviços e perguntas, **sem** preço, horário nem respostas;
+- importação de planilha CSV de serviços (o mesmo nome atualiza o serviço), de conversas exportadas do WhatsApp (leitura em memória, sem IA, sem gravar nada) e do YAML;
+- respostas prontas: cadastro na configuração e botão na caixa de resposta (o texto entra para revisão, nunca é enviado direto);
+- indicadores dos últimos 7 dias na tela Início e avisos de validade e de rascunho não publicado;
+- "Copiar resumo" no pedido e planilha dos pedidos (CSV que o Excel abre, com proteção contra fórmulas; exige `customer:export`);
+- telas: Configuração com visão geral, primeiros passos em 7 passos, formulários por seção, serviços, perguntas, testar, importar, respostas prontas e histórico.
+
+Decisões de implementação, para confirmar na aceitação:
+
+- **Excel por CSV:** a planilha entra como CSV ("Salvar como" no Excel). Ler `.xlsx` direto pediria uma biblioteca a mais.
+- **Conversas do WhatsApp sem IA:** a análise agrupa por palavras de cada assunto. Assim nenhuma conversa de tutor sai da aplicação. O agrupamento é mais simples que o de um modelo.
+- **"Tom do assistente" nos modelos:** ficou de fora, porque o modelo de informações não tem esse campo. Entra se a S5 criar o campo.
+
+Ficou para depois:
+
+- tela de equipe e setores (S3-10) e tela de auditoria (S3-11): a API existe desde a S1, faltam as telas;
+- teste de usabilidade com alguém da clínica (S3-12);
+- Playwright (aprovação para baixar navegadores) e edição de cliente e pet (RF-S41).
 
 ---
 

@@ -59,9 +59,11 @@ assistant:
   ai:
     model: gpt-6-luna                      # ADR-0016 / DA-28; trocar de modelo é só configuração
   knowledge:
-    # Base institucional (ADR-0003). Padrão: o modelo todo null (o assistente não sabe nada da clínica).
-    # Desenvolvimento: ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml (dados fictícios).
+    # Carga inicial da clínica fictícia (ADR-0026): importado e publicado só se ela ainda não tem versão publicada.
+    # Depois disso a configuração é feita pela web (Configuração) e o arquivo é ignorado. Arquivo inválido não
+    # impede a aplicação de subir. Desenvolvimento: ASSISTANT_KNOWLEDGE_FILE=file:config/clinic-knowledge.ficticia.yml.
     location: ${ASSISTANT_KNOWLEDGE_FILE:file:config/clinic-knowledge.example.yml}
+    bootstrap-clinic: 00000000-0000-4000-8000-000000000001
   handoff:
     # PROVISÓRIO (P-02): prazo de atendimento humano por nível, valores de desenvolvimento sem decisão da
     # clínica. Passado o prazo sem ação da equipe, a conversa aparece como atrasada e a próxima resposta ao

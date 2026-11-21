@@ -98,6 +98,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(InvalidDocumentException.class)
+    ProblemDetail handleInvalidDocument(InvalidDocumentException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+        problem.setTitle("Documento inválido");
+        problem.setProperty("problems", ex.problems());
+        return problem;
+    }
+
     @ExceptionHandler(DomainValidationException.class)
     ProblemDetail handleDomainValidation(DomainValidationException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT,

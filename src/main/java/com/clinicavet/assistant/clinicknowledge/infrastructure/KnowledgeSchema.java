@@ -20,6 +20,16 @@ final class KnowledgeSchema {
             "services", Set.of("name"),
             "faq", Set.of("question"));
 
+    /**
+     * Campos opcionais de uma entrada (S3-4): ausentes valem {@code null}. Assim um arquivo antigo continua válido.
+     * {@code services.<id>.department}: setor que cuida do serviço ({@link #DEPARTMENT_KINDS}).
+     */
+    static final Map<String, Map<String, ItemType>> OPTIONAL_IN_ENTRY = Map.of(
+            "services", Map.of("department", ItemType.TEXT));
+
+    /** Valores aceitos em {@code services.<id>.department}: o tipo do setor (Departments.Kind). */
+    static final Set<String> DEPARTMENT_KINDS = Set.of("RECEPTION", "CLINICAL", "PETSHOP", "OTHER");
+
     static final Map<String, Map<String, ItemType>> SECTIONS = new LinkedHashMap<>();
     static final Map<String, Map<String, ItemType>> COLLECTION_ENTRIES = new LinkedHashMap<>();
 

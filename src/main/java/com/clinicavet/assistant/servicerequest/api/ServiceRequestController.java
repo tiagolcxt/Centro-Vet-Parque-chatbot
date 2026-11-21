@@ -55,14 +55,70 @@ class ServiceRequestController {
     private final ConversationFacts conversations;
     private final TutorRepository tutors;
     private final PetRepository pets;
+    private final com.clinicavet.assistant.clinicknowledge.domain.Departments departments;
+    private final java.time.Clock clock;
 
     ServiceRequestController(StaffServiceRequestService staff, StaffDirectory directory,
-                             ConversationFacts conversations, TutorRepository tutors, PetRepository pets) {
+                             ConversationFacts conversations, TutorRepository tutors, PetRepository pets,
+                             com.clinicavet.assistant.clinicknowledge.domain.Departments departments,
+                             java.time.Clock clock) {
         this.staff = staff;
         this.directory = directory;
         this.conversations = conversations;
         this.tutors = tutors;
         this.pets = pets;
+        this.departments = departments;
+        this.clock = clock;
+    }
+
+    /**
+     * Pedidos em planilha (S3-18): CSV com ponto e vírgula, que o Excel abre direto. Leva nome do tutor e do pet, então
+     * exige também {@code customer:export}. Mesma visibilidade da fila: só os setores do funcionário.
+     */
+    @GetMapping(value = "/export.csv", produces = "text/csv;charset=UTF-8")
+    @PreAuthorize("hasAuthority('request:view') and hasAuthority('customer:export')")
+    org.springframework.http.ResponseEntity<String> export(@RequestParam(required = false) Set<RequestStatus> status) {
+        StaffUser user = StaffUser.current().orElseThrow();
+        Set<RequestStatus> wanted = status == null || status.isEmpty()
+                ? java.util.EnumSet.allOf(RequestStatus.class) : status;
+        List<RequestResponse> rows = responses(staff.queue(user, null, wanted, false, false));
+        Map<UUID, String> sectors = departments.list().stream().collect(Collectors.toMap(
+                com.clinicavet.assistant.clinicknowledge.domain.Departments.Department::id,
+                com.clinicavet.assistant.clinicknowledge.domain.Departments.Department::name));
+        java.time.format.DateTimeFormatter date = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                .withZone(clock.getZone());
+        StringBuilder csv = new StringBuilder(BOM);
+        csv.append("Criado em;Tipo;Estado;Setor;Responsável;Tutor;Pet;Resumo;Motivo;Período preferido;Resultado;Observação")
+                .append(CRLF);
+        for (RequestResponse r : rows.stream().sorted(Comparator.comparing(RequestResponse::createdAt)).toList()) {
+            csv.append(String.join(";", java.util.Arrays.asList(
+                    date.format(r.createdAt()), RequestLabels.type(r.type()), RequestLabels.status(r.status()),
+                    cell(r.departmentId() == null ? null : sectors.get(r.departmentId())), cell(r.assigneeName()),
+                    cell(r.tutorName()), cell(r.petName()), cell(r.summary()), cell(r.reason()),
+                    cell(r.preferredPeriod()), r.outcome() == null ? "" : RequestLabels.outcome(r.outcome()),
+                    cell(r.outcomeNote())))).append(CRLF);
+        }
+        String file = "pedidos-" + java.time.LocalDate.now(clock) + ".csv";
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + file + "\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(csv.toString());
+    }
+
+    /** Marca de ordem de bytes: o Excel só reconhece UTF-8 (acentos) com ela. */
+    private static final String BOM = String.valueOf((char) 0xFEFF);
+    private static final String CRLF = String.valueOf((char) 13) + (char) 10;
+
+    /** Célula de CSV: aspas quando precisa; nada começa com = + - @ (o Excel trataria como fórmula). */
+    static String cell(String value) {
+        if (value == null) {
+            return "";
+        }
+        String clean = value.replace((char) 13, (char) 32).replace((char) 10, (char) 32);
+        if (!clean.isEmpty() && "=+-@".indexOf(clean.charAt(0)) >= 0) {
+            clean = "'" + clean;
+        }
+        return clean.contains(";") || clean.contains("\"") ? "\"" + clean.replace("\"", "\"\"") + "\"" : clean;
     }
 
     /** Fila: mais urgente primeiro e, no mesmo nível, a mais antiga (RF-S31). */

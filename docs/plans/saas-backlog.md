@@ -59,24 +59,24 @@
 
 | # | Item | Tamanho | Depende de | Requisitos |
 |---|---|---|---|---|
-| S3-1 | `config_version` (rascunho, publicada, arquivada), validação pelo `KnowledgeSchema`, publicação atômica | M | S1 | RF-S15, ADR-0026 |
-| S3-2 | `ClinicKnowledge` lido da versão publicada, com cache por clínica | M | S3-1 | RF-S60 |
-| S3-3 | Importação do YAML como rascunho; clínica fictícia migrada | P | S3-1 | RF-S19 |
-| S3-4 | Serviços com setor e regras de encaminhamento no documento | M | S3-1 | RF-S13, RF-S14 |
-| S3-5 | Formulários: dados, horários (intervalos e feriados), emergência, pagamento, políticas, perguntas frequentes, validade | G → uma tela por seção | S3-1 | RF-S11 |
-| S3-6 | Diferenças legíveis, histórico e restauração | M | S3-1 | RF-S16 |
-| S3-7 | Simulador sobre o rascunho, com horário simulado | M | S3-2 | RF-S17 |
-| S3-8 | Assistente de configuração inicial em 7 passos | M | S3-5 | RF-S10 |
-| S3-9 | Avisos de validade e de rascunho não publicado na tela Início | P | S3-1 | RF-S18, RF-S72 |
+| S3-1 ✅ | `config_version` (rascunho, publicada, arquivada), validação pelo `KnowledgeSchema`, publicação atômica | M | S1 | RF-S15, ADR-0026 |
+| S3-2 ✅ | `ClinicKnowledge` lido da versão publicada, com cache por clínica | M | S3-1 | RF-S60 |
+| S3-3 ✅ | Importação do YAML como rascunho; clínica fictícia migrada | P | S3-1 | RF-S19 |
+| S3-4 ✅ | Serviços com setor e regras de encaminhamento no documento | M | S3-1 | RF-S13, RF-S14 |
+| S3-5 ✅ | Formulários: dados, horários (intervalos e feriados), emergência, pagamento, políticas, perguntas frequentes, validade | G → uma tela por seção | S3-1 | RF-S11 |
+| S3-6 ✅ | Diferenças legíveis, histórico e restauração | M | S3-1 | RF-S16 |
+| S3-7 ✅ | Simulador sobre o rascunho, com horário simulado | M | S3-2 | RF-S17 |
+| S3-8 ✅ | Assistente de configuração inicial em 7 passos | M | S3-5 | RF-S10 |
+| S3-9 ✅ | Avisos de validade e de rascunho não publicado na tela Início | P | S3-1 | RF-S18, RF-S72 |
 | S3-10 | Tela Equipe e tela de setores | M | S1-9 | RF-S03, RF-S12 |
 | S3-11 | Tela de auditoria | P | S1-11 | RF-S08 |
 | S3-12 ⚑ | Teste de usabilidade com alguém da clínica (configuração fictícia) | P | S3-8 | Plano de validação |
-| S3-13 | Modelos por tipo de negócio (clínica pequena, clínica com pet shop, só pet shop ou banho e tosa, hospital 24 h): setores, perfis, regras, perguntas sugeridas e tom | M | S3-1, S3-4 | DA-53 |
-| S3-14 | Importar serviços e preços de planilha (CSV/Excel) | M | S3-4 | DA-53 |
-| S3-15 | Analisar conversas exportadas do WhatsApp e sugerir perguntas frequentes para aprovação, sem gravar as conversas | G → quebrar em leitura do arquivo / agrupamento / tela de aprovação | S3-5 | DA-53 |
-| S3-16 | Respostas prontas da equipe na caixa de entrada | M | S2-10 | DA-53 |
-| S3-17 | Indicadores básicos na tela Início (recebidas, respondidas, 1ª resposta, pedidos) | M | S2 | DA-53, RF-S71 |
-| S3-18 | "Copiar resumo do pedido" e exportação de pedidos em planilha | P | S2-11 | DA-53 |
+| S3-13 ✅ | Modelos por tipo de negócio (clínica pequena, clínica com pet shop, só pet shop ou banho e tosa, hospital 24 h): setores, perfis, regras, perguntas sugeridas e tom | M | S3-1, S3-4 | DA-53 |
+| S3-14 ✅ | Importar serviços e preços de planilha (CSV/Excel) | M | S3-4 | DA-53 |
+| S3-15 ✅ | Analisar conversas exportadas do WhatsApp e sugerir perguntas frequentes para aprovação, sem gravar as conversas | G → quebrar em leitura do arquivo / agrupamento / tela de aprovação | S3-5 | DA-53 |
+| S3-16 ✅ | Respostas prontas da equipe na caixa de entrada | M | S2-10 | DA-53 |
+| S3-17 ✅ | Indicadores básicos na tela Início (recebidas, respondidas, 1ª resposta, pedidos) | M | S2 | DA-53, RF-S71 |
+| S3-18 ✅ | "Copiar resumo do pedido" e exportação de pedidos em planilha | P | S2-11 | DA-53 |
 
 ## S4 — WhatsApp
 

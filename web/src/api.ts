@@ -5,6 +5,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Problemas de um documento inválido (configuração), no formato "secao.campo: motivo". */
+    readonly problems: string[] = [],
   ) {
     super(message);
   }
@@ -61,7 +63,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   if (!response.ok) {
     const detail = json?.detail ?? json?.title ?? `Erro ${response.status}`;
     const fields: string[] | undefined = json?.fields;
-    throw new ApiError(response.status, fields?.length ? `${detail} (${fields.join("; ")})` : detail);
+    throw new ApiError(response.status, fields?.length ? `${detail} (${fields.join("; ")})` : detail, json?.problems ?? []);
   }
   return json as T;
 }
@@ -71,4 +73,5 @@ export const api = {
   post: <T>(path: string, body: unknown = {}) => request<T>("POST", path, body),
   put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
+  delete: <T>(path: string) => request<T>("DELETE", path),
 };

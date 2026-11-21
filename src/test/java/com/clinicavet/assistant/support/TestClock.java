@@ -28,6 +28,11 @@ public final class TestClock extends Clock {
 
     @Override
     public Instant instant() {
+        // O simulador de configuração fixa o horário só na própria thread (SimulatedTime), como o relógio real.
+        var simulated = com.clinicavet.assistant.shared.config.SimulatedTime.current();
+        if (simulated.isPresent()) {
+            return simulated.get();
+        }
         return now.getAndUpdate(current -> current.plus(TICK));
     }
 

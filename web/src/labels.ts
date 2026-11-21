@@ -1,4 +1,4 @@
-import type { ConversationStatus, Outcome, Priority, RequestStatus, RequestType } from "./types";
+import type { ConversationStatus, Outcome, Priority, RequestItem, RequestStatus, RequestType } from "./types";
 
 // Textos da interface em português (RNF-S12). A prioridade sempre aparece com texto, nunca só com cor (RNF-S11).
 
@@ -97,4 +97,26 @@ export function speciesLabel(species: string | null | undefined): string | null 
     default:
       return species ?? null;
   }
+}
+
+/**
+ * "Copiar resumo do pedido" (S3-18): texto pronto para colar no sistema de gestão da clínica (SimplesVet ou outro).
+ * Só o que a equipe já vê na tela; uma linha por dado, sem linhas vazias.
+ */
+export function requestSummaryText(r: RequestItem, department: string): string {
+  const created = new Date(r.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  return [
+    `${requestTypeLabel[r.type]} — ${requestStatusLabel[r.status]}`,
+    r.tutorName && `Tutor: ${r.tutorName}`,
+    r.petName && `Pet: ${r.petName}`,
+    r.summary && `Resumo: ${r.summary}`,
+    r.reason && `Motivo: ${r.reason}`,
+    r.preferredPeriod && `Período preferido: ${r.preferredPeriod}`,
+    `Setor: ${department}`,
+    r.assigneeName && `Responsável: ${r.assigneeName}`,
+    r.outcome && `Resultado: ${outcomeLabel[r.outcome]}`,
+    `Pedido de ${created}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

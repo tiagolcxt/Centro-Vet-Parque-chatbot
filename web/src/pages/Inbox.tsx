@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRightLeft, Bot, Clock, Flag, Lock, PanelRight, PawPrint, Send, X, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Bot, Clock, Flag, Lock, PanelRight, PawPrint, Send, X, CheckCircle2, Zap } from "lucide-react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { PriorityBadge, RequestStatusBadge, StatusBadge } from "../components/Badges";
 import { handoffReasonLabel, minutesLabel, priorityLabel, requestTypeLabel, speciesLabel, timeLabel } from "../labels";
 import type { ConversationDetail, InboxItem, Priority } from "../types";
 import { Drawer, useHotkeys, useToast } from "../ui";
+import type { QuickReply } from "../config/tools";
 
 type Filter = "WAITING" | "MINE" | "ALL";
 const FILTERS: { id: Filter; label: string }[] = [
@@ -381,9 +382,17 @@ function SidePanel({
 
 function ReplyBox({ onSend, inputRef }: { onSend: (text: string) => Promise<void>; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
   const [text, setText] = useState("");
+  const [picking, setPicking] = useState(false);
+  const quick = useLoad(() => api.get<QuickReply[]>("/quick-replies").catch(() => []), []);
   useEffect(() => {
     inputRef.current?.focus();
   }, [inputRef]);
+  // Resposta pronta (S3-16): entra no texto para revisar antes de enviar, nunca é enviada direto.
+  const insert = (reply: QuickReply) => {
+    setText((current) => (current.trim() ? current.trimEnd() + "\n" + reply.body : reply.body));
+    setPicking(false);
+    inputRef.current?.focus();
+  };
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!text.trim()) return;
@@ -392,6 +401,30 @@ function ReplyBox({ onSend, inputRef }: { onSend: (text: string) => Promise<void
   };
   return (
     <form className="reply" onSubmit={submit}>
+      {(quick.data?.length ?? 0) > 0 && (
+        <div className="quick-replies">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Respostas prontas"
+            title="Respostas prontas"
+            aria-expanded={picking}
+            onClick={() => setPicking((p) => !p)}
+          >
+            <Zap size={18} aria-hidden />
+          </button>
+          {picking && (
+            <div className="popover quick-menu" role="menu">
+              {quick.data!.map((r) => (
+                <button type="button" role="menuitem" key={r.id} onClick={() => insert(r)} title={r.body}>
+                  <strong>{r.title}</strong>
+                  <span className="muted small ellipsis block">{r.body}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <textarea
         ref={inputRef}
         value={text}

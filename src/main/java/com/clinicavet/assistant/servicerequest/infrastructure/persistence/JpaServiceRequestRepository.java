@@ -32,6 +32,13 @@ interface ServiceRequestJpaRepository extends JpaRepository<ServiceRequestEntity
 
     List<ServiceRequestEntity> findByAssigneeIdAndStatusIn(UUID assigneeId, Collection<RequestStatus> statuses);
 
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(java.time.Instant from, java.time.Instant to);
+
+    long countByStatusAndUpdatedAtGreaterThanEqualAndUpdatedAtLessThan(RequestStatus status, java.time.Instant from,
+                                                                       java.time.Instant to);
+
+    long countByStatusIn(Collection<RequestStatus> statuses);
+
     @Query("""
             SELECT r FROM ServiceRequestEntity r
             WHERE r.departmentId IN :departments AND r.status IN :statuses
@@ -130,6 +137,14 @@ class JpaServiceRequestRepository implements ServiceRequestRepository {
         }
         return jpa.findQueue(departmentIds, statuses, assignee, unassigned, Limit.of(limit)).stream()
                 .map(ServiceRequestEntity::toDomain).toList();
+    }
+
+    @Override
+    public Counts count(java.time.Instant from, java.time.Instant to) {
+        return new Counts(jpa.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(from, to),
+                jpa.countByStatusAndUpdatedAtGreaterThanEqualAndUpdatedAtLessThan(RequestStatus.RESOLVED, from, to),
+                jpa.countByStatusIn(java.util.EnumSet.of(RequestStatus.COLLECTING, RequestStatus.PENDING,
+                        RequestStatus.IN_PROGRESS)));
     }
 
     @Override

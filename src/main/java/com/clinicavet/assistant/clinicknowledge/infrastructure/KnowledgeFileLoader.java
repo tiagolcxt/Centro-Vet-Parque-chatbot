@@ -170,7 +170,22 @@ public final class KnowledgeFileLoader {
                 continue;
             }
             int before = items.size();
-            readSection(prefix, entry.getValue(), fields, items, problems);
+            Map<String, ItemType> optional = KnowledgeSchema.OPTIONAL_IN_ENTRY.getOrDefault(section, Map.of());
+            Map<String, ItemType> all = new LinkedHashMap<>(fields);
+            all.putAll(optional);
+            Object raw = entry.getValue();
+            if (raw instanceof Map<?, ?> given && !optional.isEmpty()) {
+                Map<Object, Object> filled = new LinkedHashMap<>(given);
+                optional.keySet().forEach(k -> filled.putIfAbsent(k, null));
+                raw = filled;
+            }
+            readSection(prefix, raw, all, items, problems);
+            items.subList(before, items.size()).stream()
+                    .filter(item -> item.key().equals(prefix + ".department") && item.isKnown()
+                            && !KnowledgeSchema.DEPARTMENT_KINDS.contains(item.value()))
+                    .findFirst()
+                    .ifPresent(item -> problems.add(item.key() + ": setor deve ser um de "
+                            + new java.util.TreeSet<>(KnowledgeSchema.DEPARTMENT_KINDS)));
             for (String required : KnowledgeSchema.REQUIRED_IN_ENTRY.getOrDefault(section, Set.of())) {
                 items.subList(before, items.size()).stream()
                         .filter(item -> item.key().equals(prefix + "." + required) && !item.isKnown())

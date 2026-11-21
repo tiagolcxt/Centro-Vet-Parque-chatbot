@@ -7,6 +7,8 @@ import { outcomeLabel, requestStatusLabel, requestTypeLabel, timeLabel } from ".
 import type { Outcome, RequestDetail, RequestItem } from "../types";
 import { useToast } from "../ui";
 import { TransferPanel } from "./Inbox";
+import { CopyButton } from "../config/tools";
+import { requestSummaryText } from "../labels";
 
 /** Solicitações em abas por setor (DA-42, RF-S30 a RF-S36). Cada pessoa vê só as abas dos setores dela. */
 export function Requests({ selectedId }: { selectedId?: string }) {
@@ -50,6 +52,11 @@ export function Requests({ selectedId }: { selectedId?: string }) {
             </button>
           ))}
         </div>
+        {can("customer:export") && (
+          <a className="small-button export-link" href="/app/api/service-requests/export.csv" download>
+            Baixar planilha dos pedidos
+          </a>
+        )}
         {tab !== "unassigned" && (
           <div className="chips pad-x filters">
             <button className={"chip" + (status === "open" ? " chip-selected" : "")} onClick={() => setStatus("open")}>
@@ -143,6 +150,7 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
             <span className="badge">{r.assigneeName ? "com " + r.assigneeName : "sem responsável"}</span>
           </div>
         </div>
+        <CopyButton text={requestSummaryText(r, departmentName(r.departmentId))} label="Copiar resumo" />
       </div>
 
       {open && (

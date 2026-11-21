@@ -40,6 +40,18 @@ public interface ServiceRequestRepository {
     /** Solicitações em aberto de um responsável (RN-S07). */
     List<ServiceRequest> findOpenAssignedTo(UUID assignee);
 
+    /**
+     * Para os indicadores (S3-17).
+     *
+     * @param created  abertas no período
+     * @param resolved resolvidas no período (pela última alteração)
+     * @param open     em aberto agora
+     */
+    record Counts(long created, long resolved, long open) {
+    }
+
+    Counts count(java.time.Instant from, java.time.Instant to);
+
     List<ServiceRequest> findByTutor(UUID tutorId);
 
     void saveEvent(RequestEvent event);

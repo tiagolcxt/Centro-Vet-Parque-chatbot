@@ -31,16 +31,22 @@ import java.util.Set;
 class ReplyComposer {
 
     private final HandoffSettings.Replies texts;
-    private final String emergency;
-    private final String shortGuidance;
-    private final String directContact;
+    private final ClinicKnowledge knowledge;
 
     ReplyComposer(HandoffSettings settings, ClinicKnowledge knowledge) {
         this.texts = settings.replies();
+        this.knowledge = knowledge;
+    }
+
+    // Lidos a cada resposta: a base é a da clínica atual e muda ao publicar (ADR-0026).
+    private String emergencyText() {
         String policy = approved(knowledge, "approved-texts.emergency-policy");
-        this.emergency = policy != null ? policy : texts.emergencyPlaceholder().strip();
-        this.shortGuidance = policy != null ? policy : texts.shortGuidancePlaceholder().strip();
-        this.directContact = approved(knowledge, "approved-texts.direct-contact");
+        return policy != null ? policy : texts.emergencyPlaceholder().strip();
+    }
+
+    private String shortGuidanceText() {
+        String policy = approved(knowledge, "approved-texts.emergency-policy");
+        return policy != null ? policy : texts.shortGuidancePlaceholder().strip();
     }
 
     /**
@@ -79,11 +85,11 @@ class ReplyComposer {
     /** Modo principal, turno válido. */
     String composeValid(Plan plan, String modelReply) {
         if (plan.emergency()) {
-            return join(emergency, plan.emergencyClosed(), handoffText(), plan.nextStep());
+            return join(emergencyText(), plan.emergencyClosed(), handoffText(), plan.nextStep());
         }
         List<String> parts = new ArrayList<>();
         if (plan.turnLevel() == ClinicalPriority.P2_URGENT) {
-            parts.add(shortGuidance);
+            parts.add(shortGuidanceText());
         }
         if (plan.explicitRequest()) {
             parts.add(handoffText());
@@ -111,11 +117,11 @@ class ReplyComposer {
      */
     String composeFailure(Plan plan, String fallbackReply, ClinicalPriority conversationLevel) {
         if (plan.emergency()) {
-            return join(emergency, plan.emergencyClosed(), handoffText(), plan.nextStep());
+            return join(emergencyText(), plan.emergencyClosed(), handoffText(), plan.nextStep());
         }
         List<String> parts = new ArrayList<>();
         if (conversationLevel.isUrgentOrWorse() || plan.turnLevel() == ClinicalPriority.P2_URGENT) {
-            parts.add(shortGuidance);
+            parts.add(shortGuidanceText());
         }
         if (plan.handoff()) {
             parts.add(handoffText());
@@ -141,13 +147,13 @@ class ReplyComposer {
      */
     String composeWaitingValid(WaitingPlan plan, String modelReply) {
         if (plan.emergency()) {
-            return join(emergency, plan.emergencyClosed(), texts.waitingConfirmation().strip(),
+            return join(emergencyText(), plan.emergencyClosed(), texts.waitingConfirmation().strip(),
                     overdueText(plan.nextStep()));
         }
         List<String> parts = new ArrayList<>();
         boolean urgent = plan.turnLevel() == ClinicalPriority.P2_URGENT;
         if (urgent) {
-            parts.add(shortGuidance);
+            parts.add(shortGuidanceText());
         }
         parts.add(modelReply);
         String step = overdueText(plan.nextStep());
@@ -172,14 +178,14 @@ class ReplyComposer {
     String composeWaiting(WaitingPlan plan, boolean failed) {
         List<String> parts = new ArrayList<>();
         if (plan.emergency()) {
-            parts.add(emergency);
+            parts.add(emergencyText());
             parts.add(plan.emergencyClosed());
         } else if (plan.turnLevel() == ClinicalPriority.P2_URGENT) {
-            parts.add(shortGuidance);
+            parts.add(shortGuidanceText());
         }
         parts.add(waitingText(plan.signals(), plan.previousReply()));
         if (failed && parts.stream().filter(p -> p != null).count() == 1) {
-            parts.add(shortGuidance);
+            parts.add(shortGuidanceText());
         }
         if (plan.overdue() || (plan.emergency() && plan.nextStep() != null)) {
             parts.add(overdueText(plan.nextStep()));
@@ -189,6 +195,7 @@ class ReplyComposer {
 
     /** Prazo vencido: o texto aprovado (P-02); senão o próximo passo; senão o provisório da configuração. */
     private String overdueText(String nextStep) {
+        String directContact = approved(knowledge, "approved-texts.direct-contact");
         if (directContact != null) {
             return directContact;
         }

@@ -30,12 +30,13 @@ class SchemaMigrationIT {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank", String.class);
 
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
         assertThat(jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()", String.class))
                 .map(String::toLowerCase)
                 .contains("clinic", "conversation", "message", "tutor", "pet", "service_request", "department", "role",
-                        "role_permission", "user_account", "employee", "employee_department", "audit_event");
+                        "role_permission", "user_account", "employee", "employee_department", "audit_event",
+                        "config_version", "quick_reply");
     }
 
     @Test

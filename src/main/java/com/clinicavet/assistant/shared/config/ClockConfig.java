@@ -16,6 +16,7 @@ public class ClockConfig {
 
     @Bean
     Clock clock(@Value("${assistant.time-zone}") String timeZone) {
-        return Clock.system(ZoneId.of(timeZone));
+        // O simulador de configuração pode fixar o horário só na própria thread (SimulatedTime).
+        return SimulatedTime.aware(Clock.system(ZoneId.of(timeZone)));
     }
 }

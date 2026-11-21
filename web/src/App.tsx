@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   PawPrint,
   Search,
+  Settings,
   Stethoscope,
   Sun,
   Users,
@@ -25,6 +26,7 @@ import { Home } from "./pages/Home";
 import { Inbox } from "./pages/Inbox";
 import { Requests } from "./pages/Requests";
 import { Customers } from "./pages/Customers";
+import { Config } from "./pages/Config";
 import { Dialog, SHORTCUTS, ToastProvider, useHotkeys, useTheme, useToast } from "./ui";
 
 interface Loaded {
@@ -38,6 +40,7 @@ const NAV = [
   { path: "atendimento", label: "Atendimento", icon: MessageSquare, permission: "conversation:view" },
   { path: "solicitacoes", label: "Solicitações", icon: ClipboardList, permission: "request:view" },
   { path: "clientes", label: "Clientes e pets", icon: Users, permission: "customer:view" },
+  { path: "configuracao", label: "Configuração", icon: Settings, permission: "config:edit" },
 ] as const;
 
 export function App() {
@@ -198,6 +201,8 @@ function Shell({ route }: { route: string[] }) {
             <Requests selectedId={route[1]} />
           ) : page === "clientes" && state.can("customer:view") ? (
             <Customers selectedId={route[1]} />
+          ) : page === "configuracao" && state.can("config:edit") ? (
+            <Config tab={route[1]} />
           ) : (
             <Home />
           )}

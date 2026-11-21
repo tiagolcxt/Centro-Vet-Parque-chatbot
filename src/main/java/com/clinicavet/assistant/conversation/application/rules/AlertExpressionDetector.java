@@ -22,17 +22,18 @@ import java.util.Optional;
 @Component
 public class AlertExpressionDetector {
 
-    private final List<String> p1;
-    private final List<String> p2;
+    private final ClinicKnowledge knowledge;
 
     public AlertExpressionDetector(ClinicKnowledge knowledge) {
-        this.p1 = expressions(knowledge, "triage.alert-expressions-p1");
-        this.p2 = expressions(knowledge, "triage.alert-expressions-p2");
+        this.knowledge = knowledge;
     }
 
     /** O piso imposto pela mensagem: P1 se casar com alguma de P1; senão P2 se casar com alguma de P2. */
     public Optional<ClinicalPriority> floor(String customerText) {
         String text = RuleText.normalize(customerText);
+        // Lidas a cada mensagem: as listas são da clínica atual e mudam ao publicar (ADR-0026).
+        List<String> p1 = expressions(knowledge, "triage.alert-expressions-p1");
+        List<String> p2 = expressions(knowledge, "triage.alert-expressions-p2");
         if (p1.stream().anyMatch(e -> RuleText.indexOfWords(text, e) >= 0)) {
             return Optional.of(ClinicalPriority.P1_POSSIBLE_EMERGENCY);
         }
