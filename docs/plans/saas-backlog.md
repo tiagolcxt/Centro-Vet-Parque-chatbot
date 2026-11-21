@@ -71,6 +71,12 @@
 | S3-10 | Tela Equipe e tela de setores | M | S1-9 | RF-S03, RF-S12 |
 | S3-11 | Tela de auditoria | P | S1-11 | RF-S08 |
 | S3-12 ⚑ | Teste de usabilidade com alguém da clínica (configuração fictícia) | P | S3-8 | Plano de validação |
+| S3-13 | Modelos por tipo de negócio (clínica pequena, clínica com pet shop, só pet shop ou banho e tosa, hospital 24 h): setores, perfis, regras, perguntas sugeridas e tom | M | S3-1, S3-4 | DA-53 |
+| S3-14 | Importar serviços e preços de planilha (CSV/Excel) | M | S3-4 | DA-53 |
+| S3-15 | Analisar conversas exportadas do WhatsApp e sugerir perguntas frequentes para aprovação, sem gravar as conversas | G → quebrar em leitura do arquivo / agrupamento / tela de aprovação | S3-5 | DA-53 |
+| S3-16 | Respostas prontas da equipe na caixa de entrada | M | S2-10 | DA-53 |
+| S3-17 | Indicadores básicos na tela Início (recebidas, respondidas, 1ª resposta, pedidos) | M | S2 | DA-53, RF-S71 |
+| S3-18 | "Copiar resumo do pedido" e exportação de pedidos em planilha | P | S2-11 | DA-53 |
 
 ## S4 — WhatsApp
 
@@ -84,6 +90,8 @@
 | S4-6 | Mídia sem texto | P | S4-2 | RF-S54 |
 | S4-7 | Testes de contrato com cargas de exemplo da documentação da Meta | M | S4-2, S4-4 | RNF-S09 |
 | S4-8 ⚑ | Número de teste conectado; ensaio com dados fictícios | P | Acesso da Meta | — |
+| S4-9 | Coexistência: mesmo número no app WhatsApp Business e na API; mensagens respondidas pelo celular aparecem na conversa | M | S4-2 | DA-53 |
+| S4-10 ⚑ | Confirmar na documentação da Meta as regras e limitações da coexistência | P | — | DA-53 |
 
 ## S5 — Assistente no SaaS e validação
 
@@ -93,8 +101,9 @@
 | S5-2 | Textos de "encaminhado para o setor" e "assumido por"; revisão dos textos sem "avisei" | P | S2-4 | RF-S62, RN-S01 |
 | S5-3 | Níveis de ativação 1, 2 e 3 | M | S5-1 | RF-S64, ADR-0025 |
 | S5-4 | Bateria de IA com a configuração do piloto (fictícia) e os casos do questionário, nos três níveis | G | S0-1, S5-3 | Plano de validação |
-| S5-5 | Indicadores na tela Início | M | S2, S4 | RF-S71 |
+| S5-5 | Indicadores completos na tela Início (os básicos entram na S3-17) | M | S3-17, S4 | RF-S71 |
 | S5-6 | Itens da antiga Etapa 6: métricas por turno, cenários de segurança, relatório | M | S5-4 | — |
+| S5-7 | Áudio: transcrição tratada como texto pelo assistente; equipe vê a transcrição e ouve o original; provedor na lista de suboperadores | G → quebrar em transcrição / tela / custo | S4-6 | DA-53, DA-50 |
 
 ## S6 — Piloto
 
@@ -108,7 +117,9 @@
 | S6-6 ⚑ | Configuração da clínica real, treinamento, ativação no nível 1 | M | S6-5 | ADR-0025 |
 | S6-7 ⚑ | Revisões semanais e subida de nível por critério | contínuo | S6-6 | Plano de validação |
 
-## Depois do MVP (registrado, não planejado)
+## Depois do MVP
+
+Ordem combinada (DA-53): 1º lembretes de vacina e retorno; 2º integração com o sistema de gestão da clínica piloto. Os demais itens ficam registrados, sem ordem.
 
 - Autenticação em dois fatores.
 - Embedded Signup (antes da segunda clínica).

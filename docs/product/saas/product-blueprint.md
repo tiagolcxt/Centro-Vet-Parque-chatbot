@@ -85,7 +85,7 @@ O detalhe está no [PRD](prd.md). Em resumo:
 
 **Fora do MVP:**
 
-- tudo o que está na seção 10.7 do briefing;
+- tudo o que está na seção 10.7 do briefing, menos áudio e transcrição, que entram na S5 (DA-53);
 - unidades;
 - tarefas separadas;
 - escalas e turnos;

@@ -1,6 +1,6 @@
 # Roadmap do SaaS
 
-> Versão 1 — 2026-11-18. Decisão de ordem: DA-45. Base: [PRD](../product/saas/prd.md), [arquitetura](../architecture/saas-modulos-e-arquitetura.md) e [backlog](saas-backlog.md).
+> Versão 2 — 2026-11-21: implantação mais fácil e adaptável (DA-53) — modelos por tipo de negócio, importação, respostas prontas, indicadores e integração leve na S3; coexistência na S4; áudio na S5; lembretes como primeiro item depois do MVP. Versão 1 — 2026-11-18. Decisão de ordem: DA-45. Base: [PRD](../product/saas/prd.md), [arquitetura](../architecture/saas-modulos-e-arquitetura.md) e [backlog](saas-backlog.md).
 > O [roadmap do assistente](implementation-roadmap.md) (Etapas 0 a 7) continua como histórico. As Etapas 0 a 5 dele estão concluídas e são a base do assistente. A Etapa 6 (validação) passa a fazer parte da S5, e a Etapa 7 (barreira para dados reais) da S6.
 
 **Regras gerais:** as mesmas do roadmap do assistente.
@@ -135,21 +135,43 @@ Ficou para depois:
 
 **Pré-requisitos:** S2 aceita.
 
+**Objetivo revisto (DA-53):** uma clínica nova entra no ar em uma sessão de cerca de 15 minutos, partindo de um modelo pronto e do que ela já tem, sem técnico.
+
 **Tarefas:**
 
 - `config_version`: rascunho, publicação, histórico e restauração (ADR-0026).
 - Formulários do modelo de informações.
 - Serviços com setor e regras de encaminhamento.
-- Assistente de configuração inicial.
+- **Modelos por tipo de negócio.** Na primeira tela, a clínica escolhe:
+  - clínica pequena (só atendimento clínico);
+  - clínica com pet shop e banho e tosa;
+  - só pet shop ou banho e tosa;
+  - hospital 24 horas.
+
+  Cada modelo já traz setores ativos, perfis, regras de encaminhamento, perguntas frequentes sugeridas e tom do assistente. A clínica ajusta em vez de montar do zero.
+- **Assistente de configuração inicial** em etapas, a partir do modelo escolhido.
+- **Importação do que a clínica já tem:**
+  - serviços e preços a partir de uma planilha (CSV ou Excel);
+  - conversas exportadas do WhatsApp, analisadas para sugerir as perguntas mais frequentes e as respostas, que a clínica aprova uma a uma. A análise usa só o arquivo enviado e não guarda as conversas;
+  - YAML atual, para migrar a clínica fictícia.
+- **Respostas prontas** para a equipe usar ao responder ("como chegar", "preço do banho"), editáveis pela clínica.
+- **Indicadores básicos** na tela Início, para a clínica ver o valor desde a primeira semana:
+  - mensagens recebidas e respondidas;
+  - tempo até a primeira resposta;
+  - pedidos abertos e resolvidos.
+- **Integração leve com o sistema de gestão:** botão "copiar resumo do pedido" (texto pronto para colar no SimplesVet ou em outro sistema) e exportação dos pedidos em planilha.
 - Simulador.
-- Importação do YAML.
 - Avisos de validade.
 
 **Aceite:**
 
+- [ ] Uma clínica fictícia nova é configurada do zero, por alguém que não é técnico, em até 15 minutos, partindo de um modelo. O tempo é medido no teste de usabilidade (S3-12).
+- [ ] Os quatro modelos geram configurações válidas, que o simulador aceita.
+- [ ] A importação de planilha cria os serviços. A análise de conversas exportadas sugere perguntas frequentes sem gravar as conversas.
 - [ ] O administrador muda um preço, testa no simulador e publica. A próxima mensagem do assistente usa o novo valor e a auditoria registra.
 - [ ] A clínica fictícia foi migrada por importação, e o carregamento por arquivo sai do caminho principal.
 - [ ] Uma configuração inválida não é publicada, e a aplicação não cai.
+- [ ] A equipe usa respostas prontas na caixa de entrada. A tela Início mostra os indicadores básicos.
 
 ---
 
@@ -161,11 +183,16 @@ Ficou para depois:
 
 - `channel`: webhook com assinatura, `inbound_message`, *outbox* com nova tentativa, status e janela de 24 horas.
 - `channel_account` com o token cifrado.
-- Mídia sem texto.
+- **Coexistência (DA-53).** A clínica mantém o número e o app WhatsApp Business do celular: o mesmo número funciona no app e na API.
+  - O onboarding de coexistência da Meta é o caminho padrão.
+  - As mensagens respondidas pelo celular aparecem na conversa, marcadas como "respondida pelo celular".
+  - Confirmar, no início da etapa, o que a Meta permite e as limitações da coexistência na documentação oficial.
+- Mídia sem texto: imagens e documentos ficam visíveis para a equipe. O áudio é transcrito na S5.
 - Serialização por contato.
 
 **Aceite:**
 
+- [ ] Um número de **teste** é ligado por coexistência, sem perder o uso no app do celular.
 - [ ] Mensagens de um número de **teste**, com dados fictícios, chegam e são respondidas pelo assistente e pela equipe.
 - [ ] Uma duplicata não gera turno.
 - [ ] Uma falha simulada da Meta é reenviada e aparece na conversa depois de N tentativas.
@@ -181,6 +208,11 @@ Ficou para depois:
 
 - Setor escolhido pelas regras.
 - Textos de "encaminhado" e "assumido".
+- **Áudio (DA-53)**, antes fora do MVP:
+  - áudio do tutor transcrito e tratado como texto pelo assistente;
+  - a equipe vê a transcrição e pode ouvir o original;
+  - o provedor de transcrição entra na lista de suboperadores (DA-50);
+  - custo por minuto medido junto com o custo da IA.
 - Níveis de ativação (ADR-0025).
 - Bateria de IA com a configuração do piloto e os casos do questionário.
 - Indicadores (RF-S71).
@@ -217,6 +249,20 @@ Ficou para depois:
 
 - operação piloto em uso;
 - relatório comparando com a linha de base da S0 ([plano de validação](saas-plano-de-validacao.md)).
+
+---
+
+## Depois do MVP: ordem combinada (DA-53)
+
+1. **Lembretes de vacina e de retorno** pelo WhatsApp, com modelos aprovados pela Meta (versão B). É o recurso que o mercado mais pede e o argumento do plano mais caro.
+2. **Integração com o sistema de gestão** que a clínica piloto usa, quando a integração leve da S3 não bastar.
+3. O resto da evolução futura do [Blueprint](../product/saas/product-blueprint.md#8-evolução-futura).
+
+**Fora de escopo**, para não virar concorrente do sistema de gestão nem uma plataforma genérica:
+
+- agenda, prontuário e financeiro próprios;
+- editor de robôs ou fluxos para a clínica montar;
+- outros tipos de negócio além de clínica veterinária com ou sem pet shop, até ter cerca de 20 clínicas.
 
 ---
 

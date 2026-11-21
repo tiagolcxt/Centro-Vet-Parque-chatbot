@@ -26,7 +26,7 @@ export function Customers({ selectedId }: { selectedId?: string }) {
     <div className={"split" + (selectedId ? " has-detail" : "")}>
       <aside className="split-list">
         <form
-          className="pad search"
+          className="pad list-search"
           onSubmit={(e) => {
             e.preventDefault();
             setSearch(q.trim());
@@ -36,11 +36,11 @@ export function Customers({ selectedId }: { selectedId?: string }) {
           <button>Buscar</button>
         </form>
         {list.error && <p className="error">{list.error}</p>}
-        {search.length >= 2 && list.data?.length === 0 && <p className="muted pad">Ninguém encontrado.</p>}
+        {search.length >= 2 && list.data?.length === 0 && <p className="empty">Ninguém encontrado.</p>}
         <ul className="list">
           {list.data?.map((c) => (
             <li key={c.id}>
-              <a href={"#/clientes/" + c.id} className={"row" + (c.id === selectedId ? " selected" : "")}>
+              <a href={"#/clientes/" + c.id} className={"conv-item" + (c.id === selectedId ? " selected" : "")}>
                 <span className="grow">
                   <strong>{c.name ?? "Sem nome"}</strong>
                   <span className="muted small block">{c.pets.join(", ") || "sem pets"}</span>
@@ -51,7 +51,7 @@ export function Customers({ selectedId }: { selectedId?: string }) {
           ))}
         </ul>
       </aside>
-      <section className="split-detail">{selectedId ? <Customer id={selectedId} /> : <p className="muted pad">Busque um cliente.</p>}</section>
+      <section className="split-detail">{selectedId ? <Customer id={selectedId} /> : <p className="empty center-v">Busque por nome, telefone ou pet.</p>}</section>
     </div>
   );
 }
@@ -65,7 +65,7 @@ function Customer({ id }: { id: string }) {
     data.provenance.find((p) => p.subjectId === subjectId && p.field === field)?.status === "CONFIRMED" ? "confirmado" : "mencionado";
 
   return (
-    <div className="pad">
+    <div className="page detail">
       <button className="link back" onClick={() => go("clientes")}>
         ← Clientes
       </button>

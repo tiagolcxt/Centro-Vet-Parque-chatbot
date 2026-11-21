@@ -1,22 +1,40 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, ArrowRightLeft, Bot, Clock, Flag, Lock, PanelRight, PawPrint, Send, X, CheckCircle2 } from "lucide-react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { PriorityBadge, RequestStatusBadge, StatusBadge } from "../components/Badges";
 import { handoffReasonLabel, minutesLabel, priorityLabel, requestTypeLabel, speciesLabel, timeLabel } from "../labels";
 import type { ConversationDetail, InboxItem, Priority } from "../types";
+import { Drawer, useHotkeys, useToast } from "../ui";
 
-type Filter = "ALL" | "WAITING" | "MINE";
+type Filter = "WAITING" | "MINE" | "ALL";
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "WAITING", label: "Aguardando" },
   { id: "MINE", label: "Comigo" },
   { id: "ALL", label: "Todas" },
 ];
 
-/** Caixa de entrada (RF-S20 a RF-S29): lista, conversa e painel do tutor. No celular, uma coisa por vez. */
+/** Caixa de entrada (RF-S20 a RF-S29), no visual do protótipo (ux-navegacao.md, seção 8). */
 export function Inbox({ selectedId }: { selectedId?: string }) {
   const { liveTick } = useApp();
   const [filter, setFilter] = useState<Filter>("WAITING");
-  const list = useLoad(() => api.get<InboxItem[]>("/conversations?filter=" + filter), [filter, liveTick]);
+  const lists = {
+    WAITING: useLoad(() => api.get<InboxItem[]>("/conversations?filter=WAITING"), [liveTick]),
+    MINE: useLoad(() => api.get<InboxItem[]>("/conversations?filter=MINE"), [liveTick]),
+    ALL: useLoad(() => api.get<InboxItem[]>("/conversations?filter=ALL"), [liveTick]),
+  };
+  const list = lists[filter];
+  const items = list.data ?? [];
+  const reloadAll = () => Object.values(lists).forEach((l) => l.reload());
+
+  // J/K percorrem a lista (atalhos do protótipo).
+  const move = (delta: number) => {
+    if (items.length === 0) return;
+    const index = items.findIndex((c) => c.id === selectedId);
+    const next = items[Math.min(items.length - 1, Math.max(0, index < 0 ? 0 : index + delta))];
+    go("atendimento/" + next.id);
+  };
+  useHotkeys({ j: () => move(1), k: () => move(-1) });
 
   return (
     <div className={"split" + (selectedId ? " has-detail" : "")}>
@@ -24,33 +42,35 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
         <div className="tabs" role="tablist">
           {FILTERS.map((f) => (
             <button key={f.id} role="tab" aria-selected={filter === f.id} onClick={() => setFilter(f.id)}>
-              {f.label}
+              {f.label} <span className="count">{lists[f.id].data?.length ?? ""}</span>
             </button>
           ))}
         </div>
         {list.error && <p className="error">{list.error}</p>}
-        {list.data?.length === 0 && <p className="muted pad">Nenhuma conversa aqui.</p>}
+        {list.loading && !list.data && <SkeletonList />}
+        {list.data && items.length === 0 && <p className="empty">Nenhuma conversa aqui.</p>}
         <ul className="list">
-          {list.data?.map((c) => (
+          {items.map((c) => (
             <li key={c.id}>
               <a
                 href={"#/atendimento/" + c.id}
-                className={"row conv" + (c.id === selectedId ? " selected" : "") + (c.overdue ? " overdue" : "")}
+                className={"conv-item" + (c.id === selectedId ? " selected" : "")}
+                aria-current={c.id === selectedId ? "true" : undefined}
               >
-                <PriorityBadge priority={c.priority} />
-                <span className="grow">
-                  <strong>{c.tutorName ?? "Contato sem nome"}</strong>
-                  <span className="muted small block">
-                    {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : "Com o assistente"}
-                    {c.assigneeName ? ` · ${c.assigneeName}` : ""}
-                  </span>
-                </span>
-                <span className="right">
-                  <StatusBadge status={c.status} />
-                  <span className="muted small block">
+                <div className="conv-item-top">
+                  <PriorityBadge priority={c.priority} long />
+                  <span className={"wait" + (c.overdue ? " overdue" : "")}>
+                    <Clock size={12} aria-hidden />
                     {c.waitingMinutes !== null ? minutesLabel(c.waitingMinutes) : timeLabel(c.lastActivityAt)}
-                    {c.overdue ? " · atrasada" : ""}
+                    {c.overdue ? " · passou do prazo" : ""}
                   </span>
+                </div>
+                <strong>{c.tutorName ?? "Contato sem nome"}</strong>
+                <span className="muted small">
+                  {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : "Com o assistente"}
+                </span>
+                <span className="muted small">
+                  {c.status === "ASSIGNED" ? `Assumida por ${c.assigneeName ?? "alguém"}` : c.status === "WAITING_HUMAN" ? "Aguardando a equipe" : "Com o assistente"}
                 </span>
               </a>
             </li>
@@ -58,195 +78,314 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
         </ul>
       </aside>
       <section className="split-detail">
-        {selectedId ? <Conversation id={selectedId} onChanged={list.reload} /> : <p className="muted pad">Escolha uma conversa.</p>}
+        {selectedId ? (
+          <Conversation id={selectedId} onChanged={reloadAll} />
+        ) : (
+          <p className="empty center-v">
+            Escolha uma conversa na lista.
+            <br />
+            Use J e K para navegar.
+          </p>
+        )}
       </section>
     </div>
   );
 }
 
+function SkeletonList() {
+  return (
+    <ul className="list" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <li key={i} className="skeleton-row">
+          <span className="skeleton w-40" />
+          <span className="skeleton w-70" />
+          <span className="skeleton w-50" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) {
   const { me, can, departments, departmentName, liveTick } = useApp();
-  const { data, error, reload, loading } = useLoad(() => api.get<ConversationDetail>("/conversations/" + id), [id, liveTick]);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [panel, setPanel] = useState<"none" | "transfer" | "note" | "priority">("none");
+  const toast = useToast();
+  const { data, error, reload } = useLoad(() => api.get<ConversationDetail>("/conversations/" + id), [id, liveTick]);
+  const [panel, setPanel] = useState<"none" | "transfer" | "priority">("none");
+  const [sideOpen, setSideOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [data?.messages.length]);
+  useEffect(() => setPanel("none"), [id]);
 
-  const act = async (fn: () => Promise<unknown>) => {
-    setActionError(null);
-    try {
-      await fn();
+  const act = useCallback(
+    async (fn: () => Promise<unknown>, done: string) => {
+      try {
+        await fn();
+        setPanel("none");
+        toast(done);
+        reload();
+        onChanged();
+      } catch (e) {
+        toast((e as Error).message, "error");
+      }
+    },
+    [toast, reload, onChanged],
+  );
+
+  const mine = data?.status === "ASSIGNED" && data.assigneeId === me.id;
+  const active = !!data && data.status !== "CLOSED";
+  const canAssume = active && can("conversation:assume") && !mine && data?.status !== "ASSIGNED";
+  // Aguardando a equipe também pode ser transferida ou devolvida sem assumir (triagem da recepção).
+  const canTransfer = active && can("conversation:transfer") && data?.status !== "OPEN" && (mine || data?.status === "WAITING_HUMAN");
+  const assume = () => canAssume && act(() => api.post(`/conversations/${id}/assume`), "Conversa assumida");
+
+  useHotkeys({
+    a: () => void assume(),
+    r: () => replyRef.current?.focus(),
+    t: () => canTransfer && setPanel("transfer"),
+    n: () => {
+      if (window.matchMedia("(max-width: 1279px)").matches) setSideOpen(true);
+      window.setTimeout(() => noteRef.current?.focus(), 50);
+    },
+    Escape: () => {
       setPanel("none");
-      reload();
-      onChanged();
-    } catch (e) {
-      setActionError((e as Error).message);
-    }
-  };
+      setSideOpen(false);
+    },
+  });
 
   if (error) {
     return (
       <div className="pad">
         <button className="link back" onClick={() => go("atendimento")}>
-          ← Conversas
+          <ArrowLeft size={16} aria-hidden /> Conversas
         </button>
         <p className="error">{error}</p>
       </div>
     );
   }
-  if (!data) return <p className="muted pad">{loading ? "Carregando…" : ""}</p>;
+  if (!data) return <p className="empty center-v">Carregando…</p>;
 
-  const mine = data.status === "ASSIGNED" && data.assigneeId === me.id;
-  const active = data.status !== "CLOSED";
+  const side = <SidePanel data={data} noteRef={noteRef} onNote={(text) => act(() => api.post(`/conversations/${id}/notes`, { text }), "Nota salva")} active={active} />;
 
   return (
     <div className="conversation">
       <div className="conv-main">
         <header className="conv-header">
-          <button className="link back" onClick={() => go("atendimento")}>
-            ← Conversas
-          </button>
-          <div className="conv-title">
-            <h2>{data.tutor?.name ?? "Contato sem nome"}</h2>
-            <div className="badges">
-              <PriorityBadge priority={data.priority} long />
-              <StatusBadge status={data.status} />
-              <span className="badge">{departmentName(data.departmentId)}</span>
-              {data.assigneeName && <span className="badge">com {data.assigneeName}</span>}
+          <div className="conv-title-row">
+            <button className="icon-button back" onClick={() => go("atendimento")} aria-label="Voltar para as conversas">
+              <ArrowLeft size={18} />
+            </button>
+            <div className="grow">
+              <h2>{data.tutor?.name ?? "Contato sem nome"}{data.tutor?.pets[0] ? ` · ${data.tutor.pets[0].name}` : ""}</h2>
+              <div className="badges">
+                <PriorityBadge priority={data.priority} long />
+                <StatusBadge status={data.status} assignee={data.assigneeName} />
+                <span className="badge">{departmentName(data.departmentId)}</span>
+              </div>
             </div>
+            <button className="icon-button side-toggle" onClick={() => setSideOpen(true)} aria-label="Tutor, pet e notas">
+              <PanelRight size={18} />
+            </button>
           </div>
-          <div className="actions">
-            {active && can("conversation:assume") && !mine && (
-              <button className="primary" onClick={() => act(() => api.post(`/conversations/${id}/assume`))}>
-                Assumir
-              </button>
-            )}
-            {active && can("conversation:transfer") && data.status !== "OPEN" && (
-              <button onClick={() => act(() => api.post(`/conversations/${id}/return-to-assistant`, { reason: null }))}>
-                Devolver ao assistente
-              </button>
-            )}
-            {active && can("conversation:transfer") && data.status !== "OPEN" && (
-              <button onClick={() => setPanel(panel === "transfer" ? "none" : "transfer")}>Transferir</button>
-            )}
-            {active && can("conversation:assume") && (
-              <button onClick={() => setPanel(panel === "priority" ? "none" : "priority")}>Prioridade</button>
-            )}
-            {active && can("conversation:assume") && (
-              <button
-                className="danger"
-                onClick={() => window.confirm("Encerrar esta conversa? As solicitações continuam abertas.") && act(() => api.post(`/conversations/${id}/close`))}
-              >
-                Encerrar
-              </button>
-            )}
-          </div>
+          {active && (
+            <div className="actions">
+              {canAssume && (
+                <button className="primary" onClick={() => void assume()}>
+                  Assumir <kbd>A</kbd>
+                </button>
+              )}
+              {can("conversation:transfer") && data.status !== "OPEN" && (
+                <button disabled={!canTransfer} onClick={() => setPanel(panel === "transfer" ? "none" : "transfer")}>
+                  <ArrowRightLeft size={16} aria-hidden /> Transferir
+                </button>
+              )}
+              {can("conversation:transfer") && data.status !== "OPEN" && (
+                <button
+                  disabled={!canTransfer}
+                  onClick={() => act(() => api.post(`/conversations/${id}/return-to-assistant`, { reason: null }), "Conversa devolvida ao assistente")}
+                >
+                  <Bot size={16} aria-hidden /> Devolver ao assistente
+                </button>
+              )}
+              {can("conversation:assume") && (
+                <button onClick={() => setPanel(panel === "priority" ? "none" : "priority")}>
+                  <Flag size={16} aria-hidden /> Prioridade
+                </button>
+              )}
+              {can("conversation:assume") && (
+                <button
+                  className="quiet"
+                  onClick={() =>
+                    window.confirm("Encerrar esta conversa? Os pedidos continuam abertos.") &&
+                    act(() => api.post(`/conversations/${id}/close`), "Conversa encerrada")
+                  }
+                >
+                  Encerrar
+                </button>
+              )}
+            </div>
+          )}
+          {panel === "transfer" && (
+            <TransferPanel
+              departments={departments.filter(
+                (d) => d.active && d.id !== (data.departmentId ?? departments.find((x) => x.isDefault)?.id),
+              )}
+              onCancel={() => setPanel("none")}
+              onSubmit={(departmentId, reason) =>
+                act(() => api.post(`/conversations/${id}/transfer`, { departmentId, reason }), "Conversa transferida")
+              }
+            />
+          )}
+          {panel === "priority" && (
+            <PriorityPanel
+              current={data.priority}
+              onCancel={() => setPanel("none")}
+              onSubmit={(priority, note) => act(() => api.patch(`/conversations/${id}/priority`, { priority, note }), "Prioridade alterada")}
+            />
+          )}
         </header>
-
-        {actionError && (
-          <p className="error pad" role="alert">
-            {actionError}
-          </p>
-        )}
-        {panel === "transfer" && (
-          <TransferForm
-            departments={departments.filter((d) => d.active)}
-            onSubmit={(departmentId, reason) => act(() => api.post(`/conversations/${id}/transfer`, { departmentId, reason }))}
-          />
-        )}
-        {panel === "priority" && (
-          <PriorityForm
-            current={data.priority}
-            onSubmit={(priority, note) => act(() => api.patch(`/conversations/${id}/priority`, { priority, note }))}
-          />
-        )}
 
         <div className="messages" aria-live="polite">
           {data.messages.map((m) => (
             <div key={m.id} className={"msg msg-" + m.author.toLowerCase() + (m.fallback ? " msg-fallback" : "")}>
-              <div className="msg-meta">
-                {m.authorName} · {timeLabel(m.at)}
-                {m.fallback ? " · resposta segura" : ""}
-              </div>
+              <div className="msg-meta">{m.authorName}</div>
               <div className="msg-text">{m.content}</div>
+              <div className="msg-time">
+                {m.fallback ? "resposta segura · " : ""}
+                {timeLabel(m.at)}
+              </div>
             </div>
           ))}
           <div ref={endRef} />
         </div>
 
-        {mine && can("conversation:reply") ? (
-          <ReplyBox onSend={(text) => act(() => api.post(`/conversations/${id}/reply`, { text }))} />
-        ) : (
-          active && (
-            <p className="muted pad small">
-              {data.status === "ASSIGNED"
-                ? `${data.assigneeName ?? "Outra pessoa"} está com esta conversa.`
-                : "Para responder, assuma a conversa. Enquanto ninguém assume, o assistente responde o que é da clínica."}
-            </p>
-          )
-        )}
+        {active &&
+          (mine && can("conversation:reply") ? (
+            <ReplyBox inputRef={replyRef} onSend={(text) => act(() => api.post(`/conversations/${id}/reply`, { text }), "Mensagem enviada")} />
+          ) : (
+            <div className="reply reply-locked">
+              <span className="muted">
+                {data.status === "ASSIGNED"
+                  ? `${data.assigneeName ?? "Outra pessoa"} está com esta conversa.`
+                  : "Para responder, assuma a conversa."}
+              </span>
+              {canAssume && (
+                <button className="primary" onClick={() => void assume()}>
+                  Assumir
+                </button>
+              )}
+            </div>
+          ))}
       </div>
 
-      <aside className="conv-side">
-        <section>
-          <h3>Tutor</h3>
-          {data.tutor ? (
-            <>
-              <p>
-                <a href={"#/clientes/" + data.tutor.id}>{data.tutor.name ?? "Sem nome"}</a>
-                {data.tutor.phone && <span className="muted small block">{data.tutor.phone}</span>}
-              </p>
-              <ul className="plain">
-                {data.tutor.pets.map((p) => (
-                  <li key={p.id}>
-                    🐾 {p.name} <span className="muted small">{[speciesLabel(p.species), p.breed].filter(Boolean).join(" · ")}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="muted small">Ainda sem cadastro: o assistente cria quando o tutor informa algum dado.</p>
-          )}
-        </section>
-        <section>
-          <h3>Solicitações</h3>
-          {data.requests.length === 0 && <p className="muted small">Nenhuma.</p>}
-          <ul className="plain">
-            {data.requests.map((r) => (
-              <li key={r.id}>
-                <a href={"#/solicitacoes/" + r.id}>{requestTypeLabel[r.type]}</a> <RequestStatusBadge status={r.status} />
-                {r.summary && <span className="muted small block">{r.summary}</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section>
-          <h3>Notas internas</h3>
-          <p className="muted small">Só a equipe vê. Nunca vão ao tutor nem ao assistente.</p>
-          <ul className="plain notes">
-            {data.notes.map((n) => (
-              <li key={n.id}>
-                <span className="muted small">
-                  {n.authorName ?? "Sistema"} · {timeLabel(n.at)}
-                </span>
-                <span className="block">{n.text}</span>
-              </li>
-            ))}
-          </ul>
-          {active && <NoteBox onSave={(text) => act(() => api.post(`/conversations/${id}/notes`, { text }))} />}
-        </section>
-      </aside>
+      <aside className="conv-side">{side}</aside>
+      <Drawer title="Tutor e pet" open={sideOpen} onClose={() => setSideOpen(false)}>
+        {side}
+      </Drawer>
     </div>
   );
 }
 
-function ReplyBox({ onSend }: { onSend: (text: string) => Promise<void> }) {
+function SidePanel({
+  data,
+  noteRef,
+  onNote,
+  active,
+}: {
+  data: ConversationDetail;
+  noteRef: React.RefObject<HTMLTextAreaElement | null>;
+  onNote: (text: string) => Promise<void>;
+  active: boolean;
+}) {
+  const [note, setNote] = useState("");
+  return (
+    <div className="side-sections">
+      <section>
+        <h3 className="eyebrow">Tutor</h3>
+        {data.tutor ? (
+          <>
+            <a href={"#/clientes/" + data.tutor.id} className="strong-link">
+              {data.tutor.name ?? "Sem nome"}
+            </a>
+            {data.tutor.phone && <span className="muted small block">{data.tutor.phone}</span>}
+          </>
+        ) : (
+          <p className="muted small">Ainda sem cadastro: o assistente cria quando o tutor informa algum dado.</p>
+        )}
+      </section>
+      {data.tutor && data.tutor.pets.length > 0 && (
+        <section>
+          <h3 className="eyebrow">Pets</h3>
+          {data.tutor.pets.map((p) => (
+            <div key={p.id} className="pet-card">
+              <PawPrint size={16} aria-hidden />
+              <div>
+                <strong>{p.name}</strong>
+                <span className="muted small block">{[speciesLabel(p.species), p.breed].filter(Boolean).join(" · ")}</span>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      <section>
+        <h3 className="eyebrow">Pedidos desta conversa</h3>
+        {data.requests.length === 0 && <p className="muted small">Nenhum.</p>}
+        {data.requests.map((r) => (
+          <a key={r.id} href={"#/solicitacoes/" + r.id} className="request-chip">
+            <span className="grow">{requestTypeLabel[r.type]}</span>
+            <RequestStatusBadge status={r.status} />
+          </a>
+        ))}
+      </section>
+      <section className="notes-box">
+        <h3>
+          <Lock size={14} aria-hidden /> Notas internas
+        </h3>
+        <p className="small">Só a equipe vê. Nunca vão ao tutor nem ao assistente.</p>
+        {data.notes.map((n) => (
+          <div key={n.id} className="note">
+            <span className="small note-meta">
+              {n.authorName ?? "Sistema"} · {timeLabel(n.at)}
+            </span>
+            <span className="block">{n.text}</span>
+          </div>
+        ))}
+        {active && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!note.trim()) return;
+              await onNote(note.trim());
+              setNote("");
+            }}
+          >
+            <textarea
+              ref={noteRef}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Escreva uma nota para a equipe (N)"
+              rows={2}
+              maxLength={2000}
+            />
+            {note.trim() && <button className="small-button">Salvar nota</button>}
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ReplyBox({ onSend, inputRef }: { onSend: (text: string) => Promise<void>; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
   const [text, setText] = useState("");
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [inputRef]);
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
     if (!text.trim()) return;
     await onSend(text.trim());
     setText("");
@@ -254,103 +393,129 @@ function ReplyBox({ onSend }: { onSend: (text: string) => Promise<void> }) {
   return (
     <form className="reply" onSubmit={submit}>
       <textarea
+        ref={inputRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Responder ao tutor…"
-        rows={2}
+        placeholder="Escreva para o tutor. Enter envia, Shift+Enter quebra linha"
+        rows={1}
         maxLength={2000}
+        aria-label="Resposta ao tutor"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            void submit(e);
+            void submit();
           }
         }}
       />
-      <button className="primary">Enviar</button>
+      <button className="primary icon-only" aria-label="Enviar">
+        <Send size={18} />
+      </button>
     </form>
   );
 }
 
-function NoteBox({ onSave }: { onSave: (text: string) => Promise<void> }) {
-  const [text, setText] = useState("");
-  return (
-    <form
-      className="stack"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!text.trim()) return;
-        await onSave(text.trim());
-        setText("");
-      }}
-    >
-      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Nova nota interna…" rows={2} maxLength={2000} />
-      <button>Salvar nota</button>
-    </form>
-  );
-}
-
-export function TransferForm({
+/** Transferir: setor em botões + motivo obrigatório (2 cliques + motivo). */
+export function TransferPanel({
   departments,
   onSubmit,
+  onCancel,
 }: {
   departments: { id: string; name: string }[];
   onSubmit: (departmentId: string, reason: string) => Promise<void>;
+  onCancel: () => void;
 }) {
-  const [department, setDepartment] = useState(departments[0]?.id ?? "");
+  const [department, setDepartment] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const reasonRef = useRef<HTMLInputElement>(null);
   return (
     <form
-      className="card inline-form"
+      className="inline-panel"
       onSubmit={(e) => {
         e.preventDefault();
-        void onSubmit(department, reason);
+        if (department && reason.trim()) void onSubmit(department, reason.trim());
       }}
     >
-      <label>
-        Para o setor
-        <select value={department} onChange={(e) => setDepartment(e.target.value)}>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grow">
-        Motivo (obrigatório)
-        <input value={reason} onChange={(e) => setReason(e.target.value)} required maxLength={300} placeholder="Ex.: pergunta sobre sintoma" />
-      </label>
-      <button className="primary">Transferir</button>
+      <div className="inline-panel-head">
+        <strong>Transferir para</strong>
+        <button type="button" className="icon-button" onClick={onCancel} aria-label="Cancelar">
+          <X size={16} />
+        </button>
+      </div>
+      <div className="chips" role="radiogroup" aria-label="Setor">
+        {departments.map((d) => (
+          <button
+            type="button"
+            key={d.id}
+            role="radio"
+            aria-checked={department === d.id}
+            className={"chip" + (department === d.id ? " chip-selected" : "")}
+            onClick={() => {
+              setDepartment(d.id);
+              reasonRef.current?.focus();
+            }}
+          >
+            {d.name}
+          </button>
+        ))}
+      </div>
+      {department && (
+        <div className="inline-row">
+          <input
+            ref={reasonRef}
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Motivo (obrigatório)"
+            maxLength={300}
+            aria-label="Motivo da transferência"
+          />
+          <button className="primary" disabled={!reason.trim()}>
+            Transferir
+          </button>
+        </div>
+      )}
     </form>
   );
 }
 
-function PriorityForm({ current, onSubmit }: { current: Priority; onSubmit: (p: Priority, note: string) => Promise<void> }) {
+function PriorityPanel({
+  current,
+  onSubmit,
+  onCancel,
+}: {
+  current: Priority;
+  onSubmit: (p: Priority, note: string) => Promise<void>;
+  onCancel: () => void;
+}) {
   const [priority, setPriority] = useState<Priority>(current);
   const [note, setNote] = useState("");
   return (
     <form
-      className="card inline-form"
+      className="inline-panel"
       onSubmit={(e) => {
         e.preventDefault();
         void onSubmit(priority, note);
       }}
     >
-      <label>
-        Prioridade
-        <select value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-          {(Object.keys(priorityLabel) as Priority[]).map((p) => (
-            <option key={p} value={p}>
-              {priorityLabel[p]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grow">
-        Motivo (fica registrado)
-        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
-      </label>
-      <button className="primary">Salvar</button>
+      <div className="inline-panel-head">
+        <strong>Prioridade</strong>
+        <button type="button" className="icon-button" onClick={onCancel} aria-label="Cancelar">
+          <X size={16} />
+        </button>
+      </div>
+      <div className="chips">
+        {(Object.keys(priorityLabel) as Priority[]).map((p) => (
+          <button type="button" key={p} className={"chip" + (priority === p ? " chip-selected" : "")} onClick={() => setPriority(p)}>
+            {priorityLabel[p]}
+          </button>
+        ))}
+      </div>
+      <div className="inline-row">
+        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Motivo (fica registrado)" aria-label="Motivo da mudança" />
+        <button className="primary" disabled={priority === current}>
+          <CheckCircle2 size={16} aria-hidden /> Salvar
+        </button>
+      </div>
     </form>
   );
 }
