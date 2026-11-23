@@ -1,7 +1,7 @@
 import { AlertTriangle, ChevronRight, Clock } from "lucide-react";
 import { api } from "../api";
 import { useApp, useLoad } from "../app-context";
-import { PriorityBadge } from "../components/Badges";
+import { QueueBadge, RiskBadge } from "../components/Badges";
 import { handoffReasonLabel, minutesLabel, priorityShort, requestTypeLabel, timeLabel } from "../labels";
 import type { InboxItem, RequestItem } from "../types";
 import type { Overview } from "../config/draft";
@@ -90,7 +90,7 @@ export function Home() {
         <section className="urgent-strip" aria-label="Urgentes">
           {urgent.map((c) => (
             <a key={c.id} href={"#/atendimento/" + c.id} className={"urgent-row tone-" + priorityShort(c.priority).toLowerCase()}>
-              <PriorityBadge priority={c.priority} long />
+              <RiskBadge risk={c.clinicalRisk} />
               <strong>{c.tutorName ?? "Contato sem nome"}</strong>
               <span className="muted grow ellipsis">
                 {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : ""}
@@ -250,7 +250,8 @@ function ConversationLine({ c }: { c: InboxItem }) {
   return (
     <li>
       <a href={"#/atendimento/" + c.id} className="mini-row">
-        <PriorityBadge priority={c.priority} />
+        <RiskBadge risk={c.clinicalRisk} />
+        <QueueBadge priority={c.operationalPriority} />
         <span className="grow">
           <strong>{c.tutorName ?? "Contato sem nome"}</strong>
           <span className="muted small block">
@@ -266,7 +267,8 @@ function RequestLine({ r, departmentName }: { r: RequestItem; departmentName: (i
   return (
     <li>
       <a href={"#/solicitacoes/" + r.id} className="mini-row">
-        <PriorityBadge priority={r.priority} />
+        <RiskBadge risk={r.clinicalRisk} />
+        <QueueBadge priority={r.operationalPriority} />
         <span className="grow">
           <strong>
             {requestTypeLabel[r.type]} · {r.petName ?? r.tutorName ?? "—"}

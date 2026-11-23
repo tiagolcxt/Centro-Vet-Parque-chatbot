@@ -24,7 +24,7 @@ class ConversationFactsAdapter implements ConversationFacts {
     public Map<ConversationId, Priority> priorities(Set<ConversationId> ids) {
         Map<ConversationId, Priority> result = new HashMap<>();
         for (Conversation c : conversations.findByIds(ids)) {
-            result.put(c.id(), new Priority(c.clinicalPriority().name(), c.clinicalPriority().ordinal() + 1));
+            result.put(c.id(), new Priority(c.clinicalPriority().name(), c.clinicalPriority().ordinal() + 1, c.clinicalRisk()));
         }
         return result;
     }

@@ -12,7 +12,7 @@ import java.util.Set;
 public interface ConversationFacts {
 
     /** @param rank 1 = mais urgente (P1) */
-    record Priority(String level, int rank) {
+    record Priority(String level, int rank, com.clinicavet.assistant.shared.domain.ClinicalRisk risk) {
     }
 
     Map<ConversationId, Priority> priorities(Set<ConversationId> conversations);

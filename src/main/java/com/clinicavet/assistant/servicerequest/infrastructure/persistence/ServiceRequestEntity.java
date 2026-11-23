@@ -80,6 +80,11 @@ class ServiceRequestEntity {
     @Column(name = "assignee_user_id", columnDefinition = "BINARY(16)")
     private UUID assigneeId;
 
+    // D9 (revisão pré-piloto): tipo da demanda.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "demand_type", columnDefinition = "VARCHAR(30)", nullable = false)
+    private com.clinicavet.assistant.servicerequest.domain.DemandType demandType;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -104,14 +109,19 @@ class ServiceRequestEntity {
         entity.updatedAt = request.updatedAt();
         entity.departmentId = request.departmentId().orElse(null);
         entity.assigneeId = request.assigneeId().orElse(null);
+        entity.demandType = request.demandType();
         entity.version = request.version();
         return entity;
     }
 
     ServiceRequest toDomain() {
-        return ServiceRequest.restore(new ServiceRequestId(id), new ConversationId(conversationId),
+        ServiceRequest request = ServiceRequest.restore(new ServiceRequestId(id), new ConversationId(conversationId),
                 tutorId == null ? null : new TutorId(tutorId), petId == null ? null : new PetId(petId),
                 type, status, summary, reason, preferredPeriod, outcome, outcomeNote, createdAt, updatedAt,
                 departmentId, assigneeId, version);
+        if (demandType != null) {
+            request.classify(demandType);
+        }
+        return request;
     }
 }

@@ -45,6 +45,11 @@ public class StaffConversationService {
 
     /** Uma conversa na caixa de entrada, com o atraso calculado pelo prazo do nível (H10, H11). */
     public record QueueItem(Conversation conversation, Optional<Duration> waiting, boolean overdue) {
+
+        /** Ordem na fila (D9): escolha da equipe ou regra (risco + atraso). */
+        public com.clinicavet.assistant.shared.domain.OperationalPriority operationalPriority() {
+            return conversation.operationalPriority(overdue);
+        }
     }
 
     public enum Filter {
@@ -56,8 +61,9 @@ public class StaffConversationService {
         MINE
     }
 
+    /** @param overdue aguardando a equipe além do prazo do nível (sobe a prioridade da fila, D9) */
     public record Detail(Conversation conversation, List<Message> messages, List<InternalNote> notes,
-                         List<PriorityChange> priorityChanges) {
+                         List<PriorityChange> priorityChanges, boolean overdue) {
     }
 
     static final int MAX_INBOX = 300;
@@ -107,13 +113,20 @@ public class StaffConversationService {
                             .orElse(false);
                     return new QueueItem(c, waiting, overdue);
                 })
+                // D9: prioridade da fila primeiro; no mesmo nível, quem espera há mais tempo (H10).
+                .sorted(java.util.Comparator.comparingInt((QueueItem i) -> i.operationalPriority().rank())
+                        .thenComparing(i -> i.conversation().handoffAt().orElse(i.conversation().lastActivityAt())))
                 .toList();
     }
 
     public Detail detail(StaffUser user, ConversationId id) {
         Conversation conversation = visible(user, id);
+        boolean overdue = conversation.status() == ConversationStatus.WAITING_HUMAN && conversation.handoffAt()
+                .map(at -> Duration.between(at, clock.instant())
+                        .compareTo(settings.deadlineFor(conversation.clinicalPriority())) > 0)
+                .orElse(false);
         return new Detail(conversation, messages.findPage(id, 0, MAX_MESSAGES), conversations.findNotes(id),
-                conversations.findPriorityChanges(id));
+                conversations.findPriorityChanges(id), overdue);
     }
 
     /** RF-S22: assume. O assistente para; o tutor recebe "fulano (setor) vai continuar". */
@@ -253,10 +266,29 @@ public class StaffConversationService {
             Conversation conversation = load(user, id);
             Instant now = clock.instant();
             ClinicalPriority previous = conversation.changePriorityByStaff(priority);
+            conversation.markRiskAssessed();
             Conversation result = conversations.save(conversation);
             conversations.savePriorityChange(PriorityChange.byStaff(id, previous, priority, note, now,
                     user.userId().toString()));
             audit.record("conversation.priority_changed", "conversation", id.value(), previous + " -> " + priority);
+            return result;
+        });
+        live.changed(LiveUpdates.Topic.CONVERSATION, id.value());
+        return saved;
+    }
+
+    /**
+     * D9: a equipe fixa a prioridade da fila desta conversa ({@code null} volta para a regra). Não muda o risco
+     * clínico, que só uma pessoa rebaixa pelo caminho próprio (H4). Fica na auditoria.
+     */
+    public Conversation changeQueuePriority(StaffUser user, ConversationId id, com.clinicavet.assistant.shared.domain.OperationalPriority priority) {
+        Conversation saved = tx.inTransaction(() -> {
+            Conversation conversation = load(user, id);
+            String previous = conversation.operationalOverride().map(Enum::name).orElse("regra");
+            conversation.overrideOperationalPriority(priority);
+            Conversation result = conversations.save(conversation);
+            audit.record("conversation.queue_priority_changed", "conversation", id.value(),
+                    previous + " -> " + (priority == null ? "regra" : priority.name()));
             return result;
         });
         live.changed(LiveUpdates.Topic.CONVERSATION, id.value());

@@ -30,6 +30,19 @@ export interface Session {
   permissions: string[];
 }
 
+/** D9 (revisão pré-piloto 3.2): risco clínico, prioridade da fila e tipo da demanda, separados. */
+export type ClinicalRisk = "POSSIBLE_EMERGENCY" | "URGENT" | "CLINICAL_FOLLOW_UP" | "NONE_IDENTIFIED" | "NOT_ASSESSED";
+export type QueuePriority = "IMMEDIATE" | "HIGH" | "NORMAL" | "LOW";
+export type DemandType =
+  | "APPOINTMENT"
+  | "CLINICAL_QUESTION"
+  | "ADMINISTRATIVE_INFO"
+  | "COMMERCIAL"
+  | "GROOMING"
+  | "COMPLAINT"
+  | "HUMAN_CONTACT"
+  | "OTHER";
+
 export interface Me {
   id: string;
   displayName: string;
@@ -50,6 +63,8 @@ export interface InboxItem {
   id: string;
   status: ConversationStatus;
   priority: Priority;
+  clinicalRisk: ClinicalRisk;
+  operationalPriority: QueuePriority;
   intent: string | null;
   handoffReason: string | null;
   handoffAt: string | null;
@@ -90,6 +105,9 @@ export interface ConversationDetail {
   id: string;
   status: ConversationStatus;
   priority: Priority;
+  clinicalRisk: ClinicalRisk;
+  operationalPriority: QueuePriority;
+  operationalOverride: QueuePriority | null;
   intent: string | null;
   handoffReason: string | null;
   handoffAt: string | null;
@@ -125,6 +143,9 @@ export interface RequestItem {
   assigneeId: string | null;
   assigneeName: string | null;
   priority: Priority | null;
+  clinicalRisk: ClinicalRisk;
+  operationalPriority: QueuePriority;
+  demandType: DemandType;
   createdAt: string;
   nextAction: string | null;
 }

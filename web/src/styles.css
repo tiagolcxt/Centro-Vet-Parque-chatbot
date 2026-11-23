@@ -1635,3 +1635,13 @@ fieldset.field label.inline-row {
     width: auto;
   }
 }
+
+/* D9: tipo da demanda na solicitação, sem esticar. */
+.demand-row {
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.demand-row select {
+  width: auto;
+  min-width: 220px;
+}

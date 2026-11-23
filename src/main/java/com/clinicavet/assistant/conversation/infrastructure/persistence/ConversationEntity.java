@@ -86,6 +86,14 @@ class ConversationEntity {
     @Column(name = "waiting_department_id", columnDefinition = "BINARY(16)")
     private UUID waitingDepartmentId;
 
+    // D9 (revisão pré-piloto): risco avaliado e prioridade da fila escolhida pela equipe.
+    @Column(name = "risk_assessed", nullable = false)
+    private boolean riskAssessed;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "operational_override", columnDefinition = "VARCHAR(10)")
+    private com.clinicavet.assistant.shared.domain.OperationalPriority operationalOverride;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -111,14 +119,22 @@ class ConversationEntity {
         entity.humanOfferMade = conversation.humanOfferMade();
         entity.assigneeId = conversation.assigneeId().orElse(null);
         entity.waitingDepartmentId = conversation.waitingDepartmentId().orElse(null);
+        entity.riskAssessed = conversation.riskAssessed();
+        entity.operationalOverride = conversation.operationalOverride().orElse(null);
         entity.version = conversation.version();
         return entity;
     }
 
     Conversation toDomain() {
-        return Conversation.restore(new ConversationId(id), new ContactIdentity(channel, externalContactId),
+        Conversation conversation = Conversation.restore(new ConversationId(id),
+                new ContactIdentity(channel, externalContactId),
                 tutorId == null ? null : new TutorId(tutorId), status, currentIntent, closeReason,
                 startedAt, lastActivityAt, closedAt, clinicalPriority, handoffReason, handoffAt, humanOfferMade,
                 assigneeId, waitingDepartmentId, version);
+        if (riskAssessed) {
+            conversation.markRiskAssessed();
+        }
+        conversation.overrideOperationalPriority(operationalOverride);
+        return conversation;
     }
 }

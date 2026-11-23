@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
-import { PriorityBadge, RequestStatusBadge, StatusBadge } from "../components/Badges";
-import { requestTypeLabel, speciesLabel, timeLabel } from "../labels";
+import { RequestStatusBadge, RiskBadge, StatusBadge } from "../components/Badges";
+import { requestTypeLabel, riskFromLevel, speciesLabel, timeLabel } from "../labels";
 import type { CustomerDetail, CustomerItem } from "../types";
 
 const FIELD_LABEL: Record<string, string> = {
@@ -102,7 +102,7 @@ function Customer({ id }: { id: string }) {
           {data.conversations.map((c) => (
             <li key={c.id}>
               <a href={"#/atendimento/" + c.id}>{timeLabel(c.startedAt)}</a> <StatusBadge status={c.status} />{" "}
-              <PriorityBadge priority={c.priority} />
+              <RiskBadge risk={riskFromLevel(c.priority)} />
             </li>
           ))}
         </ul>

@@ -46,6 +46,10 @@ public final class Conversation {
     private boolean humanOfferMade;
     private UUID assigneeId;
     private UUID waitingDepartmentId;
+    /** D9: houve avaliação válida do risco (turno válido do modelo, detector ou pessoa). */
+    private boolean riskAssessed;
+    /** D9: prioridade da fila escolhida pela equipe; vazia = derivada pela regra. */
+    private com.clinicavet.assistant.shared.domain.OperationalPriority operationalOverride;
     private final Long version;
 
     private Conversation(ConversationId id, ContactIdentity contact, TutorId tutorId,
@@ -355,6 +359,42 @@ public final class Conversation {
 
     public Optional<Instant> closedAt() {
         return Optional.ofNullable(closedAt);
+    }
+
+    /** Risco clínico (D9), derivado do nível interno P1–P6, que continua sendo o motor das regras de segurança. */
+    public com.clinicavet.assistant.shared.domain.ClinicalRisk clinicalRisk() {
+        return switch (clinicalPriority) {
+            case P1_POSSIBLE_EMERGENCY -> com.clinicavet.assistant.shared.domain.ClinicalRisk.POSSIBLE_EMERGENCY;
+            case P2_URGENT -> com.clinicavet.assistant.shared.domain.ClinicalRisk.URGENT;
+            case P3_CLINICAL_FOLLOW_UP -> com.clinicavet.assistant.shared.domain.ClinicalRisk.CLINICAL_FOLLOW_UP;
+            default -> riskAssessed ? com.clinicavet.assistant.shared.domain.ClinicalRisk.NONE_IDENTIFIED
+                    : com.clinicavet.assistant.shared.domain.ClinicalRisk.NOT_ASSESSED;
+        };
+    }
+
+    public boolean riskAssessed() {
+        return riskAssessed;
+    }
+
+    public void markRiskAssessed() {
+        this.riskAssessed = true;
+    }
+
+    public java.util.Optional<com.clinicavet.assistant.shared.domain.OperationalPriority> operationalOverride() {
+        return java.util.Optional.ofNullable(operationalOverride);
+    }
+
+    /** A equipe fixa a prioridade da fila ({@code null} volta para a regra). Não muda o risco clínico. */
+    public void overrideOperationalPriority(com.clinicavet.assistant.shared.domain.OperationalPriority value) {
+        this.operationalOverride = value;
+    }
+
+    /** Ordem na fila (D9): escolha da equipe ou a regra (risco + atraso). */
+    public com.clinicavet.assistant.shared.domain.OperationalPriority operationalPriority(boolean overdue) {
+        if (operationalOverride != null) {
+            return operationalOverride;
+        }
+        return com.clinicavet.assistant.shared.domain.OperationalPriority.derive(clinicalRisk(), false, overdue);
     }
 
     public ClinicalPriority clinicalPriority() {

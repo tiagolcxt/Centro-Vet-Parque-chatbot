@@ -135,6 +135,13 @@ class ServiceRequestController {
                 .thenComparing(RequestResponse::createdAt)).toList();
     }
 
+    /** D9: corrigir o tipo da demanda (quem atende a solicitação). */
+    @PatchMapping("/{id}/demand-type")
+    @PreAuthorize("hasAuthority('request:assign') or hasAuthority('request:close')")
+    RequestResponse reclassify(@PathVariable UUID id, @Valid @RequestBody DemandTypeRequest body) {
+        return one(staff.reclassify(StaffUser.current().orElseThrow(), new ServiceRequestId(id), body.demandType()));
+    }
+
     @GetMapping("/{id}")
     DetailResponse detail(@PathVariable UUID id) {
         StaffServiceRequestService.Detail detail = staff.detail(StaffUser.current().orElseThrow(), new ServiceRequestId(id));
@@ -208,8 +215,10 @@ class ServiceRequestController {
                     r.preferredPeriod().orElse(null), r.outcome().orElse(null), r.outcomeNote().orElse(null),
                     r.departmentId().orElse(null), r.assigneeId().orElse(null),
                     r.assigneeId().map(names::get).orElse(null),
-                    priority == null ? null : priority.level(), priority == null ? 99 : priority.rank(),
-                    r.createdAt(), r.updatedAt(), nextAction(r));
+                    priority == null ? null : priority.level(), operational(priority, r).rank(),
+                    r.createdAt(), r.updatedAt(), nextAction(r),
+                    priority == null ? com.clinicavet.assistant.shared.domain.ClinicalRisk.NOT_ASSESSED : priority.risk(), operational(priority, r),
+                    r.demandType());
         }).toList();
     }
 
@@ -246,7 +255,18 @@ class ServiceRequestController {
                            UUID tutorId, String tutorName, UUID petId, String petName, String reason,
                            String preferredPeriod, RequestOutcome outcome, String outcomeNote, UUID departmentId,
                            UUID assigneeId, String assigneeName, String priority, int priorityRank,
-                           Instant createdAt, Instant updatedAt, String nextAction) {
+                           Instant createdAt, Instant updatedAt, String nextAction,
+                           com.clinicavet.assistant.shared.domain.ClinicalRisk clinicalRisk, com.clinicavet.assistant.shared.domain.OperationalPriority operationalPriority,
+                           com.clinicavet.assistant.servicerequest.domain.DemandType demandType) {
+    }
+
+    /** D9: prioridade da fila da solicitação = risco da conversa + tipo da demanda. */
+    private static com.clinicavet.assistant.shared.domain.OperationalPriority operational(ConversationFacts.Priority priority, ServiceRequest request) {
+        com.clinicavet.assistant.shared.domain.ClinicalRisk risk = priority == null ? com.clinicavet.assistant.shared.domain.ClinicalRisk.NOT_ASSESSED : priority.risk();
+        return com.clinicavet.assistant.shared.domain.OperationalPriority.derive(risk, request.demandType().lowImpact(), false);
+    }
+
+    record DemandTypeRequest(@NotNull com.clinicavet.assistant.servicerequest.domain.DemandType demandType) {
     }
 
     record EventResponse(RequestEvent.Type type, UUID actorId, String actorName, String from, String to,

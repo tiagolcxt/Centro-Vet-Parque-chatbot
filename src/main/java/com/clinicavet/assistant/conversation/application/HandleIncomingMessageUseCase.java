@@ -156,6 +156,19 @@ public class HandleIncomingMessageUseCase {
                 p.emergencyClosed(), p.department());
     }
 
+    private DemandClassifier demands;
+
+    /** D9 (revisão pré-piloto). Sem ele (testes de unidade), o tipo é deduzido do fluxo. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setDemands(DemandClassifier demands) {
+        this.demands = demands;
+    }
+
+    private com.clinicavet.assistant.servicerequest.domain.DemandType demandOf(Intent intent, List<String> refs,
+                                                                               String text, HandoffReason reason) {
+        return demands == null ? null : demands.classify(intent, refs, text, reason).orElse(null);
+    }
+
     private java.util.UUID route(List<String> refs, String text, Intent intent) {
         return router == null ? null : router.route(refs, text, Optional.ofNullable(intent));
     }
@@ -288,11 +301,16 @@ public class HandleIncomingMessageUseCase {
         boolean failed;
         java.util.UUID department;
         com.clinicavet.assistant.platform.ActivationLevel level = level();
+        Intent turnIntent = null;
+        List<String> turnRefs = List.of();
         switch (outcome) {
             case TurnOutcome.Valid valid -> {
                 AssistantTurn turn = valid.turn();
                 decision = decider.decideValid(ctx, turn);
                 department = route(turn.knowledgeRefs(), customerText, turn.intent());
+                turnIntent = turn.intent();
+                turnRefs = turn.knowledgeRefs();
+                current.markRiskAssessed(); // D9: turno válido avaliou o risco
                 boolean forward = forwardOnly(level, turn);
                 if (forward) {
                     decision = forwarded(decision, HandoffReason.CLINIC_RULE);
@@ -313,7 +331,8 @@ public class HandleIncomingMessageUseCase {
                 secondary = turn.secondaryIntents();
                 current.recordIntent(turn.intent());
                 if (turn.knowledgeGap()) {
-                    recordInformationGap(current, customerText, department, now);
+                    recordInformationGap(current, customerText, department,
+                            demandOf(turn.intent(), turn.knowledgeRefs(), customerText, null), now);
                 }
                 // Etapa 5: dados do tutor e do pet, proveniência e pedido de agendamento (ADR-0010, DA-35 a DA-37).
                 CustomerDataCollector.Outcome collected = collector.collect(current, turn, start.recent(),
@@ -345,10 +364,16 @@ public class HandleIncomingMessageUseCase {
             }
         }
         current.raisePriority(decision.priority().effective());
-        decision.handoff().handoff().ifPresent(reason -> handOff(current, reason, customerText, department, now));
+        if (ctx.alertFloor().isPresent()) {
+            current.markRiskAssessed(); // D9: expressão de alerta também é avaliação
+        }
+        Intent classifiedIntent = turnIntent;
+        List<String> classifiedRefs = turnRefs;
+        decision.handoff().handoff().ifPresent(reason -> handOff(current, reason, customerText, department,
+                demandOf(classifiedIntent, classifiedRefs, customerText, reason), now));
         // DA-40: pedido registrado para a equipe, e a conversa continua com o assistente.
         decision.handoff().register().ifPresent(reason -> openStaffRequest(current, reason, customerText, department,
-                now));
+                demandOf(classifiedIntent, classifiedRefs, customerText, reason), now));
         if (decision.handoff().offerHuman()) {
             current.markHumanOfferMade();
         }
@@ -399,9 +424,11 @@ public class HandleIncomingMessageUseCase {
                 intent = turn.intent();
                 secondary = turn.secondaryIntents();
                 current.recordIntent(turn.intent());
+                current.markRiskAssessed();
                 if (turn.knowledgeGap()) {
                     String text = start.customerMessage().content();
-                    recordInformationGap(current, text, route(turn.knowledgeRefs(), text, turn.intent()), now);
+                    recordInformationGap(current, text, route(turn.knowledgeRefs(), text, turn.intent()),
+                            demandOf(turn.intent(), turn.knowledgeRefs(), text, null), now);
                 }
                 collector.collect(current, turn, start.recent(), start.customerMessage(), true, now);
                 failed = false;
@@ -438,6 +465,9 @@ public class HandleIncomingMessageUseCase {
                     PriorityPolicy.Inputs.deterministicOnly(ctx.alertFloor()));
         };
         current.raisePriority(priority.effective());
+        if (outcome instanceof TurnOutcome.Valid || ctx.alertFloor().isPresent()) {
+            current.markRiskAssessed();
+        }
         current.registerActivity(now);
         Conversation saved = conversations.save(current);
         return new Result(current.id(), start.newConversation(), null, saved.status(), Optional.empty(),
@@ -479,12 +509,13 @@ public class HandleIncomingMessageUseCase {
      * {@code ServiceRequest(HUMAN_CONTACT)} pendente, na mesma transação (ADR-0017). Ninguém é notificado.
      */
     private void handOff(Conversation conversation, HandoffReason reason, String customerText,
-                         java.util.UUID department, Instant now) {
+                         java.util.UUID department, com.clinicavet.assistant.servicerequest.domain.DemandType demand,
+                         Instant now) {
         // RF-S61: a conversa espera no setor da regra (sem regra, o padrão). P1/P2 ficam no padrão: a recepção
         // atende primeiro a emergência, qualquer que seja o assunto.
         boolean urgent = conversation.clinicalPriority().isUrgentOrWorse();
         conversation.handOff(reason, now, urgent ? null : department);
-        openStaffRequest(conversation, reason, customerText, urgent ? null : department, now);
+        openStaffRequest(conversation, reason, customerText, urgent ? null : department, demand, now);
     }
 
     /**
@@ -492,7 +523,8 @@ public class HandleIncomingMessageUseCase {
      * pedido registrado sem transferir (DA-40). A equipe vê na listagem; ninguém é notificado.
      */
     private void openStaffRequest(Conversation conversation, HandoffReason reason, String customerText,
-                                  java.util.UUID department, Instant now) {
+                                  java.util.UUID department,
+                                  com.clinicavet.assistant.servicerequest.domain.DemandType demand, Instant now) {
         boolean alreadyOpen = serviceRequests.findByConversation(conversation.id()).stream()
                 .anyMatch(r -> r.type() == RequestType.HUMAN_CONTACT && !r.status().isFinal());
         if (!alreadyOpen) {
@@ -501,6 +533,9 @@ public class HandleIncomingMessageUseCase {
             request.describe(truncate(reason.label() + ": " + customerText), now);
             if (department != null) {
                 request.routeTo(department, now);
+            }
+            if (demand != null) {
+                request.classify(demand);
             }
             request.submit(Set.of(RequestField.SUMMARY), now);
             serviceRequests.save(request);
@@ -513,7 +548,7 @@ public class HandleIncomingMessageUseCase {
      * acrescentada ao resumo. Nenhuma notificação: a equipe vê nas listagens.
      */
     private void recordInformationGap(Conversation conversation, String question, java.util.UUID department,
-                                      Instant now) {
+                                      com.clinicavet.assistant.servicerequest.domain.DemandType demand, Instant now) {
         ConversationId conversationId = conversation.id();
         Optional<ServiceRequest> open = serviceRequests.findByConversation(conversationId).stream()
                 .filter(r -> r.type() == RequestType.INFORMATION)
@@ -531,6 +566,9 @@ public class HandleIncomingMessageUseCase {
         request.describe(truncate(question), now);
         if (department != null) {
             request.routeTo(department, now);
+        }
+        if (demand != null) {
+            request.classify(demand);
         }
         request.submit(Set.of(RequestField.SUMMARY), now);
         serviceRequests.save(request);

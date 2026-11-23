@@ -30,7 +30,7 @@ class AuditService implements AuditLog, com.clinicavet.assistant.platform.AuditT
         java.time.Instant from = filter.from() == null ? java.time.Instant.EPOCH : filter.from();
         java.time.Instant to = filter.to() == null ? java.time.Instant.parse("9999-12-31T00:00:00Z") : filter.to();
         String action = filter.actionPrefix() == null || filter.actionPrefix().isBlank() ? null
-                : filter.actionPrefix().strip().replace("%", "").replace("_", "\\_") + "%";
+                : filter.actionPrefix().strip().replace("%", "") + "%"; // "_" casa com ele mesmo nos nomes fixos
         org.springframework.data.domain.Page<AuditEventEntity> found = events.search(from, to, filter.actorUserId(),
                 action, blankToNull(filter.targetType()), blankToNull(filter.targetId()), filter.withoutLogins(),
                 org.springframework.data.domain.PageRequest.of(page, size));

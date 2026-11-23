@@ -51,6 +51,8 @@ public final class ServiceRequest {
     private String outcomeNote;
     private UUID departmentId;
     private UUID assigneeId;
+    /** D9: assunto da solicitação; vazio = deduzido do fluxo ({@link DemandType#fallbackFor}). */
+    private DemandType demandType;
     private final Instant createdAt;
     private Instant updatedAt;
     private final Long version;
@@ -333,6 +335,16 @@ public final class ServiceRequest {
 
     public Optional<UUID> departmentId() {
         return Optional.ofNullable(departmentId);
+    }
+
+    /** Tipo da demanda (D9). Sem classificação, deduzido do fluxo. */
+    public DemandType demandType() {
+        return demandType != null ? demandType : DemandType.fallbackFor(type);
+    }
+
+    /** Classifica (backend, na abertura) ou corrige (equipe). Vale também em solicitação encerrada: é só rótulo. */
+    public void classify(DemandType value) {
+        this.demandType = java.util.Objects.requireNonNull(value, "demandType");
     }
 
     public Optional<UUID> assigneeId() {

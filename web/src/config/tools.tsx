@@ -2,7 +2,7 @@ import { Copy, FileUp, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "../api";
 import { useLoad } from "../app-context";
-import { priorityLabel } from "../labels";
+import { riskFromLevel, riskLabel } from "../labels";
 import type { Priority } from "../types";
 import { useToast } from "../ui";
 import { useDraft, type Change, type Version, type VersionSummary } from "./draft";
@@ -49,7 +49,7 @@ export function Simulator() {
       const previous = lines.slice(-10).map(({ from, text: t }) => ({ from, text: t }));
       const result = await api.post<SimResult>("/config/simulate", { text: message, previous, at: at || undefined });
       const meta = [
-        priorityLabel[result.priority],
+        "risco: " + riskLabel[riskFromLevel(result.priority)].toLowerCase(),
         result.handoff ? "encaminharia à equipe" : null,
         result.staffRequest ? "registraria um pedido" : null,
         result.fallback ? "resposta segura (a IA errou ou faltou informação)" : null,

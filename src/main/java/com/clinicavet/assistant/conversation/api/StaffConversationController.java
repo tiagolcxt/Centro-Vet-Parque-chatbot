@@ -84,7 +84,8 @@ class StaffConversationController {
                 .filter(Objects::nonNull).collect(Collectors.toSet()));
         return items.stream().map(item -> {
             Conversation c = item.conversation();
-            return new InboxItem(c.id().value(), c.status(), c.clinicalPriority(), c.currentIntent().orElse(null),
+            return new InboxItem(c.id().value(), c.status(), c.clinicalPriority(), c.clinicalRisk(),
+                    item.operationalPriority(), c.currentIntent().orElse(null),
                     c.handoffReason().orElse(null), c.handoffAt().orElse(null),
                     item.waiting().map(java.time.Duration::toMinutes).orElse(null), item.overdue(),
                     c.lastActivityAt(), c.tutorId().map(t -> t.value()).orElse(null),
@@ -146,8 +147,39 @@ class StaffConversationController {
     @PatchMapping("/{id}/priority")
     @PreAuthorize("hasAuthority('conversation:assume')")
     DetailResponse changePriority(@PathVariable UUID id, @Valid @RequestBody ChangePriorityRequest body) {
-        staff.changePriority(user(), new ConversationId(id), body.priority(), body.note());
+        ClinicalPriority target = body.priority() != null ? body.priority() : levelFor(body.risk());
+        if (target == null) {
+            throw new com.clinicavet.assistant.shared.exception.DomainValidationException("risk",
+                    "informe o risco clínico");
+        }
+        staff.changePriority(user(), new ConversationId(id), target, body.note());
         return detailOf(new ConversationId(id));
+    }
+
+    /** D9: risco escolhido pela equipe → nível interno. "Sem sinal clínico" vai para o nível inicial. */
+    private static ClinicalPriority levelFor(com.clinicavet.assistant.shared.domain.ClinicalRisk risk) {
+        if (risk == null) {
+            return null;
+        }
+        return switch (risk) {
+            case POSSIBLE_EMERGENCY -> ClinicalPriority.P1_POSSIBLE_EMERGENCY;
+            case URGENT -> ClinicalPriority.P2_URGENT;
+            case CLINICAL_FOLLOW_UP -> ClinicalPriority.P3_CLINICAL_FOLLOW_UP;
+            case NONE_IDENTIFIED -> ClinicalPriority.INITIAL;
+            case NOT_ASSESSED -> throw new com.clinicavet.assistant.shared.exception.DomainValidationException("risk",
+                    "escolha um risco avaliado");
+        };
+    }
+
+    /** D9: prioridade da fila escolhida pela equipe; {@code priority} vazio volta para a regra. Auditado. */
+    @PatchMapping("/{id}/queue-priority")
+    @PreAuthorize("hasAuthority('conversation:assume')")
+    DetailResponse changeQueuePriority(@PathVariable UUID id, @RequestBody QueuePriorityRequest body) {
+        staff.changeQueuePriority(user(), new ConversationId(id), body.priority());
+        return detailOf(new ConversationId(id));
+    }
+
+    record QueuePriorityRequest(com.clinicavet.assistant.shared.domain.OperationalPriority priority) {
     }
 
     /** Depois de transferir ou devolver, a conversa pode sair do escopo de quem agiu (RN-S11): {@code 204}. */
@@ -189,7 +221,8 @@ class StaffConversationController {
                 detail.notes().stream().map(n -> NoteResponse.of(n, names)).toList(),
                 openRequests,
                 detail.priorityChanges().stream().map(PriorityChangeResponse::from).toList(),
-                c.contact().channel(), staff.replyWindowEnd(c).orElse(null));
+                c.contact().channel(), staff.replyWindowEnd(c).orElse(null), c.clinicalRisk(),
+                c.operationalPriority(detail.overdue()), c.operationalOverride().orElse(null));
     }
 
     private static StaffUser user() {
@@ -206,14 +239,17 @@ class StaffConversationController {
     }
 
     /** @param note motivo da mudança; não escrever dados de saúde nem pessoais além do necessário (LGPD) */
-    record ChangePriorityRequest(@NotNull ClinicalPriority priority, @Size(max = PriorityChange.MAX_NOTE) String note) {
+    /** {@code priority} (nível interno, compatibilidade) ou {@code risk} (D9). */
+    record ChangePriorityRequest(ClinicalPriority priority, com.clinicavet.assistant.shared.domain.ClinicalRisk risk,
+                                 @Size(max = PriorityChange.MAX_NOTE) String note) {
     }
 
     /**
      * @param waitingMinutes minutos aguardando a equipe ({@code null} se não está aguardando)
      * @param overdue        passou do prazo do nível sem ninguém assumir (prazos provisórios, P-02)
      */
-    record InboxItem(UUID id, ConversationStatus status, ClinicalPriority priority, Intent intent,
+    record InboxItem(UUID id, ConversationStatus status, ClinicalPriority priority, com.clinicavet.assistant.shared.domain.ClinicalRisk clinicalRisk,
+                     com.clinicavet.assistant.shared.domain.OperationalPriority operationalPriority, Intent intent,
                      HandoffReason handoffReason, Instant handoffAt, Long waitingMinutes, boolean overdue,
                      Instant lastActivityAt, UUID tutorId, String tutorName, UUID departmentId, UUID assigneeId,
                      String assigneeName) {
@@ -269,6 +305,8 @@ class StaffConversationController {
                           UUID assigneeId, String assigneeName, TutorResponse tutor, List<MessageItem> messages,
                           List<NoteResponse> notes, List<RequestSummary> requests,
                           List<PriorityChangeResponse> priorityChanges,
-                          com.clinicavet.assistant.shared.domain.Channel channel, Instant replyWindowEndsAt) {
+                          com.clinicavet.assistant.shared.domain.Channel channel, Instant replyWindowEndsAt,
+                          com.clinicavet.assistant.shared.domain.ClinicalRisk clinicalRisk, com.clinicavet.assistant.shared.domain.OperationalPriority operationalPriority,
+                          com.clinicavet.assistant.shared.domain.OperationalPriority operationalOverride) {
     }
 }

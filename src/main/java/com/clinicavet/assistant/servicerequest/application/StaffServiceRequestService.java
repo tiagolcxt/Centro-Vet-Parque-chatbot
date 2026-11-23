@@ -120,6 +120,22 @@ public class StaffServiceRequestService {
     }
 
     /** Transfere de setor com motivo obrigatório (RN-S06). Limpa o responsável. */
+    /** D9: a equipe corrige o tipo da demanda. Auditado. */
+    @Transactional
+    public ServiceRequest reclassify(StaffUser user, ServiceRequestId id,
+                                     com.clinicavet.assistant.servicerequest.domain.DemandType demandType) {
+        ServiceRequest request = visible(user, id);
+        var previous = request.demandType();
+        if (previous == demandType) {
+            return request;
+        }
+        request.classify(demandType);
+        ServiceRequest saved = requests.save(request);
+        audit.record("request.reclassified", "request", id.value(), previous + " -> " + demandType);
+        live.changed(LiveUpdates.Topic.REQUEST, id.value());
+        return saved;
+    }
+
     private String departmentName(UUID id) {
         return departments.find(id).map(Departments.Department::name).orElse("setor removido");
     }

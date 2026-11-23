@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { AlertTriangle, ArrowLeft, ArrowRightLeft, Bot, Check, CheckCheck, Clock, Flag, Lock, PanelRight, Paperclip, PawPrint, RotateCw, Send, X, CheckCircle2, Zap } from "lucide-react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
-import { PriorityBadge, RequestStatusBadge, StatusBadge } from "../components/Badges";
-import { handoffReasonLabel, minutesLabel, priorityLabel, requestTypeLabel, speciesLabel, timeLabel } from "../labels";
-import type { ConversationDetail, InboxItem, MessageItem, Priority } from "../types";
+import { QueueBadge, RequestStatusBadge, RiskBadge, StatusBadge } from "../components/Badges";
+import { handoffReasonLabel, minutesLabel, queueLabel, requestTypeLabel, riskLabel, speciesLabel, timeLabel } from "../labels";
+import type { ClinicalRisk, ConversationDetail, InboxItem, MessageItem, QueuePriority } from "../types";
 import { Drawer, useHotkeys, useToast } from "../ui";
 import type { QuickReply } from "../config/tools";
 
@@ -93,7 +93,8 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
                 aria-current={c.id === selectedId ? "true" : undefined}
               >
                 <div className="conv-item-top">
-                  <PriorityBadge priority={c.priority} long />
+                  <RiskBadge risk={c.clinicalRisk} />
+                  <QueueBadge priority={c.operationalPriority} />
                   <span className={"wait" + (c.overdue ? " overdue" : "")}>
                     <Clock size={12} aria-hidden />
                     {c.waitingMinutes !== null ? minutesLabel(c.waitingMinutes) : timeLabel(c.lastActivityAt)}
@@ -218,7 +219,8 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
             <div className="grow">
               <h2>{data.tutor?.name ?? "Contato sem nome"}{data.tutor?.pets[0] ? ` · ${data.tutor.pets[0].name}` : ""}</h2>
               <div className="badges">
-                <PriorityBadge priority={data.priority} long />
+                <RiskBadge risk={data.clinicalRisk} />
+                <QueueBadge priority={data.operationalPriority} fixed={!!data.operationalOverride} />
                 <StatusBadge status={data.status} assignee={data.assigneeName} />
                 <span className="badge">{departmentName(data.departmentId)}</span>
                 {data.channel === "WHATSAPP" && <span className="badge badge-whatsapp">WhatsApp</span>}
@@ -279,9 +281,13 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
           )}
           {panel === "priority" && (
             <PriorityPanel
-              current={data.priority}
+              risk={data.clinicalRisk}
+              queue={data.operationalOverride}
               onCancel={() => setPanel("none")}
-              onSubmit={(priority, note) => act(() => api.patch(`/conversations/${id}/priority`, { priority, note }), "Prioridade alterada")}
+              onRisk={(risk, note) => act(() => api.patch(`/conversations/${id}/priority`, { risk, note }), "Risco clínico alterado")}
+              onQueue={(priority) =>
+                act(() => api.patch(`/conversations/${id}/queue-priority`, { priority }), priority ? "Prioridade da fila fixada" : "Fila voltou para a regra")
+              }
             />
           )}
         </header>
@@ -572,43 +578,68 @@ export function TransferPanel({
   );
 }
 
+const RISK_CHOICES: ClinicalRisk[] = ["POSSIBLE_EMERGENCY", "URGENT", "CLINICAL_FOLLOW_UP", "NONE_IDENTIFIED"];
+const QUEUE_CHOICES: QueuePriority[] = ["IMMEDIATE", "HIGH", "NORMAL", "LOW"];
+
+/**
+ * D9: duas coisas diferentes. O risco clínico (rebaixar exige motivo e fica registrado, H4) e a prioridade da fila
+ * (só a ordem do atendimento; "automática" segue a regra).
+ */
 function PriorityPanel({
-  current,
-  onSubmit,
+  risk,
+  queue,
+  onRisk,
+  onQueue,
   onCancel,
 }: {
-  current: Priority;
-  onSubmit: (p: Priority, note: string) => Promise<void>;
+  risk: ClinicalRisk;
+  queue: QueuePriority | null;
+  onRisk: (risk: ClinicalRisk, note: string) => Promise<void>;
+  onQueue: (priority: QueuePriority | null) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [priority, setPriority] = useState<Priority>(current);
+  const [chosen, setChosen] = useState<ClinicalRisk>(risk);
   const [note, setNote] = useState("");
   return (
     <form
       className="inline-panel"
       onSubmit={(e) => {
         e.preventDefault();
-        void onSubmit(priority, note);
+        void onRisk(chosen, note);
       }}
     >
       <div className="inline-panel-head">
-        <strong>Prioridade</strong>
+        <strong>Risco clínico</strong>
         <button type="button" className="icon-button" onClick={onCancel} aria-label="Cancelar">
           <X size={16} />
         </button>
       </div>
       <div className="chips">
-        {(Object.keys(priorityLabel) as Priority[]).map((p) => (
-          <button type="button" key={p} className={"chip" + (priority === p ? " chip-selected" : "")} onClick={() => setPriority(p)}>
-            {priorityLabel[p]}
+        {RISK_CHOICES.map((r) => (
+          <button type="button" key={r} className={"chip" + (chosen === r ? " chip-selected" : "")} onClick={() => setChosen(r)}>
+            {riskLabel[r]}
           </button>
         ))}
       </div>
       <div className="inline-row">
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Motivo (fica registrado)" aria-label="Motivo da mudança" />
-        <button className="primary" disabled={priority === current}>
-          <CheckCircle2 size={16} aria-hidden /> Salvar
+        <button className="primary" disabled={chosen === risk}>
+          <CheckCircle2 size={16} aria-hidden /> Salvar risco
         </button>
+      </div>
+      <div className="inline-panel-head">
+        <strong>Prioridade na fila</strong>
+      </div>
+      <p className="muted small">Muda só a ordem do atendimento. Automática segue o risco e o tempo de espera.</p>
+      <div className="chips">
+        <button type="button" className={"chip" + (queue === null ? " chip-selected" : "")} onClick={() => void onQueue(null)}>
+          Automática
+        </button>
+        {QUEUE_CHOICES.map((q) => (
+          <button type="button" key={q} className={"chip" + (queue === q ? " chip-selected" : "")} onClick={() => void onQueue(q)}>
+            {queueLabel[q]}
+          </button>
+        ))}
       </div>
     </form>
   );

@@ -421,6 +421,13 @@ class CustomerDataCollector {
             if (department != null) {
                 request.routeTo(department, now);
             }
+            // D9: agendamento de banho e tosa (serviço do pet shop) ou de clínica.
+            boolean petshop = router.kindFor(turn.knowledgeRefs(),
+                    (reason == null ? "" : reason + " ") + String.join(" ", customerTexts), java.util.Optional.empty())
+                    .filter(k -> k == com.clinicavet.assistant.clinicknowledge.domain.Departments.Kind.PETSHOP)
+                    .isPresent();
+            request.classify(petshop ? com.clinicavet.assistant.servicerequest.domain.DemandType.GROOMING
+                    : com.clinicavet.assistant.servicerequest.domain.DemandType.APPOINTMENT);
         }
         try {
             records.tutor().filter(t -> !request.tutorId().map(id -> id.equals(t.id())).orElse(false))

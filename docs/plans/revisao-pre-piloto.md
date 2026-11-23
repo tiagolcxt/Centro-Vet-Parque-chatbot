@@ -558,6 +558,12 @@ Etapas curtas, cada uma com testes e aprovação antes da seguinte:
   - tela Auditoria;
   - solicitações (pegar, transferir, resolver/cancelar) passam a entrar na auditoria;
   - testes em `AuditIT`.
+- **E4.1, E4.2** ✅ D9 aprovada (ADR-0027):
+  - risco clínico, tipo da demanda e prioridade da fila;
+  - filas ordenadas pela prioridade da fila;
+  - a equipe muda o risco pelo nome, fixa a prioridade da fila e corrige o tipo (tudo auditado);
+  - **E4.3 adiada** (saída do modelo continua em P1–P6) até a bateria de IA;
+  - testes em `PriorityDimensionsIT` e `OperationalPriorityTest`.
 
 **Fora do escopo agora:** agenda real, prontuário, estoque, PDV, e-commerce, painel financeiro, microsserviços, RAG,
 mensageria distribuída, múltiplas instâncias do servidor.

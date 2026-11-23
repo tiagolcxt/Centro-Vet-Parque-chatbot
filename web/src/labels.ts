@@ -1,4 +1,4 @@
-import type { ConversationStatus, Outcome, Priority, RequestItem, RequestStatus, RequestType } from "./types";
+import type { ConversationStatus, Outcome, Priority, RequestItem, RequestStatus, RequestType, ClinicalRisk, DemandType, QueuePriority } from "./types";
 
 // Textos da interface em português (RNF-S12). A prioridade sempre aparece com texto, nunca só com cor (RNF-S11).
 
@@ -10,6 +10,40 @@ export const priorityLabel: Record<Priority, string> = {
   P5_ADMINISTRATIVE: "P5 · administrativo",
   P6_RELATIONSHIP: "P6 · relacionamento",
 };
+
+export const riskLabel: Record<ClinicalRisk, string> = {
+  POSSIBLE_EMERGENCY: "Possível emergência",
+  URGENT: "Urgente",
+  CLINICAL_FOLLOW_UP: "Acompanhamento clínico",
+  NONE_IDENTIFIED: "Sem sinal clínico",
+  NOT_ASSESSED: "Risco não avaliado",
+};
+
+export const queueLabel: Record<QueuePriority, string> = {
+  IMMEDIATE: "Imediata",
+  HIGH: "Alta",
+  NORMAL: "Normal",
+  LOW: "Baixa",
+};
+
+export const demandTypeLabel: Record<DemandType, string> = {
+  APPOINTMENT: "Agendamento",
+  CLINICAL_QUESTION: "Dúvida clínica",
+  ADMINISTRATIVE_INFO: "Informação administrativa",
+  COMMERCIAL: "Produto ou serviço do pet shop",
+  GROOMING: "Banho e tosa",
+  COMPLAINT: "Reclamação",
+  HUMAN_CONTACT: "Atendimento humano",
+  OTHER: "Outros",
+};
+
+/** Nível interno P1–P6 → risco clínico (para telas que só recebem o nível, como a ficha do cliente). */
+export function riskFromLevel(p: Priority | null | undefined): ClinicalRisk {
+  if (p === "P1_POSSIBLE_EMERGENCY") return "POSSIBLE_EMERGENCY";
+  if (p === "P2_URGENT") return "URGENT";
+  if (p === "P3_CLINICAL_FOLLOW_UP") return "CLINICAL_FOLLOW_UP";
+  return "NONE_IDENTIFIED";
+}
 
 export function priorityShort(p: Priority | null | undefined): string {
   return p ? p.substring(0, 2) : "—";

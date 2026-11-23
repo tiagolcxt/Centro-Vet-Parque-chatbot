@@ -2,9 +2,9 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRightLeft, CheckCircle2, Clock, Lock, MessageSquare, Play, UserPlus, X } from "lucide-react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
-import { PriorityBadge, RequestStatusBadge } from "../components/Badges";
-import { outcomeLabel, requestStatusLabel, requestTypeLabel, timeLabel } from "../labels";
-import type { Outcome, RequestDetail, RequestItem } from "../types";
+import { QueueBadge, RequestStatusBadge, RiskBadge } from "../components/Badges";
+import { outcomeLabel, requestStatusLabel, requestTypeLabel, timeLabel, demandTypeLabel } from "../labels";
+import type { Outcome, RequestDetail, RequestItem, DemandType } from "../types";
 import { useToast } from "../ui";
 import { TransferPanel } from "./Inbox";
 import { CopyButton } from "../config/tools";
@@ -74,11 +74,12 @@ export function Requests({ selectedId }: { selectedId?: string }) {
             <li key={r.id} className={"req-item" + (r.id === selectedId ? " selected" : "")}>
               <a href={"#/solicitacoes/" + r.id} className="req-link">
                 <div className="conv-item-top">
-                  <PriorityBadge priority={r.priority} />
+                  <RiskBadge risk={r.clinicalRisk} />
+                  <QueueBadge priority={r.operationalPriority} />
                   <RequestStatusBadge status={r.status} />
                 </div>
                 <strong>
-                  {requestTypeLabel[r.type]} · {r.petName ?? r.tutorName ?? "—"}
+                  {demandTypeLabel[r.demandType]} · {r.petName ?? r.tutorName ?? "—"}
                 </strong>
                 <span className="muted small">
                   <Clock size={12} aria-hidden /> desde {timeLabel(r.createdAt)} · {r.assigneeName ?? "sem responsável"}
@@ -144,13 +145,34 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
             {requestTypeLabel[r.type]} · {r.petName ?? r.tutorName ?? "sem pet"}
           </h2>
           <div className="badges">
-            <PriorityBadge priority={r.priority} long />
+            <RiskBadge risk={r.clinicalRisk} />
+            <QueueBadge priority={r.operationalPriority} />
             <RequestStatusBadge status={r.status} />
             <span className="badge">{departmentName(r.departmentId)}</span>
             <span className="badge">{r.assigneeName ? "com " + r.assigneeName : "sem responsável"}</span>
           </div>
         </div>
         <CopyButton text={requestSummaryText(r, departmentName(r.departmentId))} label="Copiar resumo" />
+      </div>
+      <div className="inline-row small demand-row">
+        <label htmlFor="demand-type" className="muted">
+          Tipo da demanda
+        </label>
+        {can("request:assign") || can("request:close") ? (
+          <select
+            id="demand-type"
+            value={r.demandType}
+            onChange={(e) => act(() => api.patch(`/service-requests/${id}/demand-type`, { demandType: e.target.value }), "Tipo da demanda alterado")}
+          >
+            {(Object.keys(demandTypeLabel) as DemandType[]).map((t) => (
+              <option key={t} value={t}>
+                {demandTypeLabel[t]}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span>{demandTypeLabel[r.demandType]}</span>
+        )}
       </div>
 
       {open && (

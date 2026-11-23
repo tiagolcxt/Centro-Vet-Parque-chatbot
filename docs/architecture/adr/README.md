@@ -37,5 +37,6 @@ Formato: contexto, decisão, alternativas consideradas, consequências. Os IDs d
 | [0024](ADR-0024-identidade-perfis-permissoes.md) | Identidade, perfis editáveis e permissões | Aceito, com pendências | DA-49 | P-17 |
 | [0025](ADR-0025-ativacao-do-piloto-em-niveis.md) | Ativação do assistente em três níveis por clínica | Aceito | DA-48 | — |
 | [0026](ADR-0026-configuracao-versionada-no-banco.md) | Configuração da clínica no banco, com rascunho, publicação e versões | Aceito | DA-42, DA-45 | — |
+| [0027](ADR-0027-risco-tipo-e-prioridade-da-fila.md) | Risco clínico, tipo da demanda e prioridade da fila separados | Aceito | D9 (revisão pré-piloto) | — |
 
 Não há ADR reservado no momento. A etapa em que cada ADR é exigido está no [roadmap](../../plans/implementation-roadmap.md#adrs-por-etapa).
