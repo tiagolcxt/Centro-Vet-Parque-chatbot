@@ -101,6 +101,64 @@ public class HandleIncomingMessageUseCase {
     private final NextStep nextStep;
     private final com.clinicavet.assistant.platform.LiveUpdates live;
     private final Clock clock;
+    private DepartmentRouter router;
+
+    /** RF-S37 (Etapa S5). Opcional nos testes de unidade que montam o caso de uso à mão: sem ele, setor padrão. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setRouter(DepartmentRouter router) {
+        this.router = router;
+    }
+
+    private com.clinicavet.assistant.platform.Clinics clinics;
+
+    /** ADR-0025 (Etapa S5). Sem ele (testes de unidade), nível completo. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setClinics(com.clinicavet.assistant.platform.Clinics clinics) {
+        this.clinics = clinics;
+    }
+
+    /** Intenções que o nível 2 responde: perguntas sobre a clínica (ADR-0025). */
+    private static final Set<Intent> INFORMATIONAL = EnumSet.of(Intent.GREETING, Intent.SERVICE_INFORMATION,
+            Intent.PRICE_INQUIRY, Intent.CLINIC_INFORMATION);
+
+    private com.clinicavet.assistant.platform.ActivationLevel level() {
+        return clinics == null ? com.clinicavet.assistant.platform.ActivationLevel.FULL
+                : com.clinicavet.assistant.platform.CurrentClinic.get().map(clinics::activationLevel)
+                .orElse(com.clinicavet.assistant.platform.ActivationLevel.FULL);
+    }
+
+    /**
+     * ADR-0025: nos níveis 1 e 2 o que o assistente não deve tratar vira encaminhamento para o setor, com o texto de
+     * encaminhamento e o próximo passo, sem o texto do modelo. Prioridade e emergência seguem iguais.
+     */
+    private static boolean forwardOnly(com.clinicavet.assistant.platform.ActivationLevel level, AssistantTurn turn) {
+        return switch (level) {
+            case ORGANIZE -> true;
+            case INFORM -> turn.intent() == null || !INFORMATIONAL.containsAll(turn.allIntents());
+            case FULL -> false;
+        };
+    }
+
+    private static TurnDecider.Decision forwarded(TurnDecider.Decision decision, HandoffReason reason) {
+        if (decision.handoff().handsOff()) {
+            return new TurnDecider.Decision(decision.priority(), new com.clinicavet.assistant.conversation.domain
+                    .HandoffPolicy.Decision(decision.handoff().handoff(), Optional.empty(), false),
+                    decision.signals(), decision.explicitRequest());
+        }
+        return new TurnDecider.Decision(decision.priority(), new com.clinicavet.assistant.conversation.domain
+                .HandoffPolicy.Decision(Optional.of(reason), Optional.empty(), false),
+                decision.signals(), decision.explicitRequest());
+    }
+
+    private static ReplyComposer.Plan forwardPlan(ReplyComposer.Plan p) {
+        // explicitRequest = sem o texto do modelo: só encaminhamento e próximo passo (ReplyComposer.composeValid).
+        return new ReplyComposer.Plan(p.turnLevel(), p.possibleEmergency(), true, true, false, false, p.nextStep(),
+                p.emergencyClosed(), p.department());
+    }
+
+    private java.util.UUID route(List<String> refs, String text, Intent intent) {
+        return router == null ? null : router.route(refs, text, Optional.ofNullable(intent));
+    }
 
     HandleIncomingMessageUseCase(ConversationRepository conversations, MessageRepository messages,
                                  ServiceRequestRepository serviceRequests, ConversationLifecycle lifecycle,
@@ -228,28 +286,39 @@ public class HandleIncomingMessageUseCase {
         Intent intent = null;
         List<Intent> secondary = List.of();
         boolean failed;
+        java.util.UUID department;
+        com.clinicavet.assistant.platform.ActivationLevel level = level();
         switch (outcome) {
             case TurnOutcome.Valid valid -> {
                 AssistantTurn turn = valid.turn();
                 decision = decider.decideValid(ctx, turn);
+                department = route(turn.knowledgeRefs(), customerText, turn.intent());
+                boolean forward = forwardOnly(level, turn);
+                if (forward) {
+                    decision = forwarded(decision, HandoffReason.CLINIC_RULE);
+                }
                 // Lacuna de informação (ADR-0008) também termina com o próximo passo: o pedido de informação está
                 // registrado, e o tutor sabe como falar com a equipe (DA-40).
                 // Sem repetir (DA-41): se a resposta anterior já indicou a recepção, lacuna e pedido registrado não
                 // repetem o aviso nem o telefone. O pedido continua registrado para a equipe. Transferência, pedido
                 // explícito e emergência sempre trazem o próximo passo.
                 boolean recentlyGuided = alreadyGaveNextStep(start);
-                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency(), turn.knowledgeGap(), recentlyGuided, false);
+                ReplyComposer.Plan plan = plan(decision, turn.possibleEmergency(), turn.knowledgeGap(), recentlyGuided, false,
+                        department);
+                if (forward) {
+                    plan = forwardPlan(plan);
+                }
                 reply = composer.composeValid(plan, turn.reply());
                 intent = turn.intent();
                 secondary = turn.secondaryIntents();
                 current.recordIntent(turn.intent());
                 if (turn.knowledgeGap()) {
-                    recordInformationGap(current, customerText, now);
+                    recordInformationGap(current, customerText, department, now);
                 }
                 // Etapa 5: dados do tutor e do pet, proveniência e pedido de agendamento (ADR-0010, DA-35 a DA-37).
                 CustomerDataCollector.Outcome collected = collector.collect(current, turn, start.recent(),
                         start.customerMessage(), decision.handoff().handsOff(), now);
-                if (collected.appointmentSubmitted() && !plan.emergency()) {
+                if (collected.appointmentSubmitted() && !plan.emergency() && !forward) {
                     // Texto do sistema: o modelo não sabe se o registro deu certo e nunca confirma dia nem horário.
                     reply = reply + "\n\n" + customerData.appointmentRegisteredReply().strip();
                 }
@@ -265,15 +334,21 @@ public class HandleIncomingMessageUseCase {
                 // Falha: intenção e coleta não mudam (ADR-0002). Prioridade e encaminhamento ainda podem mudar,
                 // porque vêm dos detectores determinísticos (H8, ADR-0007).
                 decision = decider.decideFailure(ctx, failure.kind() == FailureKind.TRANSFER_WITHOUT_HANDOFF);
-                reply = composer.composeFailure(plan(decision, false, false, false, true), settings.fallbackReply(),
+                department = route(List.of(), customerText, null);
+                if (level == com.clinicavet.assistant.platform.ActivationLevel.ORGANIZE) {
+                    // Nível 1 não conversa: sem resposta segura genérica, só o encaminhamento.
+                    decision = forwarded(decision, HandoffReason.CLINIC_RULE);
+                }
+                reply = composer.composeFailure(plan(decision, false, false, false, true, department), settings.fallbackReply(),
                         current.clinicalPriority());
                 failed = true;
             }
         }
         current.raisePriority(decision.priority().effective());
-        decision.handoff().handoff().ifPresent(reason -> handOff(current, reason, customerText, now));
+        decision.handoff().handoff().ifPresent(reason -> handOff(current, reason, customerText, department, now));
         // DA-40: pedido registrado para a equipe, e a conversa continua com o assistente.
-        decision.handoff().register().ifPresent(reason -> openStaffRequest(current, reason, customerText, now));
+        decision.handoff().register().ifPresent(reason -> openStaffRequest(current, reason, customerText, department,
+                now));
         if (decision.handoff().offerHuman()) {
             current.markHumanOfferMade();
         }
@@ -316,13 +391,17 @@ public class HandleIncomingMessageUseCase {
                         turn.allIntents(), turn.signals(), turn.possibleEmergency(), turn.clinicalUncertainty(),
                         ctx.alertFloor()));
                 recorded.addAll(turn.signals());
-                reply = composer.composeWaitingValid(new ReplyComposer.WaitingPlan(priority.turnLevel(),
-                        turn.possibleEmergency(), overdue, turn.signals(), previousReply, step, closed), turn.reply());
+                ReplyComposer.WaitingPlan waitingPlan = new ReplyComposer.WaitingPlan(priority.turnLevel(),
+                        turn.possibleEmergency(), overdue, turn.signals(), previousReply, step, closed);
+                // ADR-0025: nível 1 só confirma o recebimento; nível 2 responde só o que é da clínica.
+                reply = forwardOnly(level(), turn) ? composer.composeWaiting(waitingPlan, false)
+                        : composer.composeWaitingValid(waitingPlan, turn.reply());
                 intent = turn.intent();
                 secondary = turn.secondaryIntents();
                 current.recordIntent(turn.intent());
                 if (turn.knowledgeGap()) {
-                    recordInformationGap(current, start.customerMessage().content(), now);
+                    String text = start.customerMessage().content();
+                    recordInformationGap(current, text, route(turn.knowledgeRefs(), text, turn.intent()), now);
                 }
                 collector.collect(current, turn, start.recent(), start.customerMessage(), true, now);
                 failed = false;
@@ -380,13 +459,14 @@ public class HandleIncomingMessageUseCase {
      * @param failure        turno com falha: a resposta segura sempre traz o próximo passo
      */
     private ReplyComposer.Plan plan(TurnDecider.Decision decision, boolean possibleEmergency, boolean knowledgeGap,
-                                    boolean recentlyGuided, boolean failure) {
+                                    boolean recentlyGuided, boolean failure, java.util.UUID department) {
         boolean mustGuide = failure || decision.handoff().handsOff() || decision.explicitRequest() || possibleEmergency;
         boolean register = (decision.handoff().registers() || knowledgeGap) && !recentlyGuided;
         String step = mustGuide || register ? nextStep.text().orElse(null) : null;
         return new ReplyComposer.Plan(decision.priority().turnLevel(), possibleEmergency, decision.explicitRequest(),
                 decision.handoff().handsOff(), register, decision.handoff().offerHuman(), step,
-                nextStep.emergencyWhenClosed().orElse(null));
+                nextStep.emergencyWhenClosed().orElse(null),
+                router == null ? null : router.nameFor(decision.priority().turnLevel().isUrgentOrWorse() ? null : department));
     }
 
     private static AssistantMetadata metadata(boolean failed, PriorityPolicy.Assessment priority, Set<TurnSignal> signals,
@@ -398,22 +478,30 @@ public class HandleIncomingMessageUseCase {
      * Encaminhamento (ADR-0007, item 3): {@code WAITING_HUMAN} com motivo e momento e uma
      * {@code ServiceRequest(HUMAN_CONTACT)} pendente, na mesma transação (ADR-0017). Ninguém é notificado.
      */
-    private void handOff(Conversation conversation, HandoffReason reason, String customerText, Instant now) {
-        conversation.handOff(reason, now);
-        openStaffRequest(conversation, reason, customerText, now);
+    private void handOff(Conversation conversation, HandoffReason reason, String customerText,
+                         java.util.UUID department, Instant now) {
+        // RF-S61: a conversa espera no setor da regra (sem regra, o padrão). P1/P2 ficam no padrão: a recepção
+        // atende primeiro a emergência, qualquer que seja o assunto.
+        boolean urgent = conversation.clinicalPriority().isUrgentOrWorse();
+        conversation.handOff(reason, now, urgent ? null : department);
+        openStaffRequest(conversation, reason, customerText, urgent ? null : department, now);
     }
 
     /**
      * {@code ServiceRequest(HUMAN_CONTACT)} pendente com o motivo, uma aberta por conversa: na transferência e no
      * pedido registrado sem transferir (DA-40). A equipe vê na listagem; ninguém é notificado.
      */
-    private void openStaffRequest(Conversation conversation, HandoffReason reason, String customerText, Instant now) {
+    private void openStaffRequest(Conversation conversation, HandoffReason reason, String customerText,
+                                  java.util.UUID department, Instant now) {
         boolean alreadyOpen = serviceRequests.findByConversation(conversation.id()).stream()
                 .anyMatch(r -> r.type() == RequestType.HUMAN_CONTACT && !r.status().isFinal());
         if (!alreadyOpen) {
             ServiceRequest request = ServiceRequest.open(conversation.id(), RequestType.HUMAN_CONTACT, now);
             conversation.tutorId().ifPresent(tutor -> request.attachTutor(tutor, now));
             request.describe(truncate("[" + reason.name() + "] " + customerText), now);
+            if (department != null) {
+                request.routeTo(department, now);
+            }
             request.submit(Set.of(RequestField.SUMMARY), now);
             serviceRequests.save(request);
         }
@@ -424,7 +512,8 @@ public class HandleIncomingMessageUseCase {
      * {@code ServiceRequest(INFORMATION)} aberta por conversa. Se já houver uma pendente, a nova dúvida é
      * acrescentada ao resumo. Nenhuma notificação: a equipe vê nas listagens.
      */
-    private void recordInformationGap(Conversation conversation, String question, Instant now) {
+    private void recordInformationGap(Conversation conversation, String question, java.util.UUID department,
+                                      Instant now) {
         ConversationId conversationId = conversation.id();
         Optional<ServiceRequest> open = serviceRequests.findByConversation(conversationId).stream()
                 .filter(r -> r.type() == RequestType.INFORMATION)
@@ -440,6 +529,9 @@ public class HandleIncomingMessageUseCase {
         ServiceRequest request = ServiceRequest.open(conversationId, RequestType.INFORMATION, now);
         conversation.tutorId().ifPresent(tutor -> request.attachTutor(tutor, now));
         request.describe(truncate(question), now);
+        if (department != null) {
+            request.routeTo(department, now);
+        }
         request.submit(Set.of(RequestField.SUMMARY), now);
         serviceRequests.save(request);
     }

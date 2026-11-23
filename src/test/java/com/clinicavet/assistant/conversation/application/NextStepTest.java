@@ -25,7 +25,7 @@ class NextStepTest {
     private static final HandoffSettings.Replies TEXTS = new HandoffSettings.Replies("REGISTRADA", "RECEBIDA", "OFERTA",
             "EMERGENCIA", "ORIENTACAO", "PRAZO", "EXPLICACAO", "EXPLICACAO-2", "PEDIDO",
             "Ligue agora: {phone}.", "Fechada; abre {when}. Ligue: {phone}.", "Ligue no horário: {phone}.",
-            "Fechada agora.", "Procure: {referral}");
+            "Fechada agora.", "Procure: {referral}", null);
 
     private static HandoffSettings settings() {
         Map<ClinicalPriority, Duration> deadlines = new EnumMap<>(ClinicalPriority.class);

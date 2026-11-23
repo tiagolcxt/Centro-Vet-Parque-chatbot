@@ -18,6 +18,27 @@ interface BasicMetrics {
   requestsOpen: number;
 }
 
+interface Operations {
+  waitingNow: number;
+  medianAssignSeconds: number | null;
+  medianResolveSeconds: number | null;
+  openByDepartment: { departmentId: string; name: string; open: number }[];
+  activationLevel: number;
+  activationLabel: string;
+}
+
+interface Usage {
+  audioMessages: number;
+  audioMinutes: number;
+}
+
+/** O que o assistente faz em cada nível (ADR-0025), em uma frase para a equipe. */
+const LEVEL_HINT: Record<number, string> = {
+  1: "organiza e encaminha tudo; quem responde é a equipe.",
+  2: "responde só dúvidas sobre a clínica; pedidos e assuntos de saúde vêm para a equipe.",
+  3: "atendimento completo, com coleta de dados e pedidos de agendamento.",
+};
+
 /** "2 min", "40 s", "1 h 5 min". */
 export function durationLabel(seconds: number | null): string {
   if (seconds === null) return "—";
@@ -45,6 +66,8 @@ export function Home() {
 
   const metrics = useLoad(() => api.get<BasicMetrics>("/metrics/basic?days=7"), [liveTick]);
   const overview = useLoad(() => api.get<Overview>("/config/overview"), []);
+  const operations = useLoad(() => api.get<Operations>("/metrics/operations?days=7"), [liveTick]);
+  const usage = useLoad(() => api.get<Usage>("/channel/usage?days=7").catch(() => null), [liveTick]);
 
   const conversations = inbox.data ?? [];
   const urgent = conversations.filter(
@@ -171,6 +194,47 @@ export function Home() {
               <dd>{metrics.data.requestsResolved}</dd>
             </div>
           </dl>
+        </section>
+      )}
+
+      {operations.data && (
+        <section className="card metrics" aria-label="Operação da equipe">
+          <header>
+            <h2>Operação da equipe</h2>
+            <p className="muted small">
+              Assistente no nível {operations.data.activationLevel} ({operations.data.activationLabel}):{" "}
+              {LEVEL_HINT[operations.data.activationLevel] ?? ""}
+            </p>
+          </header>
+          <dl className="metric-grid">
+            <div>
+              <dt>Aguardando a equipe agora</dt>
+              <dd>{operations.data.waitingNow}</dd>
+            </div>
+            <div>
+              <dt>Tempo até alguém pegar o pedido</dt>
+              <dd>{durationLabel(operations.data.medianAssignSeconds)}</dd>
+            </div>
+            <div>
+              <dt>Tempo até resolver</dt>
+              <dd>{durationLabel(operations.data.medianResolveSeconds)}</dd>
+            </div>
+            {operations.data.openByDepartment.map((d) => (
+              <div key={d.departmentId}>
+                <dt>Pedidos abertos: {d.name}</dt>
+                <dd>{d.open}</dd>
+              </div>
+            ))}
+            {(usage.data?.audioMessages ?? 0) > 0 && (
+              <div>
+                <dt>Áudios transcritos</dt>
+                <dd>
+                  {usage.data!.audioMessages} · {usage.data!.audioMinutes.toLocaleString("pt-BR")} min
+                </dd>
+              </div>
+            )}
+          </dl>
+          <p className="muted small">Tempos: mediana dos pedidos abertos nos últimos 7 dias.</p>
         </section>
       )}
       {urgent.length === 0 && conversations.some((c) => c.priority === "P1_POSSIBLE_EMERGENCY") && (

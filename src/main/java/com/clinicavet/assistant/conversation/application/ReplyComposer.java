@@ -56,7 +56,13 @@ class ReplyComposer {
      * @param emergencyClosed aviso de clínica fechada (e onde procurar) para emergência, ou {@code null}
      */
     record Plan(ClinicalPriority turnLevel, boolean possibleEmergency, boolean explicitRequest, boolean handoff,
-                boolean register, boolean offerHuman, String nextStep, String emergencyClosed) {
+                boolean register, boolean offerHuman, String nextStep, String emergencyClosed, String department) {
+
+        Plan(ClinicalPriority turnLevel, boolean possibleEmergency, boolean explicitRequest, boolean handoff,
+             boolean register, boolean offerHuman, String nextStep, String emergencyClosed) {
+            this(turnLevel, possibleEmergency, explicitRequest, handoff, register, offerHuman, nextStep,
+                    emergencyClosed, null);
+        }
 
         Plan(ClinicalPriority turnLevel, boolean possibleEmergency, boolean explicitRequest, boolean handoff,
              boolean offerHuman) {
@@ -85,18 +91,18 @@ class ReplyComposer {
     /** Modo principal, turno válido. */
     String composeValid(Plan plan, String modelReply) {
         if (plan.emergency()) {
-            return join(emergencyText(), plan.emergencyClosed(), handoffText(), plan.nextStep());
+            return join(emergencyText(), plan.emergencyClosed(), handoffText(plan), plan.nextStep());
         }
         List<String> parts = new ArrayList<>();
         if (plan.turnLevel() == ClinicalPriority.P2_URGENT) {
             parts.add(shortGuidanceText());
         }
         if (plan.explicitRequest()) {
-            parts.add(handoffText());
+            parts.add(handoffText(plan));
         } else {
             parts.add(modelReply);
             if (plan.handoff()) {
-                parts.add(handoffText());
+                parts.add(handoffText(plan));
             } else if (plan.register()) {
                 parts.add(texts.register().strip());
             }
@@ -117,14 +123,14 @@ class ReplyComposer {
      */
     String composeFailure(Plan plan, String fallbackReply, ClinicalPriority conversationLevel) {
         if (plan.emergency()) {
-            return join(emergencyText(), plan.emergencyClosed(), handoffText(), plan.nextStep());
+            return join(emergencyText(), plan.emergencyClosed(), handoffText(plan), plan.nextStep());
         }
         List<String> parts = new ArrayList<>();
         if (conversationLevel.isUrgentOrWorse() || plan.turnLevel() == ClinicalPriority.P2_URGENT) {
             parts.add(shortGuidanceText());
         }
         if (plan.handoff()) {
-            parts.add(handoffText());
+            parts.add(handoffText(plan));
             parts.add(plan.nextStep());
         } else {
             parts.add(fallbackReply.strip());
@@ -219,8 +225,8 @@ class ReplyComposer {
         return chosen;
     }
 
-    private String handoffText() {
-        return texts.handoff().strip();
+    private String handoffText(Plan plan) {
+        return texts.handoffFor(plan.department()).strip();
     }
 
     private static String join(String... parts) {

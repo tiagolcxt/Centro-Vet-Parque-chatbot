@@ -68,9 +68,12 @@ class CustomerDataCollector {
     private final ProvenanceRepository provenance;
     private final ServiceRequestRepository serviceRequests;
     private final CustomerDataSettings settings;
+    private final DepartmentRouter router;
 
     CustomerDataCollector(TutorRepository tutors, PetRepository pets, ProvenanceRepository provenance,
-                          ServiceRequestRepository serviceRequests, CustomerDataSettings settings) {
+                          ServiceRequestRepository serviceRequests, CustomerDataSettings settings,
+                          DepartmentRouter router) {
+        this.router = router;
         this.tutors = tutors;
         this.pets = pets;
         this.provenance = provenance;
@@ -411,6 +414,13 @@ class CustomerDataCollector {
                 return Outcome.NONE;   // mesmo pet já com solicitação registrada nesta conversa
             }
             request = ServiceRequest.open(conversation.id(), RequestType.APPOINTMENT, now);
+            // RF-S37: o setor sai do serviço pedido (motivo, texto do tutor ou o que o assistente consultou).
+            UUID department = router.route(turn.knowledgeRefs(),
+                    (reason == null ? "" : reason + " ") + String.join(" ", customerTexts),
+                    java.util.Optional.ofNullable(turn.intent()));
+            if (department != null) {
+                request.routeTo(department, now);
+            }
         }
         try {
             records.tutor().filter(t -> !request.tutorId().map(id -> id.equals(t.id())).orElse(false))

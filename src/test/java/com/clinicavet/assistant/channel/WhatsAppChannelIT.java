@@ -52,6 +52,9 @@ class WhatsAppChannelIT {
     Outbox outbox;
 
     @Autowired
+    com.clinicavet.assistant.support.FakeAudioTranscriber audioTranscriber;
+
+    @Autowired
     ChannelJobs jobs;
 
     @Autowired
@@ -236,6 +239,30 @@ class WhatsAppChannelIT {
     }
 
     @Test
+    void voiceMessage_isTranscribed_andAnsweredAsText_withTheOriginalAvailable() throws Exception {
+        String contact = fictitiousNumber();
+        audioTranscriber.thenText("Queria saber o horário de amanhã", 4.2);
+        signedPost(audio(contact, wamid()));
+
+        assertThat(model.lastRequest().customerMessage()).contains("[Áudio transcrito] Queria saber o horário de amanhã");
+        String conversation = conversationOf(contact);
+        JsonNode fromTutor = messages(conversation).stream()
+                .filter(m -> m.path("author").asString().equals("CUSTOMER")).findFirst().orElseThrow();
+        assertThat(fromTutor.path("content").asString()).startsWith("[Áudio transcrito]");
+        assertThat(fromTutor.path("attachment").path("kind").asString()).isEqualTo("AUDIO");
+        assertThat(jdbc.queryForObject("SELECT audio_seconds FROM inbound_message WHERE contact = ?", Double.class,
+                contact)).isEqualTo(4.2);
+    }
+
+    @Test
+    void voiceMessage_withoutTranscription_stillReachesTheTeam() throws Exception {
+        String contact = fictitiousNumber();
+        audioTranscriber.reset();
+        signedPost(audio(contact, wamid()));
+        assertThat(model.lastRequest().customerMessage()).contains("[Áudio enviado");
+    }
+
+    @Test
     void messagesForUnknownNumbers_andUnknownStatuses_areIgnored() throws Exception {
         String contact = fictitiousNumber();
         String body = textMessage(contact, wamid(), "Oi").replace(PHONE_NUMBER_ID, "999999999999999");
@@ -331,6 +358,14 @@ class WhatsAppChannelIT {
                 {%s,"contacts":[{"profile":{"name":"Tutor Fictício"},"wa_id":"%s"}],
                 "messages":[{"from":"%s","id":"%s","timestamp":"%s","type":"image",
                 "image":{"mime_type":"image/jpeg","sha256":"abc","id":"300000000000001"}}]}"""
+                .formatted(metadata(), contact, contact, wamid, timestamp()));
+    }
+
+    private String audio(String contact, String wamid) {
+        return envelope("messages", """
+                {%s,"contacts":[{"profile":{"name":"Tutor Fictício"},"wa_id":"%s"}],
+                "messages":[{"from":"%s","id":"%s","timestamp":"%s","type":"audio",
+                "audio":{"mime_type":"audio/ogg; codecs=opus","sha256":"abc","id":"300000000000002","voice":true}}]}"""
                 .formatted(metadata(), contact, contact, wamid, timestamp()));
     }
 

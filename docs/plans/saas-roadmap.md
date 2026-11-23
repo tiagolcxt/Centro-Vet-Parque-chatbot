@@ -255,6 +255,19 @@ Ficou para depois:
 - [ ] Indicadores visíveis na tela Início.
 - [ ] Relatório de validação, com as limitações conhecidas.
 
+**Situação (2026-11-22): parcial, commitada.** O que entrou:
+
+- **Setor por regra** (`DepartmentRouter`), na ordem: serviço citado → assunto de saúde → padrão. P1/P2 ficam no padrão, decisão revista na [revisão pré-piloto](revisao-pre-piloto.md), seção 3.3.
+- **Texto com o setor** (`handoff-to`).
+- **Níveis 1 a 3** no turno.
+- **Transcrição de áudio**, desligada por padrão até a aprovação do suboperador.
+- **Cartão "Operação da equipe"** na tela Início.
+
+O que falta e o que muda daqui em diante:
+
+- A bateria de IA e o relatório seguem pendentes (E8 da revisão).
+- Daqui em diante, a ordem segue a [revisão pré-piloto](revisao-pre-piloto.md).
+
 ---
 
 ## S6 — Piloto

@@ -46,6 +46,8 @@ public record HandoffSettings(@NotNull Map<ClinicalPriority, Duration> deadlines
      * @param nextStepUnknown          próximo passo sem horário cadastrado para hoje
      * @param emergencyClosed          emergência com a clínica fechada (aviso)
      * @param emergencyReferral        onde procurar fora do horário; {@code {referral}} = local cadastrado (P-01)
+     * @param handoffTo                encaminhamento com o setor (RF-S62); {@code {department}} = nome do setor. Sem
+     *                                 valor, usa {@code handoff}. Diz para onde foi, nunca que alguém foi avisado (RN-S01)
      */
     public record Replies(@NotBlank String handoff, @NotBlank String waitingConfirmation, @NotBlank String humanOffer,
                           @NotBlank String emergencyPlaceholder, @NotBlank String shortGuidancePlaceholder,
@@ -53,7 +55,15 @@ public record HandoffSettings(@NotNull Map<ClinicalPriority, Duration> deadlines
                           @NotBlank String waitingExplanationRepeat, @NotBlank String register,
                           @NotBlank String nextStepOpen, @NotBlank String nextStepClosed,
                           @NotBlank String nextStepUnknown, @NotBlank String emergencyClosed,
-                          @NotBlank String emergencyReferral) {
+                          @NotBlank String emergencyReferral, String handoffTo) {
+
+        /** Texto de encaminhamento com o nome do setor, se houver modelo e setor. */
+        public String handoffFor(String department) {
+            if (department == null || department.isBlank() || handoffTo == null || handoffTo.isBlank()) {
+                return handoff;
+            }
+            return handoffTo.replace("{department}", department.strip());
+        }
     }
 
     public Duration deadlineFor(ClinicalPriority priority) {

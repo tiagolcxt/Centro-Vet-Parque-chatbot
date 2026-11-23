@@ -150,7 +150,7 @@ class GuidelineScenariosIT {
 
         assertThat(first.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(first.path("handoffReason").asString()).isEqualTo("EXPLICIT_REQUEST");
-        assertThat(first.path("reply").asString()).contains(handoff.replies().handoff().strip())
+        assertThat(first.path("reply").asString()).contains(handoff.replies().handoffFor("Recepção").strip())
                 .contains(RECEPTION).doesNotContain("?");   // sem pedir o motivo; termina com o próximo passo (DA-40)
         assertThat(openRequestTypes(id)).containsExactly(RequestType.HUMAN_CONTACT);
 
@@ -171,7 +171,7 @@ class GuidelineScenariosIT {
 
         assertThat(body.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(body.path("handoffReason").asString()).isEqualTo("EXPLICIT_REQUEST");
-        assertThat(body.path("reply").asString()).startsWith(handoff.replies().handoff().strip()).contains(RECEPTION);
+        assertThat(body.path("reply").asString()).startsWith(handoff.replies().handoffFor("Recepção").strip()).contains(RECEPTION);
     }
 
     @Test
@@ -390,7 +390,7 @@ class GuidelineScenariosIT {
 
         assertThat(body.path("fallback").asBoolean()).isTrue();
         assertThat(body.path("handoffReason").asString()).isEqualTo("TURN_FAILURE");
-        assertThat(body.path("reply").asString()).startsWith(handoff.replies().handoff().strip()).contains(RECEPTION);
+        assertThat(body.path("reply").asString()).startsWith(handoff.replies().handoffFor("Recepção").strip()).contains(RECEPTION);
     }
 
     @Test

@@ -18,7 +18,8 @@ import java.util.UUID;
 @Component
 class InboundStore {
 
-    record Pending(UUID id, String contact, WebhookEvents.Kind kind, String text, int attempts) {
+    record Pending(UUID id, String contact, WebhookEvents.Kind kind, String text, int attempts, String mediaId,
+                   String mediaMime) {
     }
 
     record MediaRef(UUID id, UUID messageId, WebhookEvents.Kind kind, String mediaId, String mime, String name) {
@@ -48,17 +49,37 @@ class InboundStore {
     /** A mais antiga ainda não processada do contato, na ordem em que o tutor mandou. */
     Optional<Pending> nextPending(ClinicId clinic, String contact, int maxAttempts) {
         return jdbc.query("""
-                SELECT BIN_TO_UUID(id) AS id, contact, kind, payload_text, attempts FROM inbound_message
+                SELECT BIN_TO_UUID(id) AS id, contact, kind, payload_text, attempts, media_id, media_mime
+                FROM inbound_message
                 WHERE clinic_id = UUID_TO_BIN(?) AND contact = ? AND processed_at IS NULL AND attempts < ?
                 ORDER BY sent_at, received_at LIMIT 1
                 """, (rs, i) -> new Pending(UUID.fromString(rs.getString("id")), rs.getString("contact"),
-                WebhookEvents.Kind.valueOf(rs.getString("kind")), rs.getString("payload_text"), rs.getInt("attempts")),
+                WebhookEvents.Kind.valueOf(rs.getString("kind")), rs.getString("payload_text"), rs.getInt("attempts"),
+                rs.getString("media_id"), rs.getString("media_mime")),
                 clinic.toString(), contact, maxAttempts).stream().findFirst();
     }
 
     void countAttempt(ClinicId clinic, UUID id) {
         jdbc.update("UPDATE inbound_message SET attempts = attempts + 1, version = version + 1 "
                 + "WHERE clinic_id = UUID_TO_BIN(?) AND id = UUID_TO_BIN(?)", clinic.toString(), id.toString());
+    }
+
+    record AudioUsage(long messages, double seconds) {
+    }
+
+    /** Áudios transcritos desde {@code from}, na clínica informada. */
+    Optional<AudioUsage> audioUsage(ClinicId clinic, Instant from) {
+        return jdbc.query("""
+                SELECT COUNT(*) AS n, COALESCE(SUM(audio_seconds), 0) AS s FROM inbound_message
+                WHERE clinic_id = UUID_TO_BIN(?) AND audio_seconds IS NOT NULL AND received_at >= ?
+                """, (rs, i) -> new AudioUsage(rs.getLong("n"), rs.getDouble("s")), clinic.toString(), Utc.of(from))
+                .stream().findFirst().filter(u -> u.messages() > 0);
+    }
+
+    /** Duração do áudio transcrito, para o custo por minuto (S5). */
+    void audioSeconds(ClinicId clinic, UUID id, Double seconds) {
+        jdbc.update("UPDATE inbound_message SET audio_seconds = ? WHERE clinic_id = UUID_TO_BIN(?) AND id = UUID_TO_BIN(?)",
+                seconds, clinic.toString(), id.toString());
     }
 
     /** Marca como processada e apaga o texto daqui: ele já está na conversa (minimização, LGPD). */

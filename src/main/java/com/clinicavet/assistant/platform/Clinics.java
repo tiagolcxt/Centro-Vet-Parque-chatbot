@@ -6,4 +6,7 @@ import java.util.List;
 public interface Clinics {
 
     List<ClinicId> active();
+
+    /** Nível de ativação do assistente na clínica (ADR-0025). Clínica desconhecida: o nível mais restrito. */
+    ActivationLevel activationLevel(ClinicId clinic);
 }

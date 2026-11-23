@@ -52,6 +52,15 @@ public interface ServiceRequestRepository {
 
     Counts count(java.time.Instant from, java.time.Instant to);
 
+    /**
+     * Tempos das solicitações abertas no período (RF-S71, S5): mediana até a primeira atribuição e até a resolução, em
+     * segundos ({@code null} sem dados), e as abertas agora por setor.
+     */
+    record Timings(Long medianAssignSeconds, Long medianResolveSeconds, java.util.Map<UUID, Long> openByDepartment) {
+    }
+
+    Timings timings(java.time.Instant from, java.time.Instant to);
+
     List<ServiceRequest> findByTutor(UUID tutorId);
 
     void saveEvent(RequestEvent event);

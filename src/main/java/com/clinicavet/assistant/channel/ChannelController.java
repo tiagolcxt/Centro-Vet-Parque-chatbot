@@ -153,6 +153,23 @@ class ChannelController {
                 .body(file.bytes());
     }
 
+    /** @param audioMinutes minutos de áudio transcritos no período (custo por minuto do provedor, S5) */
+    record Usage(int days, long audioMessages, double audioMinutes) {
+    }
+
+    /** Uso do canal no período: entra no custo junto com a IA (S5-7). Só contagens. */
+    @GetMapping("/usage")
+    @PreAuthorize("isAuthenticated()")
+    Usage usage(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "7") int days) {
+        if (days < 1 || days > 90) {
+            throw new DomainValidationException("days", "de 1 a 90");
+        }
+        Instant from = clock.instant().minus(java.time.Duration.ofDays(days));
+        return inbound.audioUsage(CurrentClinic.require(), from)
+                .map(u -> new Usage(days, u.messages(), Math.round(u.seconds() / 6.0) / 10.0))
+                .orElse(new Usage(days, 0, 0));
+    }
+
     /** Tenta de novo uma resposta que não foi enviada. */
     @PostMapping("/messages/{messageId}/resend")
     @ResponseStatus(HttpStatus.NO_CONTENT)

@@ -40,11 +40,19 @@ class InboundProcessor {
     private final RecordBusinessAppMessageUseCase businessApp;
     private final WhatsAppSettings settings;
     private final Clock clock;
+    private final ChannelAccounts accounts;
+    private final WhatsAppApi api;
+    private final org.springframework.beans.factory.ObjectProvider<AudioTranscriber> transcriber;
     private final ConcurrentHashMap<InboundStore.ContactKey, ReentrantLock> locks = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     InboundProcessor(InboundStore store, OpenConversationUseCase open, HandleIncomingMessageUseCase handle,
-                     RecordBusinessAppMessageUseCase businessApp, WhatsAppSettings settings, Clock clock) {
+                     RecordBusinessAppMessageUseCase businessApp, WhatsAppSettings settings, Clock clock,
+                     ChannelAccounts accounts, WhatsAppApi api,
+                     org.springframework.beans.factory.ObjectProvider<AudioTranscriber> transcriber) {
+        this.accounts = accounts;
+        this.api = api;
+        this.transcriber = transcriber;
         this.store = store;
         this.open = open;
         this.handle = handle;
@@ -89,8 +97,10 @@ class InboundProcessor {
                         : m.text().strip();
                 messageId = businessApp.record(contact, text, clock.instant()).id().value();
             } else {
+                String text = m.kind() == WebhookEvents.Kind.AUDIO ? transcribed(clinic, m).orElseGet(() -> textFor(m))
+                        : textFor(m);
                 var conversation = open.open(contact).conversation();
-                messageId = handle.handleTurn(conversation.id(), textFor(m)).customerMessageId().value();
+                messageId = handle.handleTurn(conversation.id(), text).customerMessageId().value();
             }
             store.processed(clinic, m.id(), messageId, clock.instant());
             return true;
@@ -108,6 +118,36 @@ class InboundProcessor {
                     m.id(), m.attempts() + 1, e);
             return false;
         }
+    }
+
+    /**
+     * Áudio (S5, DA-53): baixa da Meta, transcreve e devolve "[Áudio transcrito] texto", que o assistente trata como
+     * texto e a equipe lê na conversa (o original continua no anexo). Sem transcrição, vazio.
+     */
+    private Optional<String> transcribed(ClinicId clinic, InboundStore.Pending m) {
+        AudioTranscriber service = transcriber.getIfAvailable();
+        if (service == null || m.mediaId() == null) {
+            return Optional.empty();
+        }
+        try {
+            Optional<WhatsAppApi.Credentials> credentials = accounts.credentials();
+            if (credentials.isEmpty()) {
+                return Optional.empty();
+            }
+            WhatsAppApi.Media media = api.download(credentials.get(), m.mediaId());
+            Optional<AudioTranscriber.Transcription> result = service.transcribe(media.bytes(),
+                    media.mimeType() != null ? media.mimeType() : m.mediaMime());
+            result.ifPresent(t -> store.audioSeconds(clinic, m.id(), t.seconds()));
+            String caption = m.text() == null || m.text().isBlank() ? "" : "\n" + m.text().strip();
+            return result.map(t -> cut("[Áudio transcrito] " + t.text() + caption));
+        } catch (RuntimeException e) {
+            log.warn("Áudio não transcrito [inbound={}, motivo={}]", m.id(), e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    private String cut(String text) {
+        return text.length() > settings.maxTextLength() ? text.substring(0, settings.maxTextLength()) : text;
     }
 
     /** O texto passado ao assistente. Nunca vazio: mídia sem legenda vira uma descrição curta. */

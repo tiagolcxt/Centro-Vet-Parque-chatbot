@@ -27,4 +27,10 @@ public class TestDoublesConfiguration {
     FakeWhatsAppApi fakeWhatsAppApi() {
         return new FakeWhatsAppApi();
     }
+
+    @Bean
+    @Primary
+    FakeAudioTranscriber fakeAudioTranscriber() {
+        return new FakeAudioTranscriber();
+    }
 }

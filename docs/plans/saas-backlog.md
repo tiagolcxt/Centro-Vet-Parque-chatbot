@@ -97,13 +97,13 @@
 
 | # | Item | Tamanho | Depende de | Requisitos |
 |---|---|---|---|---|
-| S5-1 | Setor da solicitação pelas regras publicadas | M | S3-4 | RF-S37, RF-S61 |
-| S5-2 | Textos de "encaminhado para o setor" e "assumido por"; revisão dos textos sem "avisei" | P | S2-4 | RF-S62, RN-S01 |
-| S5-3 | Níveis de ativação 1, 2 e 3 | M | S5-1 | RF-S64, ADR-0025 |
+| S5-1 ✅ | Setor da solicitação pelas regras publicadas | M | S3-4 | RF-S37, RF-S61 |
+| S5-2 ✅ | Textos de "encaminhado para o setor" e "assumido por"; revisão dos textos sem "avisei" | P | S2-4 | RF-S62, RN-S01 |
+| S5-3 ✅ | Níveis de ativação 1, 2 e 3 | M | S5-1 | RF-S64, ADR-0025 |
 | S5-4 | Bateria de IA com a configuração do piloto (fictícia) e os casos do questionário, nos três níveis | G | S0-1, S5-3 | Plano de validação |
-| S5-5 | Indicadores completos na tela Início (os básicos entram na S3-17) | M | S3-17, S4 | RF-S71 |
+| S5-5 (parcial: operação da equipe; custo de IA pendente) | Indicadores completos na tela Início (os básicos entram na S3-17) | M | S3-17, S4 | RF-S71 |
 | S5-6 | Itens da antiga Etapa 6: métricas por turno, cenários de segurança, relatório | M | S5-4 | — |
-| S5-7 | Áudio: transcrição tratada como texto pelo assistente; equipe vê a transcrição e ouve o original; provedor na lista de suboperadores | G → quebrar em transcrição / tela / custo | S4-6 | DA-53, DA-50 |
+| S5-7 ✅ | Áudio: transcrição tratada como texto pelo assistente; equipe vê a transcrição e ouve o original; provedor na lista de suboperadores | G → quebrar em transcrição / tela / custo | S4-6 | DA-53, DA-50 |
 
 ## S6 — Piloto
 

@@ -89,9 +89,12 @@ class JpaServiceRequestRepository implements ServiceRequestRepository {
     private final RequestEventJpaRepository events;
     private final RequestNoteJpaRepository notes;
     private final Departments departments;
+    private final jakarta.persistence.EntityManager entities;
 
     JpaServiceRequestRepository(ServiceRequestJpaRepository jpa, RequestEventJpaRepository events,
-                                RequestNoteJpaRepository notes, Departments departments) {
+                                RequestNoteJpaRepository notes, Departments departments,
+                                jakarta.persistence.EntityManager entities) {
+        this.entities = entities;
         this.jpa = jpa;
         this.events = events;
         this.notes = notes;
@@ -145,6 +148,41 @@ class JpaServiceRequestRepository implements ServiceRequestRepository {
                 jpa.countByStatusAndUpdatedAtGreaterThanEqualAndUpdatedAtLessThan(RequestStatus.RESOLVED, from, to),
                 jpa.countByStatusIn(java.util.EnumSet.of(RequestStatus.COLLECTING, RequestStatus.PENDING,
                         RequestStatus.IN_PROGRESS)));
+    }
+
+    @Override
+    public Timings timings(java.time.Instant from, java.time.Instant to) {
+        // JPQL: o @TenantId filtra a clínica (ADR-0021).
+        List<Object[]> assigned = entities.createQuery("""
+                        SELECT r.createdAt, MIN(e.occurredAt) FROM ServiceRequestEntity r, RequestEventEntity e
+                        WHERE e.requestId = r.id AND e.type = :assigned AND r.createdAt >= :from AND r.createdAt < :to
+                        GROUP BY r.id, r.createdAt
+                        """, Object[].class)
+                .setParameter("assigned", RequestEvent.Type.ASSIGNED).setParameter("from", from).setParameter("to", to)
+                .getResultList();
+        List<Object[]> resolved = entities.createQuery("""
+                        SELECT r.createdAt, MIN(e.occurredAt) FROM ServiceRequestEntity r, RequestEventEntity e
+                        WHERE e.requestId = r.id AND e.type = :changed AND e.toValue = 'RESOLVED'
+                          AND r.createdAt >= :from AND r.createdAt < :to
+                        GROUP BY r.id, r.createdAt
+                        """, Object[].class)
+                .setParameter("changed", RequestEvent.Type.STATUS_CHANGED).setParameter("from", from)
+                .setParameter("to", to).getResultList();
+        java.util.Map<UUID, Long> open = new java.util.LinkedHashMap<>();
+        entities.createQuery("""
+                        SELECT r.departmentId, COUNT(r) FROM ServiceRequestEntity r WHERE r.status IN :open
+                        GROUP BY r.departmentId
+                        """, Object[].class)
+                .setParameter("open", OPEN).getResultList()
+                .forEach(row -> open.put((UUID) row[0], (Long) row[1]));
+        return new Timings(median(assigned), median(resolved), open);
+    }
+
+    private static Long median(List<Object[]> pairs) {
+        List<Long> seconds = pairs.stream()
+                .map(p -> java.time.Duration.between((java.time.Instant) p[0], (java.time.Instant) p[1]).toSeconds())
+                .filter(s -> s >= 0).sorted().toList();
+        return seconds.isEmpty() ? null : seconds.get(seconds.size() / 2);
     }
 
     @Override

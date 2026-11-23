@@ -46,14 +46,64 @@ class MetricsController {
                  long requestsOpen) {
     }
 
+    /**
+     * Operação da equipe (RF-S71, Etapa S5).
+     *
+     * @param waitingNow            conversas aguardando a equipe agora
+     * @param medianAssignSeconds   mediana até um funcionário pegar a solicitação, nas abertas no período
+     * @param medianResolveSeconds  mediana até resolver, nas abertas no período
+     * @param openByDepartment      solicitações abertas agora, por setor
+     * @param activationLevel       nível do assistente na clínica (ADR-0025), para a equipe saber o que ele faz
+     */
+    record Operations(LocalDate from, LocalDate to, long waitingNow, Long medianAssignSeconds,
+                      Long medianResolveSeconds, List<DepartmentCount> openByDepartment, int activationLevel,
+                      String activationLabel) {
+    }
+
+    record DepartmentCount(UUID departmentId, String name, long open) {
+    }
+
     private final EntityManager entities;
     private final ServiceRequestRepository requests;
+    private final com.clinicavet.assistant.clinicknowledge.domain.Departments departments;
+    private final com.clinicavet.assistant.platform.Clinics clinics;
     private final Clock clock;
 
-    MetricsController(EntityManager entities, ServiceRequestRepository requests, Clock clock) {
+    MetricsController(EntityManager entities, ServiceRequestRepository requests,
+                      com.clinicavet.assistant.clinicknowledge.domain.Departments departments,
+                      com.clinicavet.assistant.platform.Clinics clinics, Clock clock) {
         this.entities = entities;
         this.requests = requests;
+        this.departments = departments;
+        this.clinics = clinics;
         this.clock = clock;
+    }
+
+    @GetMapping("/operations")
+    @Transactional(readOnly = true)
+    Operations operations(@RequestParam(defaultValue = "7") int days) {
+        if (days < 1 || days > MAX_DAYS) {
+            throw new DomainValidationException("days", "de 1 a " + MAX_DAYS);
+        }
+        LocalDate today = LocalDate.now(clock);
+        LocalDate first = today.minusDays(days - 1L);
+        Instant from = first.atStartOfDay(clock.getZone()).toInstant();
+        Instant to = today.plusDays(1).atStartOfDay(clock.getZone()).toInstant();
+        long waiting = entities.createQuery("SELECT COUNT(c) FROM ConversationEntity c WHERE c.status = :status",
+                        Long.class)
+                .setParameter("status", com.clinicavet.assistant.conversation.domain.ConversationStatus.WAITING_HUMAN)
+                .getSingleResult();
+        ServiceRequestRepository.Timings timings = requests.timings(from, to);
+        UUID fallback = departments.defaultDepartment().id();
+        Map<UUID, Long> open = new java.util.LinkedHashMap<>();
+        timings.openByDepartment().forEach((id, count) -> open.merge(id == null ? fallback : id, count, Long::sum));
+        List<DepartmentCount> byDepartment = departments.list().stream()
+                .filter(d -> d.active() || open.containsKey(d.id()))
+                .map(d -> new DepartmentCount(d.id(), d.name(), open.getOrDefault(d.id(), 0L))).toList();
+        com.clinicavet.assistant.platform.ActivationLevel level = clinics.activationLevel(
+                com.clinicavet.assistant.platform.CurrentClinic.require());
+        return new Operations(first, today, waiting, timings.medianAssignSeconds(), timings.medianResolveSeconds(),
+                byDepartment, level.number(), level.label());
     }
 
     @GetMapping("/basic")

@@ -19,7 +19,7 @@ class ReplyComposerTest {
 
     private static final HandoffSettings.Replies TEXTS = new HandoffSettings.Replies("REGISTRADA", "RECEBIDA", "OFERTA",
             "EMERGENCIA", "ORIENTACAO-CURTA", "PRAZO-VENCIDO", "EXPLICACAO", "EXPLICACAO-2", "PEDIDO-REGISTRADO",
-            "LIGUE {phone}", "FECHADA {when} {phone}", "HORARIO {phone}", "FECHADA-AGORA", "PROCURE {referral}");
+            "LIGUE {phone}", "FECHADA {when} {phone}", "HORARIO {phone}", "FECHADA-AGORA", "PROCURE {referral}", "ENCAMINHADA {department}");
 
     private static HandoffSettings settings() {
         Map<ClinicalPriority, Duration> deadlines = new EnumMap<>(ClinicalPriority.class);
