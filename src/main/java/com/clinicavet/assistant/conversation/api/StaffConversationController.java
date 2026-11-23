@@ -1,6 +1,8 @@
 package com.clinicavet.assistant.conversation.api;
 
+import com.clinicavet.assistant.conversation.application.MessageChannelInfo;
 import com.clinicavet.assistant.conversation.application.StaffConversationService;
+import org.springframework.beans.factory.ObjectProvider;
 import com.clinicavet.assistant.conversation.domain.ClinicalPriority;
 import com.clinicavet.assistant.conversation.domain.Conversation;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
@@ -62,8 +64,12 @@ class StaffConversationController {
     private final PetRepository pets;
     private final ServiceRequestRepository requests;
 
+    private final ObjectProvider<MessageChannelInfo> channelInfo;
+
     StaffConversationController(StaffConversationService staff, StaffDirectory directory, TutorRepository tutors,
-                                PetRepository pets, ServiceRequestRepository requests) {
+                                PetRepository pets, ServiceRequestRepository requests,
+                                ObjectProvider<MessageChannelInfo> channelInfo) {
+        this.channelInfo = channelInfo;
         this.staff = staff;
         this.directory = directory;
         this.tutors = tutors;
@@ -165,6 +171,9 @@ class StaffConversationController {
         });
         c.assigneeId().ifPresent(people::add);
         Map<UUID, String> names = directory.names(people);
+        MessageChannelInfo provider = channelInfo.getIfAvailable();
+        Map<UUID, MessageChannelInfo.Info> info = provider == null
+                ? Map.of() : provider.forMessages(detail.messages().stream().map(m -> m.id().value()).toList());
         TutorResponse tutor = c.tutorId().flatMap(tutors::findById).map(t -> new TutorResponse(t.id().value(),
                 t.name().orElse(null), t.phone().orElse(null),
                 pets.findByTutor(t.id()).stream().map(PetResponse::of).toList())).orElse(null);
@@ -176,10 +185,11 @@ class StaffConversationController {
                 c.handoffReason().orElse(null), c.handoffAt().orElse(null), c.lastActivityAt(),
                 c.waitingDepartmentId().orElse(null), c.assigneeId().orElse(null),
                 c.assigneeId().map(names::get).orElse(null), tutor,
-                detail.messages().stream().map(m -> MessageItem.of(m, names)).toList(),
+                detail.messages().stream().map(m -> MessageItem.of(m, names, info.get(m.id().value()))).toList(),
                 detail.notes().stream().map(n -> NoteResponse.of(n, names)).toList(),
                 openRequests,
-                detail.priorityChanges().stream().map(PriorityChangeResponse::from).toList());
+                detail.priorityChanges().stream().map(PriorityChangeResponse::from).toList(),
+                c.contact().channel(), staff.replyWindowEnd(c).orElse(null));
     }
 
     private static StaffUser user() {
@@ -210,15 +220,18 @@ class StaffConversationController {
     }
 
     record MessageItem(UUID id, MessageAuthor author, String authorName, String content, Intent intent,
-                       boolean fallback, Instant at) {
-        static MessageItem of(Message m, Map<UUID, String> names) {
+                       boolean fallback, Instant at, MessageChannelInfo.Delivery delivery,
+                       MessageChannelInfo.Attachment attachment) {
+        static MessageItem of(Message m, Map<UUID, String> names, MessageChannelInfo.Info info) {
             String author = switch (m.author()) {
                 case CUSTOMER -> "Tutor";
                 case ASSISTANT -> "Assistente";
                 case STAFF -> m.staffUserId().map(names::get).orElse("Equipe");
+                case BUSINESS_APP -> "Celular da clínica";
             };
             return new MessageItem(m.id().value(), m.author(), author, m.content(), m.intent().orElse(null),
-                    m.isFallback(), m.createdAt());
+                    m.isFallback(), m.createdAt(), info == null ? null : info.delivery(),
+                    info == null ? null : info.attachment());
         }
     }
 
@@ -255,6 +268,7 @@ class StaffConversationController {
                           HandoffReason handoffReason, Instant handoffAt, Instant lastActivityAt, UUID departmentId,
                           UUID assigneeId, String assigneeName, TutorResponse tutor, List<MessageItem> messages,
                           List<NoteResponse> notes, List<RequestSummary> requests,
-                          List<PriorityChangeResponse> priorityChanges) {
+                          List<PriorityChangeResponse> priorityChanges,
+                          com.clinicavet.assistant.shared.domain.Channel channel, Instant replyWindowEndsAt) {
     }
 }

@@ -875,6 +875,53 @@ label {
 .msg-fallback {
   outline: 1px dashed var(--p2);
 }
+/* Respondida pelo celular da clínica (coexistência): mesmo lado da equipe, tracejada para não parecer do sistema. */
+.msg-business-app {
+  align-self: flex-end;
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-bottom-right-radius: 4px;
+}
+.msg-failed {
+  outline: 1.5px solid var(--p1);
+}
+.msg-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.delivery {
+  white-space: nowrap;
+}
+.delivery svg {
+  vertical-align: -2px;
+}
+.delivery-read svg {
+  color: var(--accent-fg);
+}
+.delivery-failed {
+  color: var(--p1);
+  font-weight: 600;
+  opacity: 1;
+}
+.msg-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+.badge-whatsapp {
+  background: oklch(94% 0.05 150);
+  color: oklch(38% 0.1 150);
+}
+:root[data-theme="dark"] .badge-whatsapp {
+  background: oklch(32% 0.07 150);
+  color: oklch(92% 0.05 150);
+}
 .msg-meta {
   font-size: 0.74rem;
   font-weight: 600;

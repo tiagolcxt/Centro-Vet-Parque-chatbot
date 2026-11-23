@@ -22,7 +22,12 @@ import java.lang.annotation.Target;
         "assistant.conversation.expiration.open=30m",
         "assistant.conversation.expiration.waiting-human=2h",
         "assistant.conversation.retry-backoff=0s",
-        "assistant.knowledge.location=file:config/clinic-knowledge.ficticia.yml"
+        "assistant.knowledge.location=file:config/clinic-knowledge.ficticia.yml",
+        "assistant.whatsapp.app-secret=" + IntegrationTest.WHATSAPP_APP_SECRET,
+        "assistant.whatsapp.verify-token=" + IntegrationTest.WHATSAPP_VERIFY_TOKEN,
+        "assistant.whatsapp.token-key=ZmljdGljaWEtY2hhdmUtZGUtdGVzdGUtMzItYnl0ZXM=",
+        "assistant.whatsapp.scheduling=false",
+        "assistant.whatsapp.inbound-async=false"
 })
 @Import({TestcontainersConfiguration.class, TestDoublesConfiguration.class})
 public @interface IntegrationTest {
@@ -32,6 +37,10 @@ public @interface IntegrationTest {
 
     /** Segunda clínica fictícia, para os testes de isolamento (ADR-0021). Criada por {@code OtherClinic.ensure}. */
     String OTHER_CLINIC = "00000000-0000-4000-8000-000000000002";
+
+    /** App Secret e token de verificação fictícios do webhook do WhatsApp (Etapa S4). */
+    String WHATSAPP_APP_SECRET = "app-secret-ficticio-de-teste";
+    String WHATSAPP_VERIFY_TOKEN = "verify-token-ficticio";
 
     /** Chave fictícia da segunda clínica. */
     String OTHER_CLINIC_API_KEY = "chave-ficticia-da-outra-clinica-0123456789";

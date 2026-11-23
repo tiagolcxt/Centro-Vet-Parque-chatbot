@@ -221,11 +221,13 @@ Ficou para depois:
 
 **Aceite:**
 
-- [ ] Um número de **teste** é ligado por coexistência, sem perder o uso no app do celular.
-- [ ] Mensagens de um número de **teste**, com dados fictícios, chegam e são respondidas pelo assistente e pela equipe.
-- [ ] Uma duplicata não gera turno.
-- [ ] Uma falha simulada da Meta é reenviada e aparece na conversa depois de N tentativas.
-- [ ] Fora da janela de 24 horas, a resposta livre fica bloqueada na tela.
+- [ ] Um número de **teste** é ligado por coexistência, sem perder o uso no app do celular. **Não feito:** a coexistência exige Embedded Signup como *Tech Provider* (ADR-0023, implementação). O eco das respostas dadas pelo celular já está pronto e testado.
+- [ ] Mensagens de um número de **teste**, com dados fictícios, chegam e são respondidas pelo assistente e pela equipe. **Feito com a Cloud API falsa e corpos da documentação da Meta**; o ensaio com número real espera uma conta com número brasileiro (o número de teste da Meta dá erro 130497 para o Brasil).
+- [x] Uma duplicata não gera turno.
+- [x] Uma falha simulada da Meta é reenviada e aparece na conversa depois de N tentativas (5, com espera crescente), com a opção "Tentar enviar de novo".
+- [x] Fora da janela de 24 horas, a resposta livre fica bloqueada na tela e recusada pelo servidor.
+
+**Situação (2026-11-22): implementada, aguardando aceite.** O que falta depende da Meta: número brasileiro numa conta do WhatsApp Business, webhook público com HTTPS e, para a coexistência, o Embedded Signup. Antes do piloto, comparar Cloud API direta e provedor intermediário (opção B da DA-46). Detalhes no ADR-0023, seção "Implementação".
 
 ---
 

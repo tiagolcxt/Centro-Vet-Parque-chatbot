@@ -68,4 +68,7 @@ interface MessageJpaRepository extends JpaRepository<MessageEntity, UUID> {
     List<MessageEntity> findByConversationIdOrderByCreatedAtAsc(UUID conversationId, Pageable pageable);
 
     long countByConversationId(UUID conversationId);
+
+    java.util.Optional<MessageEntity> findFirstByConversationIdAndAuthorOrderByCreatedAtDesc(UUID conversationId,
+            com.clinicavet.assistant.conversation.domain.MessageAuthor author);
 }

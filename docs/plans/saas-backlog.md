@@ -82,16 +82,16 @@
 
 | # | Item | Tamanho | Depende de | Requisitos |
 |---|---|---|---|---|
-| S4-1 | `channel_account` com o token cifrado; tela Canal | M | S1 | DA-46 |
-| S4-2 | Webhook: verificação (GET), assinatura, `inbound_message` com deduplicação, resposta 200 | M | S4-1 | RF-S50, RF-S51 |
-| S4-3 | Processamento fora da requisição, em série por contato | M | S4-2 | DA-21 |
-| S4-4 | *Outbox*: gravação no turno, despachante com nova tentativa, status pelo webhook | G → quebrar em gravação / despacho / status | S4-1 | RF-S52, RF-S55 |
-| S4-5 | Janela de 24 horas na tela e no envio | P | S4-4 | RF-S53 |
-| S4-6 | Mídia sem texto | P | S4-2 | RF-S54 |
-| S4-7 | Testes de contrato com cargas de exemplo da documentação da Meta | M | S4-2, S4-4 | RNF-S09 |
+| S4-1 ✅ | `channel_account` com o token cifrado; tela Canal | M | S1 | DA-46 |
+| S4-2 ✅ | Webhook: verificação (GET), assinatura, `inbound_message` com deduplicação, resposta 200 | M | S4-1 | RF-S50, RF-S51 |
+| S4-3 ✅ | Processamento fora da requisição, em série por contato | M | S4-2 | DA-21 |
+| S4-4 ✅ | *Outbox*: gravação no turno, despachante com nova tentativa, status pelo webhook | G → quebrar em gravação / despacho / status | S4-1 | RF-S52, RF-S55 |
+| S4-5 ✅ | Janela de 24 horas na tela e no envio | P | S4-4 | RF-S53 |
+| S4-6 ✅ | Mídia sem texto | P | S4-2 | RF-S54 |
+| S4-7 ✅ | Testes de contrato com cargas de exemplo da documentação da Meta | M | S4-2, S4-4 | RNF-S09 |
 | S4-8 ⚑ | Número de teste conectado; ensaio com dados fictícios | P | Acesso da Meta | — |
-| S4-9 | Coexistência: mesmo número no app WhatsApp Business e na API; mensagens respondidas pelo celular aparecem na conversa | M | S4-2 | DA-53 |
-| S4-10 ⚑ | Confirmar na documentação da Meta as regras e limitações da coexistência | P | — | DA-53 |
+| S4-9 (parcial) | Coexistência: mesmo número no app WhatsApp Business e na API; mensagens respondidas pelo celular aparecem na conversa. Eco pronto; ligar o número exige Embedded Signup (ADR-0023) | M | S4-2 | DA-53 |
+| S4-10 ✅ | Confirmar na documentação da Meta as regras e limitações da coexistência | P | — | DA-53 |
 
 ## S5 — Assistente no SaaS e validação
 

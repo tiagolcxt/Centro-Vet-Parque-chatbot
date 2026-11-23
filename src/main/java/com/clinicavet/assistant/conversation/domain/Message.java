@@ -64,6 +64,11 @@ public final class Message {
         return new Message(MessageId.newId(), conversationId, MessageAuthor.ASSISTANT, content, intent, metadata, at, null);
     }
 
+    /** Resposta dada pelo app do WhatsApp Business no celular (coexistência): só fica registrada na conversa. */
+    public static Message fromBusinessApp(ConversationId conversationId, String content, Instant at) {
+        return new Message(MessageId.newId(), conversationId, MessageAuthor.BUSINESS_APP, content, null, null, at, null);
+    }
+
     /** Resposta de um funcionário pela aplicação (RF-S23). */
     public static Message fromStaff(ConversationId conversationId, String content, UUID staffUserId, Instant at) {
         return new Message(MessageId.newId(), conversationId, MessageAuthor.STAFF, content, null, null, at,

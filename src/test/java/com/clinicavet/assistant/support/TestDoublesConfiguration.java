@@ -21,4 +21,10 @@ public class TestDoublesConfiguration {
     FakeAssistantModel fakeAssistantModel() {
         return new FakeAssistantModel();
     }
+
+    @Bean
+    @Primary
+    FakeWhatsAppApi fakeWhatsAppApi() {
+        return new FakeWhatsAppApi();
+    }
 }

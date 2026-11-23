@@ -106,6 +106,10 @@ class MessageEntity implements Persistable<UUID> {
         return entity;
     }
 
+    java.time.Instant createdAt() {
+        return createdAt;
+    }
+
     Message toDomain() {
         AssistantMetadata meta = author != MessageAuthor.ASSISTANT ? AssistantMetadata.NONE
                 : new AssistantMetadata(fallback, priority, prioritySource, parseSignals(signals), parseIntents(secondaryIntents));

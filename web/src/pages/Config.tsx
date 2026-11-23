@@ -7,6 +7,7 @@ import { DraftProvider, useDraft, type Change, type Overview, type Version } fro
 import { FaqEditor, ReviewEditor, SaveBar, SectionForm, ServicesEditor } from "../config/editors";
 import { formatDate, SECTION_TITLE, SECTIONS } from "../config/schema";
 import { ChangeList, History, Imports, QuickReplies, Simulator } from "../config/tools";
+import { ChannelSettings } from "../config/channel";
 
 const TABS: [string, string][] = [
   ["inicio", "Visão geral"],
@@ -17,6 +18,7 @@ const TABS: [string, string][] = [
   ["testar", "Testar"],
   ["importar", "Importar"],
   ["respostas", "Respostas prontas"],
+  ["canal", "Canal WhatsApp"],
   ["historico", "Histórico"],
 ];
 
@@ -61,6 +63,7 @@ export function Config({ tab }: { tab?: string }) {
           {current === "testar" && <Simulator />}
           {current === "importar" && <Imports />}
           {current === "respostas" && <QuickReplies />}
+          {current === "canal" && <ChannelSettings />}
           {current === "historico" && <History />}
         </div>
         <SaveBar />

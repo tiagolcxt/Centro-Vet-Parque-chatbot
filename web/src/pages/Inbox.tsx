@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRightLeft, Bot, Clock, Flag, Lock, PanelRight, PawPrint, Send, X, CheckCircle2, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRightLeft, Bot, Check, CheckCheck, Clock, Flag, Lock, PanelRight, Paperclip, PawPrint, RotateCw, Send, X, CheckCircle2, Zap } from "lucide-react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { PriorityBadge, RequestStatusBadge, StatusBadge } from "../components/Badges";
 import { handoffReasonLabel, minutesLabel, priorityLabel, requestTypeLabel, speciesLabel, timeLabel } from "../labels";
-import type { ConversationDetail, InboxItem, Priority } from "../types";
+import type { ConversationDetail, InboxItem, MessageItem, Priority } from "../types";
 import { Drawer, useHotkeys, useToast } from "../ui";
 import type { QuickReply } from "../config/tools";
 
@@ -14,6 +14,40 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "MINE", label: "Comigo" },
   { id: "ALL", label: "Todas" },
 ];
+
+const ATTACHMENTS: Record<NonNullable<MessageItem["attachment"]>["kind"], string> = {
+  IMAGE: "Imagem",
+  DOCUMENT: "Documento",
+  AUDIO: "Áudio",
+  VIDEO: "Vídeo",
+  OTHER: "Arquivo",
+};
+
+function attachmentLabel(kind: NonNullable<MessageItem["attachment"]>["kind"]): string {
+  return ATTACHMENTS[kind] ?? "Arquivo";
+}
+
+/** Situação do envio pelo WhatsApp, no canto da mensagem (RF-S55). */
+function DeliveryMark({ delivery }: { delivery: NonNullable<MessageItem["delivery"]> }) {
+  const label = {
+    PENDING: delivery.attempts > 0 ? `enviando (tentativa ${delivery.attempts + 1})` : "enviando",
+    SENT: "enviada",
+    DELIVERED: "entregue",
+    READ: "lida",
+    FAILED: "não enviada" + (delivery.errorCode ? ` (erro ${delivery.errorCode})` : ""),
+  }[delivery.status];
+  const icon =
+    delivery.status === "FAILED" ? <AlertTriangle size={12} aria-hidden />
+    : delivery.status === "PENDING" ? <Clock size={12} aria-hidden />
+    : delivery.status === "SENT" ? <Check size={12} aria-hidden />
+    : <CheckCheck size={12} aria-hidden />;
+  return (
+    <span className={"delivery delivery-" + delivery.status.toLowerCase()} title={label}>
+      {" · "}
+      {icon} {label}
+    </span>
+  );
+}
 
 /** Caixa de entrada (RF-S20 a RF-S29), no visual do protótipo (ux-navegacao.md, seção 8). */
 export function Inbox({ selectedId }: { selectedId?: string }) {
@@ -143,6 +177,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
   // Aguardando a equipe também pode ser transferida ou devolvida sem assumir (triagem da recepção).
   const canTransfer = active && can("conversation:transfer") && data?.status !== "OPEN" && (mine || data?.status === "WAITING_HUMAN");
   const assume = () => canAssume && act(() => api.post(`/conversations/${id}/assume`), "Conversa assumida");
+  const windowClosed = !!data?.replyWindowEndsAt && Date.parse(data.replyWindowEndsAt) < Date.now();
 
   useHotkeys({
     a: () => void assume(),
@@ -186,6 +221,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
                 <PriorityBadge priority={data.priority} long />
                 <StatusBadge status={data.status} assignee={data.assigneeName} />
                 <span className="badge">{departmentName(data.departmentId)}</span>
+                {data.channel === "WHATSAPP" && <span className="badge badge-whatsapp">WhatsApp</span>}
               </div>
             </div>
             <button className="icon-button side-toggle" onClick={() => setSideOpen(true)} aria-label="Tutor, pet e notas">
@@ -252,19 +288,44 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
 
         <div className="messages" aria-live="polite">
           {data.messages.map((m) => (
-            <div key={m.id} className={"msg msg-" + m.author.toLowerCase() + (m.fallback ? " msg-fallback" : "")}>
+            <div
+              key={m.id}
+              className={"msg msg-" + m.author.toLowerCase().replace("_", "-") + (m.fallback ? " msg-fallback" : "") + (m.delivery?.status === "FAILED" ? " msg-failed" : "")}
+            >
               <div className="msg-meta">{m.authorName}</div>
               <div className="msg-text">{m.content}</div>
+              {m.attachment && (
+                <a className="msg-attachment" href={`/app/api/channel/media/${m.attachment.ref}`} target="_blank" rel="noreferrer">
+                  <Paperclip size={14} aria-hidden /> {attachmentLabel(m.attachment.kind)}
+                  {m.attachment.name ? `: ${m.attachment.name}` : ""}
+                </a>
+              )}
               <div className="msg-time">
                 {m.fallback ? "resposta segura · " : ""}
                 {timeLabel(m.at)}
+                {m.delivery && <DeliveryMark delivery={m.delivery} />}
               </div>
+              {m.delivery?.status === "FAILED" && can("conversation:reply") && (
+                <button
+                  className="link msg-retry"
+                  onClick={() => act(() => api.post(`/channel/messages/${m.id}/resend`), "Vamos tentar enviar de novo")}
+                >
+                  <RotateCw size={13} aria-hidden /> Tentar enviar de novo
+                </button>
+              )}
             </div>
           ))}
           <div ref={endRef} />
         </div>
 
-        {active &&
+        {active && mine && windowClosed ? (
+          <div className="reply reply-locked">
+            <span className="muted">
+              <Clock size={14} aria-hidden /> Passaram 24 horas desde a última mensagem do tutor. O WhatsApp não deixa
+              responder por aqui agora: ligue para o tutor ou espere ele escrever de novo.
+            </span>
+          </div>
+        ) : active &&
           (mine && can("conversation:reply") ? (
             <ReplyBox inputRef={replyRef} onSend={(text) => act(() => api.post(`/conversations/${id}/reply`, { text }), "Mensagem enviada")} />
           ) : (

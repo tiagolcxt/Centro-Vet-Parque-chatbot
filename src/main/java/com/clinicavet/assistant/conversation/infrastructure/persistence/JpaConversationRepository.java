@@ -5,6 +5,7 @@ import com.clinicavet.assistant.shared.domain.ConversationId;
 import com.clinicavet.assistant.conversation.domain.ConversationRepository;
 import com.clinicavet.assistant.conversation.domain.ConversationStatus;
 import com.clinicavet.assistant.conversation.domain.Message;
+import com.clinicavet.assistant.conversation.domain.MessageAuthor;
 import com.clinicavet.assistant.conversation.domain.PriorityChange;
 import com.clinicavet.assistant.conversation.domain.MessageRepository;
 import com.clinicavet.assistant.shared.domain.ContactIdentity;
@@ -130,14 +131,36 @@ class JpaConversationRepository implements ConversationRepository {
 class JpaMessageRepository implements MessageRepository {
 
     private final MessageJpaRepository jpa;
+    private final ConversationJpaRepository conversations;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
-    JpaMessageRepository(MessageJpaRepository jpa) {
+    JpaMessageRepository(MessageJpaRepository jpa, ConversationJpaRepository conversations,
+                         org.springframework.context.ApplicationEventPublisher events) {
         this.jpa = jpa;
+        this.conversations = conversations;
+        this.events = events;
     }
 
     @Override
     public Message save(Message message) {
-        return jpa.saveAndFlush(MessageEntity.newFrom(message)).toDomain();
+        Message saved = jpa.saveAndFlush(MessageEntity.newFrom(message)).toDomain();
+        if (saved.author() == MessageAuthor.ASSISTANT || saved.author() == MessageAuthor.STAFF) {
+            conversations.findById(saved.conversationId().value()).ifPresent(c -> events.publishEvent(
+                    new com.clinicavet.assistant.conversation.domain.OutgoingMessageRecorded(saved.id(),
+                            saved.conversationId(), c.toDomain().contact())));
+        }
+        return saved;
+    }
+
+    @Override
+    public java.util.Optional<Message> findById(com.clinicavet.assistant.conversation.domain.MessageId id) {
+        return jpa.findById(id.value()).map(MessageEntity::toDomain);
+    }
+
+    @Override
+    public java.util.Optional<java.time.Instant> lastCustomerMessageAt(ConversationId conversationId) {
+        return jpa.findFirstByConversationIdAndAuthorOrderByCreatedAtDesc(conversationId.value(), MessageAuthor.CUSTOMER)
+                .map(MessageEntity::createdAt);
     }
 
     @Override

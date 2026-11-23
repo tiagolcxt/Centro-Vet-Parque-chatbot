@@ -143,6 +143,18 @@ public class StaffConversationService {
         return saved;
     }
 
+    /** WhatsApp: a resposta livre vale até 24 horas depois da última mensagem do tutor (ADR-0023, item 6). */
+    public static final java.time.Duration REPLY_WINDOW = java.time.Duration.ofHours(24);
+
+    /** Fim da janela de resposta livre; vazio fora do WhatsApp (a API de testes não tem janela). */
+    public java.util.Optional<Instant> replyWindowEnd(Conversation conversation) {
+        if (conversation.contact().channel() != com.clinicavet.assistant.shared.domain.Channel.WHATSAPP) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(messages.lastCustomerMessageAt(conversation.id())
+                .map(at -> at.plus(REPLY_WINDOW)).orElse(Instant.EPOCH));
+    }
+
     /** RF-S23: resposta do funcionário. Exige ter assumido (um responsável por vez, RN-S05). */
     public Message reply(StaffUser user, ConversationId id, String text) {
         if (text == null || text.isBlank()) {
@@ -156,6 +168,11 @@ public class StaffConversationService {
                         "responder (assuma a conversa antes)");
             }
             Instant now = clock.instant();
+            if (replyWindowEnd(conversation).map(now::isAfter).orElse(false)) {
+                throw new com.clinicavet.assistant.shared.exception.ConflictException(
+                        "Passaram 24 horas desde a última mensagem do tutor: o WhatsApp não permite resposta livre. "
+                                + "Ligue para o tutor ou espere ele escrever de novo.");
+            }
             conversation.registerActivity(now);
             conversations.save(conversation);
             return messages.save(Message.fromStaff(id, text.strip(), user.userId(), now));

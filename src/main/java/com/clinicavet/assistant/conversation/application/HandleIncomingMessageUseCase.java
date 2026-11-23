@@ -130,7 +130,15 @@ public class HandleIncomingMessageUseCase {
         this.clock = clock;
     }
 
+    /** O turno e a mensagem do tutor que ele gravou (o canal liga a mídia recebida a ela, Etapa S4). */
+    public record Turn(Result result, com.clinicavet.assistant.conversation.domain.MessageId customerMessageId) {
+    }
+
     public Result handle(ConversationId target, String text) {
+        return handleTurn(target, text).result();
+    }
+
+    public Turn handleTurn(ConversationId target, String text) {
         String content = validate(text);
         ContactIdentity contact = conversations.findById(target)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversa", target.value()))
@@ -164,7 +172,7 @@ public class HandleIncomingMessageUseCase {
                 result.fallback(), result.priority(), result.handoffReason().map(Enum::name).orElse("-"),
                 result.staffRequestReason().map(Enum::name).orElse("-"),
                 ctx.explicitRequest().orElse("-"), ctx.alertFloor().map(Enum::name).orElse("-"));
-        return result;
+        return new Turn(result, start.customerMessage().id());
     }
 
     private String validate(String text) {

@@ -63,13 +63,20 @@ export interface InboxItem {
   assigneeName: string | null;
 }
 
+export type DeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+
 export interface MessageItem {
   id: string;
-  author: "CUSTOMER" | "ASSISTANT" | "STAFF";
+  /** BUSINESS_APP: respondida pelo app do WhatsApp Business no celular (coexistência). */
+  author: "CUSTOMER" | "ASSISTANT" | "STAFF" | "BUSINESS_APP";
   authorName: string;
   content: string;
   fallback: boolean;
   at: string;
+  /** Só em conversas do WhatsApp: situação do envio da resposta. */
+  delivery: { status: DeliveryStatus; attempts: number; errorCode: string | null } | null;
+  /** Arquivo que o tutor mandou; `ref` abre por /app/api/channel/media/{ref}. */
+  attachment: { kind: "IMAGE" | "DOCUMENT" | "AUDIO" | "VIDEO" | "OTHER"; mime: string | null; name: string | null; ref: string } | null;
 }
 
 export interface Note {
@@ -98,6 +105,9 @@ export interface ConversationDetail {
   messages: MessageItem[];
   notes: Note[];
   requests: { id: string; type: RequestType; status: RequestStatus; summary: string | null }[];
+  channel: "API" | "WHATSAPP";
+  /** WhatsApp: depois disso a equipe não pode mais responder livremente (24 horas desde a última mensagem do tutor). */
+  replyWindowEndsAt: string | null;
 }
 
 export interface RequestItem {

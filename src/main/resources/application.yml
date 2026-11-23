@@ -121,6 +121,17 @@ assistant:
     api-key: ${ASSISTANT_API_KEY:}
     # Clínica dona da chave (ADR-0021). Padrão: a clínica fictícia criada pela V5.
     api-key-clinic: ${ASSISTANT_API_KEY_CLINIC:00000000-0000-4000-8000-000000000001}
+  whatsapp:
+    # Etapa S4 (ADR-0023). Os três segredos só no .env ou em variável de ambiente, nunca aqui (DM-12). Sem eles a
+    # aplicação sobe com o canal desligado: o webhook responde 503 e a tela Configuração > Canal mostra o que falta.
+    app-secret: ${WHATSAPP_APP_SECRET:}          # App Secret do app na Meta (assinatura do webhook)
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:}      # texto combinado com a Meta ao cadastrar o webhook
+    token-key: ${WHATSAPP_TOKEN_KEY:}            # 32 bytes em Base64; cifra o token de acesso guardado no banco
+    api-base-url: https://graph.facebook.com
+    api-version: v27.0
+    max-attempts: 5
+    backoff: 10s,30s,2m,10m,30m
+    max-text-length: 2000                        # igual a conversation.max-customer-message-length
   staff:
     # PROVISÓRIO (P-10): enviado ao tutor quando um funcionário assume a conversa (DA-47). Nunca diz "avisei".
     assumed-reply: "{name} ({department}) vai continuar o seu atendimento por aqui."
