@@ -498,7 +498,7 @@ public class HandleIncomingMessageUseCase {
         if (!alreadyOpen) {
             ServiceRequest request = ServiceRequest.open(conversation.id(), RequestType.HUMAN_CONTACT, now);
             conversation.tutorId().ifPresent(tutor -> request.attachTutor(tutor, now));
-            request.describe(truncate("[" + reason.name() + "] " + customerText), now);
+            request.describe(truncate(reason.label() + ": " + customerText), now);
             if (department != null) {
                 request.routeTo(department, now);
             }

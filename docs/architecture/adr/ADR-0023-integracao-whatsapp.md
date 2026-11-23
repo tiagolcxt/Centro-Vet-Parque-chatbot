@@ -48,6 +48,11 @@ Módulo `channel`. A conversa não depende dele: publica `OutgoingMessageRecorde
 - **Webhook** em `/webhooks/whatsapp` (público). O GET devolve o `hub.challenge` só com o token de verificação certo. O POST confere `X-Hub-Signature-256` sobre o corpo bruto com o App Secret, em tempo constante; sem assinatura válida, 401.
 - **Clínica pelo número.** O `phone_number_id` do corpo leva à clínica por uma consulta global em `channel_account` (único na plataforma). Número sem clínica ativa é ignorado com 200.
 - **Entrada.** `INSERT IGNORE` em `inbound_message` por `(clinic_id, wamid)` descarta o reenvio da Meta. O processamento roda fora da requisição, em série por contato (trava por contato e fila na ordem de envio do tutor). O texto sai de `inbound_message` assim que entra na conversa. Uma varredura retoma o que ficou parado há mais de 1 minuto, até 5 tentativas.
+  - **Correção (documentação oficial lida em 2026-11-22):**
+    - A Meta reenvia o webhook com frequência decrescente por **até 7 dias**, e o reenvio pode duplicar.
+    - A ordem de entrega **não é garantida**, e o corpo pode ter até 3 MB.
+    - Por isso a ordem por contato usa o `timestamp` da mensagem (`sent_at`), não a ordem de chegada.
+    - Uma mensagem que chega com dias de atraso não deve rodar o assistente; ver E7.3 da [revisão pré-piloto](../../plans/revisao-pre-piloto.md).
 - **Contato.** `wa_id` (número); sem ele, o identificador de usuário da Meta (BSUID).
 - **Mídia.** Muda o item das Consequências: em vez de uma resposta pedindo texto, o assistente recebe uma descrição curta ("[Imagem enviada sem texto]", ou "[Imagem anexada]" mais a legenda) e responde normalmente. A equipe abre o arquivo pela aplicação, que o busca na Meta na hora; nada é guardado no servidor. O áudio aparece como anexo; a transcrição continua na S5.
 - **Saída.** A linha da *outbox* entra na transação da resposta, então o simulador (transação desfeita) não envia nada. O despachante roda a cada 2 segundos.

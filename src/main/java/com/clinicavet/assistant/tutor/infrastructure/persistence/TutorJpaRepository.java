@@ -22,6 +22,8 @@ interface TutorJpaRepository extends JpaRepository<TutorEntity, UUID> {
             order by t.lastSeenAt desc
             """)
     List<TutorEntity> search(@Param("q") String q, Limit limit);
+
+    List<TutorEntity> findAllByOrderByLastSeenAtDesc(Limit limit);
 }
 
 interface PetJpaRepository extends JpaRepository<PetEntity, UUID> {

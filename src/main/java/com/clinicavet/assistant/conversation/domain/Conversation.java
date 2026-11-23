@@ -247,6 +247,11 @@ public final class Conversation {
         if (!status.isActive() || status == ConversationStatus.ASSIGNED) {
             return false;
         }
+        // Revisão pré-piloto (R1, E3.1): caso urgente ou possível emergência esperando a equipe nunca sai da fila por
+        // inatividade. Só uma pessoa encerra, com motivo. A nova mensagem do tutor entra na mesma conversa.
+        if (status == ConversationStatus.WAITING_HUMAN && clinicalPriority.isUrgentOrWorse()) {
+            return false;
+        }
         return Timestamps.normalize(now).isAfter(lastActivityAt.plus(policy.timeoutFor(status)));
     }
 

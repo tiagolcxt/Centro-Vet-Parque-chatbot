@@ -1262,6 +1262,15 @@ label {
   position: static;
   border-radius: var(--radius);
   margin-bottom: 16px;
+  /* Telas de computador: todas as abas à vista, em duas linhas se precisar (revisão pré-piloto, H3). */
+  flex-wrap: wrap;
+}
+@media (max-width: 767px) {
+  /* No celular, uma linha que rola de lado, com a rolagem visível para indicar que há mais abas. */
+  .config .config-tabs {
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+  }
 }
 .config-body {
   display: flex;

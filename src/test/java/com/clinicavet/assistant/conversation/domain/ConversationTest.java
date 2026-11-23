@@ -191,4 +191,19 @@ class ConversationTest {
                 ConversationStatus.OPEN, null, CloseReason.EXPIRED, T0, T0, T0, 1L))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    /** Revisão pré-piloto (R1, E3.1): caso urgente esperando a equipe não some da fila por inatividade. */
+    @Test
+    void urgentConversationWaitingForTheTeam_neverExpires_butANonUrgentOneDoes() {
+        Conversation urgent = Conversation.start(CONTACT, T0);
+        urgent.raisePriority(ClinicalPriority.P1_POSSIBLE_EMERGENCY);
+        urgent.handOff(HandoffReason.POSSIBLE_EMERGENCY, T0);
+        assertThat(urgent.isExpired(T0.plus(Duration.ofDays(30)), POLICY)).isFalse();
+        assertThatThrownBy(() -> urgent.expire(T0.plus(Duration.ofDays(30)), POLICY))
+                .isInstanceOf(InvalidStateTransitionException.class);
+
+        Conversation routine = Conversation.start(CONTACT, T0);
+        routine.handOff(HandoffReason.EXPLICIT_REQUEST, T0);
+        assertThat(routine.isExpired(T0.plus(Duration.ofHours(49)), POLICY)).isTrue();
+    }
 }

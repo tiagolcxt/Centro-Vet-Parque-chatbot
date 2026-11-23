@@ -65,8 +65,11 @@ class CustomerController {
     }
 
     @GetMapping
-    List<CustomerItem> search(@RequestParam String q) {
-        return tutors.search(q, MAX_RESULTS).stream().map(t -> new CustomerItem(t.id().value(), t.name().orElse(null),
+    List<CustomerItem> search(@RequestParam(required = false) String q) {
+        // Sem busca: os que falaram por último (revisão pré-piloto, H3).
+        List<com.clinicavet.assistant.tutor.domain.Tutor> found = q == null || q.isBlank()
+                ? tutors.recent(MAX_RESULTS) : tutors.search(q, MAX_RESULTS);
+        return found.stream().map(t -> new CustomerItem(t.id().value(), t.name().orElse(null),
                 t.phone().orElse(null), pets.findByTutor(t.id()).stream().map(Pet::name).toList(), t.lastSeenAt()))
                 .toList();
     }

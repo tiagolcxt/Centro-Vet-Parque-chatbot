@@ -17,8 +17,9 @@ const FIELD_LABEL: Record<string, string> = {
 export function Customers({ selectedId }: { selectedId?: string }) {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
+  // Sem busca, a lista mostra quem falou por último (revisão pré-piloto, H3).
   const list = useLoad(
-    () => (search.length >= 2 ? api.get<CustomerItem[]>("/customers?q=" + encodeURIComponent(search)) : Promise.resolve([])),
+    () => api.get<CustomerItem[]>(search.length >= 2 ? "/customers?q=" + encodeURIComponent(search) : "/customers"),
     [search],
   );
 
@@ -36,7 +37,10 @@ export function Customers({ selectedId }: { selectedId?: string }) {
           <button>Buscar</button>
         </form>
         {list.error && <p className="error">{list.error}</p>}
-        {search.length >= 2 && list.data?.length === 0 && <p className="empty">Ninguém encontrado.</p>}
+        {list.data?.length === 0 && (
+          <p className="empty">{search.length >= 2 ? "Ninguém encontrado." : "Nenhum cliente ainda."}</p>
+        )}
+        {search.length < 2 && (list.data?.length ?? 0) > 0 && <p className="muted small pad-x">Falaram por último</p>}
         <ul className="list">
           {list.data?.map((c) => (
             <li key={c.id}>
@@ -51,7 +55,7 @@ export function Customers({ selectedId }: { selectedId?: string }) {
           ))}
         </ul>
       </aside>
-      <section className="split-detail">{selectedId ? <Customer id={selectedId} /> : <p className="empty center-v">Busque por nome, telefone ou pet.</p>}</section>
+      <section className="split-detail">{selectedId ? <Customer id={selectedId} /> : <p className="empty center-v">Escolha um cliente ou busque por nome, telefone ou pet.</p>}</section>
     </div>
   );
 }

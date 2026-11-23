@@ -84,7 +84,12 @@ class ActivationAndRoutingIT {
         assertThat(body.path("reply").asString()).doesNotContainIgnoringCase("avisei").doesNotContainIgnoringCase("notifiquei");
         assertThat(requests.findByConversation(new ConversationId(UUID.fromString(id))))
                 .filteredOn(r -> r.type() == RequestType.HUMAN_CONTACT)
-                .singleElement().satisfies(r -> assertThat(r.departmentId()).contains(clinical()));
+                .singleElement().satisfies(r -> {
+                    assertThat(r.departmentId()).contains(clinical());
+                    // H3: a equipe lê o motivo em português, não o código interno.
+                    assertThat(r.summary()).hasValueSatisfying(s -> assertThat(s).startsWith("Pediu uma pessoa: ")
+                            .doesNotContain("EXPLICIT_REQUEST"));
+                });
         UUID waiting = jdbc.queryForObject("SELECT BIN_TO_UUID(waiting_department_id) FROM conversation WHERE id = "
                 + "UUID_TO_BIN(?)", UUID.class, id);
         assertThat(waiting).isEqualTo(clinical());
@@ -116,6 +121,17 @@ class ActivationAndRoutingIT {
 
     @Autowired
     org.springframework.context.ApplicationContext context;
+
+    @Test
+    void customersWithoutSearch_listWhoTalkedLast() {
+        String id = api.openConversation(contact());
+        model.thenJson(TurnJson.of("Prazer, Joana.", "GREETING").tutorName("Joana Fictícia Recente"));
+        api.sendMessage(id, "Oi, sou a Joana Fictícia Recente");
+
+        JsonNode recent = com.clinicavet.assistant.support.TestStaff.admin(port, context).get("/app/api/customers").body();
+        assertThat(recent.isArray()).isTrue();
+        assertThat(recent.get(0).path("name").asString()).isEqualTo("Joana Fictícia Recente");
+    }
 
     @Test
     void urgentCase_staysInTheDefaultDepartment_whateverTheSubject() {

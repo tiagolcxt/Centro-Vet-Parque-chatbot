@@ -541,6 +541,15 @@ Etapas curtas, cada uma com testes e aprovação antes da seguinte:
 10. **E11 (E2E e celular)** e **E12 (LGPD)**; E9 mínimo (nível de ativação com auditoria).
 11. **Checklist da seção 8** e ensaio geral com a clínica.
 
+**Andamento (2026-11-22, Fase B aprovada):**
+- **H1** ✅ S5 parcial commitada (`0dd99d8`), com o áudio desligado por padrão.
+- **H2** ✅ ADR-0023 corrigido (7 dias, ordem não garantida).
+- **H3** ✅ três correções:
+  - o resumo do pedido usa o rótulo em português (`HandoffReason.label()`);
+  - as abas da Configuração quebram linha no computador;
+  - Clientes lista quem falou por último antes da busca.
+- **E3.1** ✅ conversa P1/P2 aguardando a equipe não expira por inatividade.
+
 **Fora do escopo agora:** agenda real, prontuário, estoque, PDV, e-commerce, painel financeiro, microsserviços, RAG,
 mensageria distribuída, múltiplas instâncias do servidor.
 

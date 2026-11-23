@@ -15,4 +15,7 @@ public interface TutorRepository {
 
     /** Busca da equipe por nome, telefone, contato ou nome de pet (RF-S42). Mínimo de 2 caracteres. */
     List<Tutor> search(String text, int limit);
+
+    /** Os que falaram por último (lista inicial de Clientes e pets, antes de buscar). */
+    List<Tutor> recent(int limit);
 }

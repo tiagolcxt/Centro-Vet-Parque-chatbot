@@ -42,6 +42,12 @@ class JpaTutorRepository implements TutorRepository {
     }
 
     @Override
+    public List<Tutor> recent(int limit) {
+        return jpa.findAllByOrderByLastSeenAtDesc(org.springframework.data.domain.Limit.of(limit)).stream()
+                .map(TutorEntity::toDomain).toList();
+    }
+
+    @Override
     public Optional<Tutor> findByContact(ContactIdentity contact) {
         return jpa.findByChannelAndExternalContactId(contact.channel(), contact.externalContactId())
                 .map(TutorEntity::toDomain);
