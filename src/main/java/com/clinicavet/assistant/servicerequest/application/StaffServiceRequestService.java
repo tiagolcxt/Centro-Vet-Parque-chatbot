@@ -131,7 +131,9 @@ public class StaffServiceRequestService {
         }
         request.classify(demandType);
         ServiceRequest saved = requests.save(request);
-        audit.record("request.reclassified", "request", id.value(), previous + " -> " + demandType);
+        audit.record("request.reclassified", "request", id.value(),
+                "de " + com.clinicavet.assistant.servicerequest.domain.RequestLabels.demandType(previous) + " para "
+                        + com.clinicavet.assistant.servicerequest.domain.RequestLabels.demandType(demandType));
         live.changed(LiveUpdates.Topic.REQUEST, id.value());
         return saved;
     }
@@ -188,8 +190,11 @@ public class StaffServiceRequestService {
         }
         ServiceRequest saved = requests.save(request);
         requests.saveEvent(RequestEvent.of(id, RequestEvent.Type.STATUS_CHANGED, user.userId(), from, target, null, now));
-        audit.record("request.status_changed", "request", id.value(), from + " -> " + target
-                + (outcome == null ? "" : " (" + outcome + ")"));
+        audit.record("request.status_changed", "request", id.value(), "de "
+                + com.clinicavet.assistant.servicerequest.domain.RequestLabels.status(from) + " para "
+                + com.clinicavet.assistant.servicerequest.domain.RequestLabels.status(target)
+                + (outcome == null ? "" : " (" + com.clinicavet.assistant.servicerequest.domain.RequestLabels.outcome(outcome)
+                + ")"));
         live.changed(LiveUpdates.Topic.REQUEST, id.value());
         return saved;
     }

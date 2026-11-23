@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowDown, ArrowUp, Bot, ChevronsUp, CircleDot, Clock, HelpCircle, Stethoscope, UserCheck, CheckCircle2, XCircle } from "lucide-react";
-import { conversationStatusLabel, priorityLabel, priorityShort, priorityTone, queueLabel, requestStatusLabel, riskLabel } from "../labels";
-import type { ClinicalRisk, ConversationStatus, Priority, QueuePriority, RequestStatus } from "../types";
+import { conversationStatusHint, conversationStatusLabel, queueLabel, requestStateLabel, riskLabel } from "../labels";
+import type { ClinicalRisk, ConversationStatus, QueuePriority, RequestStatus } from "../types";
 
 /**
  * Risco clínico (D9) com ícone, texto e cor (RNF-S11: nunca só a cor). "Sem sinal clínico" não aparece: não é
@@ -23,22 +23,10 @@ export function QueueBadge({ priority, fixed = false }: { priority: QueuePriorit
   if (!priority || (priority === "NORMAL" && !fixed)) return null;
   const Icon = priority === "IMMEDIATE" ? ChevronsUp : priority === "HIGH" ? ArrowUp : priority === "LOW" ? ArrowDown : CircleDot;
   return (
-    <span className={"badge" + (priority === "IMMEDIATE" ? " badge-critical" : "")} title="Prioridade na fila">
+    <span className={"badge" + (priority === "IMMEDIATE" ? " badge-critical" : "")} title={fixed ? "Prioridade de atendimento definida pela equipe" : "Prioridade de atendimento (automática)"}>
       <Icon size={12} aria-hidden />
-      Fila: {queueLabel[priority]}
-      {fixed ? " (fixada)" : ""}
-    </span>
-  );
-}
-
-/** Prioridade com ícone, texto e cor (RNF-S11: nunca só a cor). */
-export function PriorityBadge({ priority, long = false }: { priority: Priority | null; long?: boolean }) {
-  if (!priority) return <span className="badge">—</span>;
-  const tone = priorityTone(priority);
-  return (
-    <span className={"badge badge-" + tone} title={priorityLabel[priority]}>
-      {tone === "critical" && <AlertTriangle size={12} aria-hidden />}
-      {long ? priorityLabel[priority] : priorityShort(priority)}
+      Prioridade {queueLabel[priority].toLowerCase()}
+      {fixed ? " (definida pela equipe)" : ""}
     </span>
   );
 }
@@ -53,9 +41,9 @@ const conversationIcon = {
 export function StatusBadge({ status, assignee }: { status: ConversationStatus; assignee?: string | null }) {
   const Icon = conversationIcon[status];
   return (
-    <span className={"badge badge-status-" + status.toLowerCase()}>
+    <span className={"badge badge-status-" + status.toLowerCase()} title={conversationStatusHint[status]}>
       <Icon size={12} aria-hidden />
-      {status === "ASSIGNED" && assignee ? `Assumida por ${assignee.split(" ")[0]}` : conversationStatusLabel[status]}
+      {status === "ASSIGNED" && assignee ? `Em atendimento por ${assignee.split(" ")[0]}` : conversationStatusLabel[status]}
     </span>
   );
 }
@@ -68,12 +56,12 @@ const requestIcon = {
   CANCELLED: XCircle,
 };
 
-export function RequestStatusBadge({ status }: { status: RequestStatus }) {
+export function RequestStatusBadge({ status, assignee }: { status: RequestStatus; assignee?: string | null }) {
   const Icon = requestIcon[status];
   return (
     <span className={"badge badge-status-" + status.toLowerCase()}>
       <Icon size={12} aria-hidden />
-      {requestStatusLabel[status]}
+      {requestStateLabel(status, assignee)}
     </span>
   );
 }

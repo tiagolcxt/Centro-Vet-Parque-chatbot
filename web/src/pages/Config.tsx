@@ -10,16 +10,16 @@ import { ChangeList, History, Imports, QuickReplies, Simulator } from "../config
 import { ChannelSettings } from "../config/channel";
 
 const TABS: [string, string][] = [
-  ["inicio", "Visão geral"],
+  ["inicio", "Situação e publicação"],
   ["primeiros-passos", "Primeiros passos"],
   ["clinica", "Clínica e horários"],
   ["servicos", "Serviços e preços"],
   ["perguntas", "Perguntas frequentes"],
-  ["testar", "Testar"],
-  ["importar", "Importar"],
-  ["respostas", "Respostas prontas"],
-  ["canal", "Canal WhatsApp"],
-  ["historico", "Histórico"],
+  ["testar", "Testar o assistente"],
+  ["importar", "Importar dados"],
+  ["respostas", "Respostas rápidas"],
+  ["canal", "WhatsApp"],
+  ["historico", "Versões publicadas"],
 ];
 
 /** Configuração da clínica pela web (Etapa S3, RF-S10 a RF-S19). */
@@ -37,7 +37,7 @@ export function Config({ tab }: { tab?: string }) {
     <DraftProvider>
       <div className="page config">
         <header className="page-header">
-          <h1>Configuração</h1>
+          <h1>Configurações</h1>
           <p className="muted">O assistente só usa o que está publicado. Edite à vontade: nada muda para o tutor até publicar.</p>
         </header>
         <nav className="tabs config-tabs" role="tablist" aria-label="Partes da configuração">
@@ -205,7 +205,7 @@ interface Template {
   questions: string[];
 }
 
-const STEPS = ["Tipo de negócio", "Dados da clínica", "Horários", "Serviços e preços", "Perguntas frequentes", "Testar", "Publicar"];
+const STEPS = ["Tipo de negócio", "Dados da clínica", "Horários", "Serviços e preços", "Perguntas frequentes", "Testar o assistente", "Publicar"];
 
 /** Assistente de configuração inicial em 7 passos (S3-8), partindo de um modelo (S3-13). */
 function Wizard() {

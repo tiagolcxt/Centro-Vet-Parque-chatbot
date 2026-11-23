@@ -122,7 +122,7 @@ class KnowledgeTrapsAiIT {
         // Só o texto do modelo: os parágrafos do sistema (pedido registrado, próximo passo com o telefone da recepção e
         // a próxima abertura, DA-40) vêm da base e do relógio.
         String modelText = java.util.Arrays.stream(reply.split("\n\n"))
-                .filter(p -> !p.contains("ligue para a recepção") && !p.startsWith("Seu pedido ficou registrado"))
+                .filter(p -> !p.contains("ligue para a recepção") && !p.startsWith("Sua solicitação ficou registrada"))
                 .collect(java.util.stream.Collectors.joining("\n\n"));
         return FactExtractor.extract(modelText).stream().allMatch(f -> asked.stream().anyMatch(f::sameAs));
     }

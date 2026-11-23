@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { minutesLabel, priorityLabel, priorityShort, priorityTone } from "./labels";
+import { minutesLabel, priorityShort, priorityTone, riskLabel } from "./labels";
 
 describe("rótulos", () => {
-  it("prioridade sempre tem texto, não só cor (RNF-S11)", () => {
-    for (const label of Object.values(priorityLabel)) {
-      expect(label).toMatch(/^P[1-6] · \S/);
+  it("risco sempre tem texto, não só cor (RNF-S11)", () => {
+    for (const label of Object.values(riskLabel)) {
+      expect(label).toMatch(/^\S+/);
     }
     expect(priorityShort("P1_POSSIBLE_EMERGENCY")).toBe("P1");
     expect(priorityTone("P1_POSSIBLE_EMERGENCY")).toBe("critical");
@@ -48,13 +48,13 @@ describe("resumo do pedido", () => {
       "Clínica",
     );
     expect(text.split("\n")).toEqual([
-      "Agendamento — Pendente",
+      "Agendamento — Sem responsável",
       "Tutor: Tutora Fictícia",
       "Pet: Rex",
       "Motivo: vacina",
       "Período preferido: manhã",
       "Setor: Clínica",
-      expect.stringMatching(/^Pedido de /),
+      expect.stringMatching(/^Solicitação de /),
     ]);
   });
 });

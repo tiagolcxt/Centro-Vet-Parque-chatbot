@@ -76,7 +76,7 @@ class AuditIT {
         List<JsonNode> requestEvents = items(admin, "?action=request.&targetId=" + request);
         assertThat(requestEvents).anySatisfy(e -> {
             assertThat(e.path("action").asString()).isEqualTo("request.status_changed");
-            assertThat(e.path("summary").asString()).contains("CANCELLED");
+            assertThat(e.path("summary").asString()).contains("Cancelada");
         });
         // Filtro por prefixo não mistura categorias.
         assertThat(items(admin, "?action=request.&targetId=" + conversation)).isEmpty();

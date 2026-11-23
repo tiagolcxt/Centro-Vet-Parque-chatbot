@@ -28,15 +28,17 @@ const ACTION_LABEL: Record<string, string> = {
   "auth.login_failed": "teve uma tentativa de entrada com senha errada na conta",
   "auth.invite_accepted": "aceitou o convite e criou a senha",
   "auth.password_changed": "trocou a senha",
-  "conversation.assumed": "assumiu a conversa",
+  "conversation.assumed": "assumiu o atendimento da conversa",
   "conversation.closed": "encerrou a conversa",
-  "conversation.priority_changed": "mudou a prioridade da conversa",
+  "conversation.priority_changed": "mudou o risco clínico da conversa",
   "conversation.returned": "devolveu a conversa ao assistente",
   "conversation.transferred": "transferiu a conversa",
-  "request.assigned": "pegou ou atribuiu a solicitação",
+  "request.assigned": "assumiu ou atribuiu a solicitação",
   "request.transferred": "transferiu a solicitação",
   "request.status_changed": "mudou a situação da solicitação",
-  "customer.viewed": "abriu a ficha do cliente",
+  "request.reclassified": "corrigiu o tipo da solicitação",
+  "conversation.queue_priority_changed": "mudou a prioridade de atendimento da conversa",
+  "customer.viewed": "abriu a ficha do tutor",
   "config.published": "publicou a configuração",
   "config.restored": "restaurou uma versão da configuração",
   "config.draft-discarded": "descartou o rascunho da configuração",
@@ -45,9 +47,9 @@ const ACTION_LABEL: Record<string, string> = {
   "config.services-imported": "importou serviços de planilha",
   "config.faq-added": "adicionou perguntas frequentes sugeridas",
   "channel.updated": "alterou o canal do WhatsApp",
-  "quick-reply.created": "criou uma resposta pronta",
-  "quick-reply.changed": "alterou uma resposta pronta",
-  "quick-reply.deleted": "apagou uma resposta pronta",
+  "quick-reply.created": "criou uma resposta rápida",
+  "quick-reply.changed": "alterou uma resposta rápida",
+  "quick-reply.deleted": "apagou uma resposta rápida",
   "user.invited": "convidou uma pessoa",
   "user.invite_reissued": "gerou um novo link de acesso",
   "user.disabled": "desativou uma conta",
@@ -67,10 +69,10 @@ const FILTERS: [string, string][] = [
   ["", "Todas as ações"],
   ["conversation.", "Conversas"],
   ["request.", "Solicitações"],
-  ["customer.", "Clientes"],
+  ["customer.", "Tutores"],
   ["config.", "Configuração"],
-  ["channel.", "Canal WhatsApp"],
-  ["quick-reply.", "Respostas prontas"],
+  ["channel.", "WhatsApp"],
+  ["quick-reply.", "Respostas rápidas"],
   ["user.", "Contas e convites"],
   ["employee.", "Dados da equipe"],
   ["role.", "Perfis"],
@@ -109,7 +111,7 @@ export function Audit() {
   return (
     <div className="page">
       <header className="page-header">
-        <h1>Auditoria</h1>
+        <h1>Registro de atividades</h1>
         <p className="muted">Quem fez o quê e quando. Os registros não podem ser alterados nem apagados.</p>
       </header>
       <section className="card config-section">
@@ -154,7 +156,7 @@ export function Audit() {
                       <strong>{item.actorName}</strong>
                     </button>
                   ) : (
-                    <strong>{item.actorName ?? "Sistema"}</strong>
+                    <strong>{item.actorName ?? "Assistente ou sistema"}</strong>
                   )}{" "}
                   {ACTION_LABEL[item.action] ?? item.action}
                   {link && (

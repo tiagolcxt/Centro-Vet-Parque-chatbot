@@ -147,7 +147,7 @@ export function ServicesEditor() {
       <header>
         <h2>{SERVICE_SECTION.title}</h2>
         <p className="muted small">
-          Preço vazio = o assistente diz que não sabe e encaminha. O setor decide para qual fila vão os pedidos do serviço.
+          Preço vazio = o assistente diz que não sabe e encaminha. O setor decide quem recebe as solicitações sobre este serviço.
         </p>
       </header>
       {doc.services === null && <p className="muted">Nenhum serviço cadastrado ainda.</p>}

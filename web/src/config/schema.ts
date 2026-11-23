@@ -107,7 +107,7 @@ export const SECTIONS: Section[] = [
       { key: "pickup-delivery", label: "Busca e entrega", type: "textarea" },
       { key: "boarding", label: "Hotel e creche", type: "textarea" },
       { key: "products", label: "Produtos", type: "textarea" },
-      { key: "orders", label: "Pedidos", type: "textarea" },
+      { key: "orders", label: "Pedidos de produtos", type: "textarea" },
     ],
   },
   {

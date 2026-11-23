@@ -58,7 +58,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     ProblemDetail handleNotFound(ResourceNotFoundException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,
-                ex.resource() + " não encontrado");
+                ex.resource() + ": não existe ou você não tem acesso.");
         problem.setTitle("Recurso não encontrado");
         problem.setProperty("resource", ex.resource());
         return problem;
@@ -123,7 +123,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.error("Erro inesperado [errorId={}, type={}, origem={}]", errorId, ex.getClass().getName(),
                 origin == null ? "-" : origin.getClassName() + "." + origin.getMethodName() + ":" + origin.getLineNumber());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Erro interno. Informe o código errorId ao suporte.");
+                "Algo deu errado do nosso lado. Tente de novo; se continuar, informe ao suporte o código " + errorId + ".");
         problem.setTitle("Erro interno");
         problem.setProperty("errorId", errorId);
         return problem;
@@ -134,8 +134,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
                                                                   HttpHeaders headers, HttpStatusCode status,
                                                                   WebRequest request) {
+        List<String> labels = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> UserText.field(error.getField())).filter(label -> !label.isEmpty()).distinct().toList();
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT,
-                "Requisição com campos inválidos.");
+                labels.isEmpty() ? "Confira os dados informados." : "Confira: " + String.join(", ", labels) + ".");
         problem.setTitle("Valor inválido");
         List<String> fields = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())

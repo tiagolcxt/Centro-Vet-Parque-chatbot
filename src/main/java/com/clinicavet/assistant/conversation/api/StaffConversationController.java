@@ -211,7 +211,8 @@ class StaffConversationController {
                 pets.findByTutor(t.id()).stream().map(PetResponse::of).toList())).orElse(null);
         List<RequestSummary> openRequests = requests.findByConversation(id).stream()
                 .map(r -> new RequestSummary(r.id().value(), r.type(), r.status(), r.summary().orElse(null),
-                        r.departmentId().orElse(null), r.assigneeId().orElse(null)))
+                        r.departmentId().orElse(null), r.assigneeId().orElse(null),
+                        r.assigneeId().map(who -> directory.names(Set.of(who)).get(who)).orElse(null)))
                 .toList();
         return new DetailResponse(c.id().value(), c.status(), c.clinicalPriority(), c.currentIntent().orElse(null),
                 c.handoffReason().orElse(null), c.handoffAt().orElse(null), c.lastActivityAt(),
@@ -289,7 +290,7 @@ class StaffConversationController {
     }
 
     record RequestSummary(UUID id, RequestType type, RequestStatus status, String summary, UUID departmentId,
-                          UUID assigneeId) {
+                          UUID assigneeId, String assigneeName) {
     }
 
     record PriorityChangeResponse(ClinicalPriority from, ClinicalPriority to, String changedBy, String note,

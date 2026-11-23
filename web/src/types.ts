@@ -122,7 +122,7 @@ export interface ConversationDetail {
   } | null;
   messages: MessageItem[];
   notes: Note[];
-  requests: { id: string; type: RequestType; status: RequestStatus; summary: string | null }[];
+  requests: { id: string; type: RequestType; status: RequestStatus; summary: string | null; assigneeName: string | null }[];
   channel: "API" | "WHATSAPP";
   /** WhatsApp: depois disso a equipe não pode mais responder livremente (24 horas desde a última mensagem do tutor). */
   replyWindowEndsAt: string | null;

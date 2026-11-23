@@ -270,7 +270,8 @@ public class StaffConversationService {
             Conversation result = conversations.save(conversation);
             conversations.savePriorityChange(PriorityChange.byStaff(id, previous, priority, note, now,
                     user.userId().toString()));
-            audit.record("conversation.priority_changed", "conversation", id.value(), previous + " -> " + priority);
+            audit.record("conversation.priority_changed", "conversation", id.value(),
+                    "de " + riskName(previous) + " para " + riskName(priority));
             return result;
         });
         live.changed(LiveUpdates.Topic.CONVERSATION, id.value());
@@ -284,15 +285,35 @@ public class StaffConversationService {
     public Conversation changeQueuePriority(StaffUser user, ConversationId id, com.clinicavet.assistant.shared.domain.OperationalPriority priority) {
         Conversation saved = tx.inTransaction(() -> {
             Conversation conversation = load(user, id);
-            String previous = conversation.operationalOverride().map(Enum::name).orElse("regra");
+            String previous = conversation.operationalOverride().map(StaffConversationService::queueName)
+                    .orElse("automática");
             conversation.overrideOperationalPriority(priority);
             Conversation result = conversations.save(conversation);
             audit.record("conversation.queue_priority_changed", "conversation", id.value(),
-                    previous + " -> " + (priority == null ? "regra" : priority.name()));
+                    "de " + previous + " para " + (priority == null ? "automática" : queueName(priority)));
             return result;
         });
         live.changed(LiveUpdates.Topic.CONVERSATION, id.value());
         return saved;
+    }
+
+    /** Risco clínico como a equipe lê (revisão de linguagem, C2). */
+    static String riskName(ClinicalPriority level) {
+        return switch (level) {
+            case P1_POSSIBLE_EMERGENCY -> "possível emergência";
+            case P2_URGENT -> "urgente";
+            case P3_CLINICAL_FOLLOW_UP -> "acompanhamento clínico";
+            default -> "sem sinal clínico";
+        };
+    }
+
+    static String queueName(com.clinicavet.assistant.shared.domain.OperationalPriority priority) {
+        return switch (priority) {
+            case IMMEDIATE -> "imediata";
+            case HIGH -> "alta";
+            case NORMAL -> "normal";
+            case LOW -> "baixa";
+        };
     }
 
     /** RN-S07: conversas assumidas por quem foi desativado voltam a aguardar no mesmo setor. */

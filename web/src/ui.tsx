@@ -149,7 +149,7 @@ export function useHotkeys(map: Record<string, () => void>, enabled = true) {
 }
 
 export const SHORTCUTS: [string, string][] = [
-  ["/", "Buscar cliente ou pet"],
+  ["/", "Buscar tutor ou pet"],
   ["J / K", "Próxima / anterior na lista"],
   ["A", "Assumir conversa"],
   ["R", "Responder"],

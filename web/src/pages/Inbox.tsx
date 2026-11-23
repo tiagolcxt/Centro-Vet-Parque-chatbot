@@ -3,15 +3,15 @@ import { AlertTriangle, ArrowLeft, ArrowRightLeft, Bot, Check, CheckCheck, Clock
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { QueueBadge, RequestStatusBadge, RiskBadge, StatusBadge } from "../components/Badges";
-import { handoffReasonLabel, minutesLabel, queueLabel, requestTypeLabel, riskLabel, speciesLabel, timeLabel } from "../labels";
+import { handoffReasonLabel, minutesLabel, queueLabel, requestTypeLabel, riskLabel, speciesLabel, timeLabel, conversationStatusLabel } from "../labels";
 import type { ClinicalRisk, ConversationDetail, InboxItem, MessageItem, QueuePriority } from "../types";
 import { Drawer, useHotkeys, useToast } from "../ui";
 import type { QuickReply } from "../config/tools";
 
 type Filter = "WAITING" | "MINE" | "ALL";
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: "WAITING", label: "Aguardando" },
-  { id: "MINE", label: "Comigo" },
+  { id: "WAITING", label: "Aguardando atendimento" },
+  { id: "MINE", label: "Meus atendimentos" },
   { id: "ALL", label: "Todas" },
 ];
 
@@ -27,6 +27,27 @@ function attachmentLabel(kind: NonNullable<MessageItem["attachment"]>["kind"]): 
   return ATTACHMENTS[kind] ?? "Arquivo";
 }
 
+/**
+ * Por que a resposta não saiu, em linguagem da equipe (revisão de linguagem, C4). O código da Meta fica só na dica,
+ * para o suporte. Códigos de https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes.
+ */
+const DELIVERY_ERRORS: Record<string, string> = {
+  "131026": "o número do tutor não recebe mensagens pelo WhatsApp",
+  "131047": "passaram 24 horas desde a última mensagem do tutor",
+  "130497": "a conta do WhatsApp não pode enviar para este país",
+  "131000": "falha temporária no WhatsApp",
+  "131056": "muitas mensagens seguidas para este número",
+  "190": "a ligação com o WhatsApp venceu (peça ao administrador)",
+  NETWORK: "sem conexão com o WhatsApp",
+  NO_ACCOUNT: "o WhatsApp da clínica está desligado",
+};
+
+function failureReason(code: string | null): string {
+  if (!code) return "não enviada";
+  const known = DELIVERY_ERRORS[code] ?? (code.startsWith("HTTP_5") ? "falha temporária no WhatsApp" : null);
+  return known ? `não enviada: ${known}` : "não enviada";
+}
+
 /** Situação do envio pelo WhatsApp, no canto da mensagem (RF-S55). */
 function DeliveryMark({ delivery }: { delivery: NonNullable<MessageItem["delivery"]> }) {
   const label = {
@@ -34,15 +55,16 @@ function DeliveryMark({ delivery }: { delivery: NonNullable<MessageItem["deliver
     SENT: "enviada",
     DELIVERED: "entregue",
     READ: "lida",
-    FAILED: "não enviada" + (delivery.errorCode ? ` (erro ${delivery.errorCode})` : ""),
+    FAILED: failureReason(delivery.errorCode),
   }[delivery.status];
+  const hint = delivery.errorCode ? `${label} (código para o suporte: ${delivery.errorCode})` : label;
   const icon =
     delivery.status === "FAILED" ? <AlertTriangle size={12} aria-hidden />
     : delivery.status === "PENDING" ? <Clock size={12} aria-hidden />
     : delivery.status === "SENT" ? <Check size={12} aria-hidden />
     : <CheckCheck size={12} aria-hidden />;
   return (
-    <span className={"delivery delivery-" + delivery.status.toLowerCase()} title={label}>
+    <span className={"delivery delivery-" + delivery.status.toLowerCase()} title={hint}>
       {" · "}
       {icon} {label}
     </span>
@@ -101,12 +123,12 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
                     {c.overdue ? " · passou do prazo" : ""}
                   </span>
                 </div>
-                <strong>{c.tutorName ?? "Contato sem nome"}</strong>
+                <strong>{c.tutorName ?? "Tutor sem nome cadastrado"}</strong>
                 <span className="muted small">
                   {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : "Com o assistente"}
                 </span>
                 <span className="muted small">
-                  {c.status === "ASSIGNED" ? `Assumida por ${c.assigneeName ?? "alguém"}` : c.status === "WAITING_HUMAN" ? "Aguardando a equipe" : "Com o assistente"}
+                  {c.status === "ASSIGNED" ? `Em atendimento por ${c.assigneeName ?? "outra pessoa"}` : conversationStatusLabel[c.status]}
                 </span>
               </a>
             </li>
@@ -175,9 +197,9 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
   const mine = data?.status === "ASSIGNED" && data.assigneeId === me.id;
   const active = !!data && data.status !== "CLOSED";
   const canAssume = active && can("conversation:assume") && !mine && data?.status !== "ASSIGNED";
-  // Aguardando a equipe também pode ser transferida ou devolvida sem assumir (triagem da recepção).
+  // Aguardando atendimento também pode ser transferida ou devolvida sem assumir (triagem da recepção).
   const canTransfer = active && can("conversation:transfer") && data?.status !== "OPEN" && (mine || data?.status === "WAITING_HUMAN");
-  const assume = () => canAssume && act(() => api.post(`/conversations/${id}/assume`), "Conversa assumida");
+  const assume = () => canAssume && act(() => api.post(`/conversations/${id}/assume`), "Atendimento assumido");
   const windowClosed = !!data?.replyWindowEndsAt && Date.parse(data.replyWindowEndsAt) < Date.now();
 
   useHotkeys({
@@ -217,7 +239,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
               <ArrowLeft size={18} />
             </button>
             <div className="grow">
-              <h2>{data.tutor?.name ?? "Contato sem nome"}{data.tutor?.pets[0] ? ` · ${data.tutor.pets[0].name}` : ""}</h2>
+              <h2>{data.tutor?.name ?? "Tutor sem nome cadastrado"}{data.tutor?.pets[0] ? ` · ${data.tutor.pets[0].name}` : ""}</h2>
               <div className="badges">
                 <RiskBadge risk={data.clinicalRisk} />
                 <QueueBadge priority={data.operationalPriority} fixed={!!data.operationalOverride} />
@@ -234,17 +256,18 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
             <div className="actions">
               {canAssume && (
                 <button className="primary" onClick={() => void assume()}>
-                  Assumir <kbd>A</kbd>
+                  Assumir atendimento <kbd>A</kbd>
                 </button>
               )}
               {can("conversation:transfer") && data.status !== "OPEN" && (
                 <button disabled={!canTransfer} onClick={() => setPanel(panel === "transfer" ? "none" : "transfer")}>
-                  <ArrowRightLeft size={16} aria-hidden /> Transferir
+                  <ArrowRightLeft size={16} aria-hidden /> Transferir para outro setor
                 </button>
               )}
               {can("conversation:transfer") && data.status !== "OPEN" && (
                 <button
                   disabled={!canTransfer}
+                  title="O assistente volta a responder o tutor nesta conversa."
                   onClick={() => act(() => api.post(`/conversations/${id}/return-to-assistant`, { reason: null }), "Conversa devolvida ao assistente")}
                 >
                   <Bot size={16} aria-hidden /> Devolver ao assistente
@@ -252,18 +275,18 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
               )}
               {can("conversation:assume") && (
                 <button onClick={() => setPanel(panel === "priority" ? "none" : "priority")}>
-                  <Flag size={16} aria-hidden /> Prioridade
+                  <Flag size={16} aria-hidden /> Mudar prioridade
                 </button>
               )}
               {can("conversation:assume") && (
                 <button
                   className="quiet"
                   onClick={() =>
-                    window.confirm("Encerrar esta conversa? Os pedidos continuam abertos.") &&
+                    window.confirm("Encerrar esta conversa? As solicitações dela continuam abertas.") &&
                     act(() => api.post(`/conversations/${id}/close`), "Conversa encerrada")
                   }
                 >
-                  Encerrar
+                  Encerrar conversa
                 </button>
               )}
             </div>
@@ -286,7 +309,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
               onCancel={() => setPanel("none")}
               onRisk={(risk, note) => act(() => api.patch(`/conversations/${id}/priority`, { risk, note }), "Risco clínico alterado")}
               onQueue={(priority) =>
-                act(() => api.patch(`/conversations/${id}/queue-priority`, { priority }), priority ? "Prioridade da fila fixada" : "Fila voltou para a regra")
+                act(() => api.patch(`/conversations/${id}/queue-priority`, { priority }), priority ? "Prioridade de atendimento definida" : "Prioridade de atendimento voltou a ser automática")
               }
             />
           )}
@@ -338,8 +361,8 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
             <div className="reply reply-locked">
               <span className="muted">
                 {data.status === "ASSIGNED"
-                  ? `${data.assigneeName ?? "Outra pessoa"} está com esta conversa.`
-                  : "Para responder, assuma a conversa."}
+                  ? `Esta conversa está em atendimento por ${data.assigneeName ?? "outra pessoa"}.`
+                  : "Para responder ao tutor, assuma o atendimento."}
               </span>
               {canAssume && (
                 <button className="primary" onClick={() => void assume()}>
@@ -400,12 +423,12 @@ function SidePanel({
         </section>
       )}
       <section>
-        <h3 className="eyebrow">Pedidos desta conversa</h3>
+        <h3 className="eyebrow">Solicitações desta conversa</h3>
         {data.requests.length === 0 && <p className="muted small">Nenhum.</p>}
         {data.requests.map((r) => (
           <a key={r.id} href={"#/solicitacoes/" + r.id} className="request-chip">
             <span className="grow">{requestTypeLabel[r.type]}</span>
-            <RequestStatusBadge status={r.status} />
+            <RequestStatusBadge status={r.status} assignee={r.assigneeName} />
           </a>
         ))}
       </section>
@@ -473,8 +496,8 @@ function ReplyBox({ onSend, inputRef }: { onSend: (text: string) => Promise<void
           <button
             type="button"
             className="icon-button"
-            aria-label="Respostas prontas"
-            title="Respostas prontas"
+            aria-label="Respostas rápidas"
+            title="Respostas rápidas"
             aria-expanded={picking}
             onClick={() => setPicking((p) => !p)}
           >
@@ -536,7 +559,7 @@ export function TransferPanel({
       }}
     >
       <div className="inline-panel-head">
-        <strong>Transferir para</strong>
+        <strong>Transferir para o setor</strong>
         <button type="button" className="icon-button" onClick={onCancel} aria-label="Cancelar">
           <X size={16} />
         </button>
@@ -628,9 +651,9 @@ function PriorityPanel({
         </button>
       </div>
       <div className="inline-panel-head">
-        <strong>Prioridade na fila</strong>
+        <strong>Prioridade de atendimento</strong>
       </div>
-      <p className="muted small">Muda só a ordem do atendimento. Automática segue o risco e o tempo de espera.</p>
+      <p className="muted small">Muda só a ordem em que a equipe atende. A automática segue o risco e o tempo de espera.</p>
       <div className="chips">
         <button type="button" className={"chip" + (queue === null ? " chip-selected" : "")} onClick={() => void onQueue(null)}>
           Automática

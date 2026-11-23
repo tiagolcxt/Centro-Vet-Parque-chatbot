@@ -80,7 +80,7 @@ class ActivationAndRoutingIT {
                 .body();
 
         assertThat(body.path("status").asString()).isEqualTo("WAITING_HUMAN");
-        assertThat(body.path("reply").asString()).contains("encaminhada para o setor Clínica");
+        assertThat(body.path("reply").asString()).contains("encaminhada para a equipe da clínica (setor: Clínica)");
         assertThat(body.path("reply").asString()).doesNotContainIgnoringCase("avisei").doesNotContainIgnoringCase("notifiquei");
         assertThat(requests.findByConversation(new ConversationId(UUID.fromString(id))))
                 .filteredOn(r -> r.type() == RequestType.HUMAN_CONTACT)
@@ -141,7 +141,7 @@ class ActivationAndRoutingIT {
         JsonNode body = api.sendMessage(id, "Meu cachorro está mancando desde ontem").body();
 
         assertThat(body.path("status").asString()).isEqualTo("WAITING_HUMAN");
-        assertThat(body.path("reply").asString()).contains("encaminhada para o setor Recepção");
+        assertThat(body.path("reply").asString()).contains("encaminhada para a equipe da clínica (setor: Recepção)");
     }
 
     @Test
@@ -153,7 +153,7 @@ class ActivationAndRoutingIT {
         JsonNode body = api.sendMessage(id, "Oi, bom dia").body();
 
         assertThat(body.path("reply").asString()).doesNotContain("Como posso ajudar?")
-                .contains("encaminhada para o setor Recepção");
+                .contains("encaminhada para a equipe da clínica (setor: Recepção)");
         assertThat(body.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(body.path("handoffReason").asString()).isEqualTo("CLINIC_RULE");
 
@@ -188,7 +188,7 @@ class ActivationAndRoutingIT {
         model.thenJson(TurnJson.of("Claro, qual o nome do pet?", "APPOINTMENT_REQUEST"));
         JsonNode request = api.sendMessage(id, "Quero marcar uma consulta").body();
         assertThat(request.path("reply").asString()).doesNotContain("qual o nome do pet")
-                .contains("encaminhada para o setor");
+                .contains("encaminhada para a equipe da clínica (setor:");
         assertThat(request.path("status").asString()).isEqualTo("WAITING_HUMAN");
         assertThat(requests.findByConversation(new ConversationId(UUID.fromString(id))))
                 .extracting(r -> r.type()).contains(RequestType.HUMAN_CONTACT).doesNotContain(RequestType.APPOINTMENT);

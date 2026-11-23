@@ -2,14 +2,6 @@ import type { ConversationStatus, Outcome, Priority, RequestItem, RequestStatus,
 
 // Textos da interface em português (RNF-S12). A prioridade sempre aparece com texto, nunca só com cor (RNF-S11).
 
-export const priorityLabel: Record<Priority, string> = {
-  P1_POSSIBLE_EMERGENCY: "P1 · possível emergência",
-  P2_URGENT: "P2 · urgente",
-  P3_CLINICAL_FOLLOW_UP: "P3 · acompanhamento clínico",
-  P4_SERVICE_REQUEST: "P4 · pedido de serviço",
-  P5_ADMINISTRATIVE: "P5 · administrativo",
-  P6_RELATIONSHIP: "P6 · relacionamento",
-};
 
 export const riskLabel: Record<ClinicalRisk, string> = {
   POSSIBLE_EMERGENCY: "Possível emergência",
@@ -17,6 +9,19 @@ export const riskLabel: Record<ClinicalRisk, string> = {
   CLINICAL_FOLLOW_UP: "Acompanhamento clínico",
   NONE_IDENTIFIED: "Sem sinal clínico",
   NOT_ASSESSED: "Risco não avaliado",
+};
+
+/** Modo do assistente (ADR-0025), como a clínica lê. O número fica para a equipe da plataforma. */
+export const activationModeLabel: Record<number, string> = {
+  1: "Só organiza",
+  2: "Tira dúvidas da clínica",
+  3: "Tira dúvidas e registra solicitações",
+};
+
+export const activationModeHint: Record<number, string> = {
+  1: "O assistente não conversa: registra a mensagem, separa por setor e informa o telefone da clínica. Quem responde é a equipe.",
+  2: "Responde horário, serviços e preços cadastrados. Agendamentos e assuntos de saúde vão para a equipe.",
+  3: "Também coleta os dados do tutor e do pet e registra solicitações de agendamento. Não confirma horário nem dá orientação clínica.",
 };
 
 export const queueLabel: Record<QueuePriority, string> = {
@@ -55,20 +60,56 @@ export function priorityTone(p: Priority | null | undefined): "critical" | "warn
   return "neutral";
 }
 
+// Revisão de linguagem (2026-11-23): os estados dizem quem precisa agir ou quem está agindo. Glossário em
+// docs/plans/revisao-linguagem.md.
 export const conversationStatusLabel: Record<ConversationStatus, string> = {
-  OPEN: "Com o assistente",
-  WAITING_HUMAN: "Aguardando a equipe",
-  ASSIGNED: "Assumida",
+  OPEN: "Assistente atendendo",
+  WAITING_HUMAN: "Aguardando atendimento",
+  ASSIGNED: "Em atendimento",
   CLOSED: "Encerrada",
 };
 
+/** Dica do estado da conversa: o que ele significa na prática. */
+export const conversationStatusHint: Record<ConversationStatus, string> = {
+  OPEN: "O assistente está respondendo o tutor.",
+  WAITING_HUMAN: "Ninguém da equipe assumiu ainda. O assistente responde só dúvidas da clínica.",
+  ASSIGNED: "Um funcionário assumiu e responde o tutor. O assistente não responde.",
+  CLOSED: "Conversa encerrada. Se o tutor escrever de novo, começa outra.",
+};
+
 export const requestStatusLabel: Record<RequestStatus, string> = {
-  COLLECTING: "Coletando dados",
+  COLLECTING: "Aguardando dados do tutor",
   PENDING: "Pendente",
   IN_PROGRESS: "Em andamento",
-  RESOLVED: "Resolvida",
+  RESOLVED: "Concluída",
   CANCELLED: "Cancelada",
 };
+
+/**
+ * Estado da solicitação como a equipe lê: junta o estado com o responsável, sem mudar a regra (atribuir e andamento
+ * continuam separados). Ex.: "Sem responsável", "Com Ana", "Em andamento com Ana".
+ */
+export function requestStateLabel(status: RequestStatus, assigneeName?: string | null): string {
+  const first = assigneeName ? assigneeName.split(" ")[0] : null;
+  switch (status) {
+    case "PENDING":
+      return first ? `Com ${first}` : "Sem responsável";
+    case "IN_PROGRESS":
+      return first ? `Em andamento com ${first}` : "Em andamento";
+    default:
+      return requestStatusLabel[status];
+  }
+}
+
+/**
+ * Resumos antigos começavam com o código do motivo ("[EXPLICIT_REQUEST] texto"). Rede de segurança: mostra o rótulo
+ * em português. Os novos já são gravados assim.
+ */
+export function readableSummary(summary: string | null | undefined): string {
+  if (!summary) return "";
+  return summary.replace(/^\[([A-Z_]+)\]\s*/, (match, code: string) =>
+    handoffReasonLabel[code] ? handoffReasonLabel[code] + ": " : match);
+}
 
 export const requestTypeLabel: Record<RequestType, string> = {
   APPOINTMENT: "Agendamento",
@@ -79,19 +120,19 @@ export const requestTypeLabel: Record<RequestType, string> = {
 
 export const outcomeLabel: Record<Outcome, string> = {
   SCHEDULED_BY_STAFF: "Agendado pela equipe",
-  INFORMATION_PROVIDED: "Informação dada",
-  HANDLED_OUTSIDE: "Resolvido por fora (telefone, balcão)",
+  INFORMATION_PROVIDED: "Informação passada ao tutor",
+  HANDLED_OUTSIDE: "Resolvido fora do sistema (telefone, balcão)",
   NO_AVAILABILITY: "Sem disponibilidade",
   CUSTOMER_GAVE_UP: "Tutor desistiu",
   NO_RESPONSE: "Tutor não respondeu",
-  DUPLICATE: "Duplicada",
+  DUPLICATE: "Solicitação repetida",
   OTHER: "Outro (explicar)",
 };
 
 export const handoffReasonLabel: Record<string, string> = {
   POSSIBLE_EMERGENCY: "Possível emergência",
   CLINICAL_PRIORITY: "Prioridade clínica",
-  EXPLICIT_REQUEST: "Pediu uma pessoa",
+  EXPLICIT_REQUEST: "Pediu atendimento humano",
   COMPLAINT: "Reclamação",
   CLINICAL: "Assunto clínico",
   DISSATISFACTION: "Insatisfação",
@@ -140,16 +181,16 @@ export function speciesLabel(species: string | null | undefined): string | null 
 export function requestSummaryText(r: RequestItem, department: string): string {
   const created = new Date(r.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
   return [
-    `${requestTypeLabel[r.type]} — ${requestStatusLabel[r.status]}`,
+    `${requestTypeLabel[r.type]} — ${requestStateLabel(r.status, r.assigneeName)}`,
     r.tutorName && `Tutor: ${r.tutorName}`,
     r.petName && `Pet: ${r.petName}`,
-    r.summary && `Resumo: ${r.summary}`,
+    r.summary && `Resumo: ${readableSummary(r.summary)}`,
     r.reason && `Motivo: ${r.reason}`,
     r.preferredPeriod && `Período preferido: ${r.preferredPeriod}`,
     `Setor: ${department}`,
     r.assigneeName && `Responsável: ${r.assigneeName}`,
     r.outcome && `Resultado: ${outcomeLabel[r.outcome]}`,
-    `Pedido de ${created}`,
+    `Solicitação de ${created}`,
   ]
     .filter(Boolean)
     .join("\n");

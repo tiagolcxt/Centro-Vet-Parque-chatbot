@@ -94,14 +94,18 @@ export function ChannelSettings() {
           <ul className="warnings">
             {!v.webhookReady && (
               <li className="warning-critical">
-                <AlertTriangle size={14} aria-hidden /> O servidor ainda não tem o App Secret e o token de verificação
-                (WHATSAPP_APP_SECRET e WHATSAPP_VERIFY_TOKEN): nenhuma mensagem chega até isso ser configurado.
+                <AlertTriangle size={14} aria-hidden />{" "}
+                <span title="Variáveis WHATSAPP_APP_SECRET e WHATSAPP_VERIFY_TOKEN">
+                  Falta configurar a ligação com a Meta no servidor: nenhuma mensagem chega até isso ser feito. Peça ao suporte técnico.
+                </span>
               </li>
             )}
             {!v.encryptionReady && (
               <li className="warning-critical">
-                <AlertTriangle size={14} aria-hidden /> O servidor ainda não tem a chave que protege o token
-                (WHATSAPP_TOKEN_KEY): não dá para salvar o canal.
+                <AlertTriangle size={14} aria-hidden />{" "}
+                <span title="Variável WHATSAPP_TOKEN_KEY">
+                  Falta configurar no servidor a chave que protege o token: não dá para salvar o WhatsApp. Peça ao suporte técnico.
+                </span>
               </li>
             )}
             {v.configured && (

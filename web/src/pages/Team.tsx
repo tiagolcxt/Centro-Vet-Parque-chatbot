@@ -48,10 +48,10 @@ const PERMISSION_LABEL: Record<string, string> = {
   "request:view": "Ver solicitações",
   "request:assign": "Pegar e atribuir solicitações",
   "request:close": "Resolver ou cancelar solicitações",
-  "customer:view": "Ver clientes e pets",
-  "customer:edit": "Editar clientes e pets",
+  "customer:view": "Ver tutores e pets",
+  "customer:edit": "Editar tutores e pets",
   "customer:export": "Exportar dados (planilhas)",
-  "customer:erase": "Apagar dados de cliente",
+  "customer:erase": "Apagar dados de tutor",
   "clinical-notes:view": "Ver notas clínicas",
   "config:edit": "Editar a configuração e os setores",
   "config:publish": "Publicar a configuração e ligar o WhatsApp",
@@ -480,7 +480,8 @@ function Departments() {
       <header>
         <h2>Setores</h2>
         <p className="muted small">
-          Setores são as filas da clínica. O padrão (Recepção) recebe o que não tem regra e não pode ser desativado. O tipo
+          O tutor vê o nome do setor nas mensagens ("encaminhada para a equipe da clínica (setor: …)"); escolha nomes que ele entenda.
+          Setores são as áreas da clínica. O padrão (Recepção) recebe o que não tem regra e não pode ser desativado. O tipo
           ajuda o assistente a escolher o setor (assunto de saúde vai para o setor clínico).
         </p>
       </header>

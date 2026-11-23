@@ -3,6 +3,7 @@ package com.clinicavet.assistant.servicerequest.api;
 import com.clinicavet.assistant.platform.StaffUser;
 import com.clinicavet.assistant.servicerequest.application.StaffServiceRequestService;
 import com.clinicavet.assistant.servicerequest.domain.ConversationFacts;
+import com.clinicavet.assistant.servicerequest.domain.RequestLabels;
 import com.clinicavet.assistant.servicerequest.domain.RequestEvent;
 import com.clinicavet.assistant.servicerequest.domain.RequestOutcome;
 import com.clinicavet.assistant.servicerequest.domain.RequestStatus;

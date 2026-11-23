@@ -41,12 +41,12 @@ interface Loaded {
 
 const NAV = [
   { path: "inicio", label: "Início", icon: HomeIcon, permission: null },
-  { path: "atendimento", label: "Atendimento", icon: MessageSquare, permission: "conversation:view" },
+  { path: "atendimento", label: "Conversas", icon: MessageSquare, permission: "conversation:view" },
   { path: "solicitacoes", label: "Solicitações", icon: ClipboardList, permission: "request:view" },
-  { path: "clientes", label: "Clientes e pets", icon: Users, permission: "customer:view" },
-  { path: "configuracao", label: "Configuração", icon: Settings, permission: "config:edit" },
+  { path: "clientes", label: "Tutores e pets", icon: Users, permission: "customer:view" },
+  { path: "configuracao", label: "Configurações", icon: Settings, permission: "config:edit" },
   { path: "equipe", label: "Equipe", icon: UserCog, permission: "team:manage" },
-  { path: "auditoria", label: "Auditoria", icon: ShieldCheck, permission: "audit:view" },
+  { path: "auditoria", label: "Registro de atividades", icon: ShieldCheck, permission: "audit:view" },
 ] as const;
 
 export function App() {
@@ -281,7 +281,7 @@ function Topbar({ searchRef }: { searchRef: React.RefObject<HTMLInputElement | n
       const next = me.availability === "AVAILABLE" ? "AWAY" : "AVAILABLE";
       await api.patch("/me/availability", { availability: next });
       await reloadMe();
-      toast(next === "AVAILABLE" ? "Você está disponível" : "Você está ausente: não recebe atribuições");
+      toast(next === "AVAILABLE" ? "Você está disponível" : "Você está ausente");
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -302,7 +302,7 @@ function Topbar({ searchRef }: { searchRef: React.RefObject<HTMLInputElement | n
         className={"availability " + (me.availability === "AVAILABLE" ? "is-available" : "is-away")}
         onClick={toggleAvailability}
         disabled={busy}
-        title="Ausentes não recebem atribuições"
+        title="Mostra para a equipe se você está disponível."
       >
         <span className="dot" aria-hidden />
         <span className="availability-text">{me.availability === "AVAILABLE" ? "Disponível" : "Ausente"}</span>

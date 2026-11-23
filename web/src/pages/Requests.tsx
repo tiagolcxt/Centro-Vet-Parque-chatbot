@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRightLeft, CheckCircle2, Clock, Lock, MessageSquare, Pl
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { QueueBadge, RequestStatusBadge, RiskBadge } from "../components/Badges";
-import { outcomeLabel, requestStatusLabel, requestTypeLabel, timeLabel, demandTypeLabel } from "../labels";
+import { outcomeLabel, requestStatusLabel, requestTypeLabel, timeLabel, demandTypeLabel, readableSummary } from "../labels";
 import type { Outcome, RequestDetail, RequestItem, DemandType } from "../types";
 import { useToast } from "../ui";
 import { TransferPanel } from "./Inbox";
@@ -29,7 +29,7 @@ export function Requests({ selectedId }: { selectedId?: string }) {
   const assignToMe = async (id: string) => {
     try {
       await api.post(`/service-requests/${id}/assign`, {});
-      toast("Pedido atribuído a você");
+      toast("Solicitação assumida por você");
       list.reload();
     } catch (e) {
       toast((e as Error).message, "error");
@@ -41,10 +41,10 @@ export function Requests({ selectedId }: { selectedId?: string }) {
       <aside className="split-list">
         <div className="tabs" role="tablist">
           <button role="tab" aria-selected={tab === "mine"} onClick={() => setTab("mine")}>
-            Comigo
+            Minhas
           </button>
           <button role="tab" aria-selected={tab === "unassigned"} onClick={() => setTab("unassigned")}>
-            Sem dono
+            Sem responsável
           </button>
           {visible.map((d) => (
             <button key={d.id} role="tab" aria-selected={tab === d.id} onClick={() => setTab(d.id)}>
@@ -54,13 +54,13 @@ export function Requests({ selectedId }: { selectedId?: string }) {
         </div>
         {can("customer:export") && (
           <a className="small-button export-link" href="/app/api/service-requests/export.csv" download>
-            Baixar planilha dos pedidos
+            Baixar planilha das solicitações
           </a>
         )}
         {tab !== "unassigned" && (
           <div className="chips pad-x filters">
             <button className={"chip" + (status === "open" ? " chip-selected" : "")} onClick={() => setStatus("open")}>
-              Em aberto
+              Abertas
             </button>
             <button className={"chip" + (status === "closed" ? " chip-selected" : "")} onClick={() => setStatus("closed")}>
               Encerradas
@@ -68,7 +68,7 @@ export function Requests({ selectedId }: { selectedId?: string }) {
           </div>
         )}
         {list.error && <p className="error">{list.error}</p>}
-        {list.data?.length === 0 && <p className="empty">Nenhum pedido aqui.</p>}
+        {list.data?.length === 0 && <p className="empty">Nenhuma solicitação aqui.</p>}
         <ul className="list">
           {list.data?.map((r) => (
             <li key={r.id} className={"req-item" + (r.id === selectedId ? " selected" : "")}>
@@ -76,7 +76,7 @@ export function Requests({ selectedId }: { selectedId?: string }) {
                 <div className="conv-item-top">
                   <RiskBadge risk={r.clinicalRisk} />
                   <QueueBadge priority={r.operationalPriority} />
-                  <RequestStatusBadge status={r.status} />
+                  <RequestStatusBadge status={r.status} assignee={r.assigneeName} />
                 </div>
                 <strong>
                   {demandTypeLabel[r.demandType]} · {r.petName ?? r.tutorName ?? "—"}
@@ -87,7 +87,7 @@ export function Requests({ selectedId }: { selectedId?: string }) {
               </a>
               {r.nextAction === "atribuir" && can("request:assign") && (
                 <button className="small-button" onClick={() => void assignToMe(r.id)}>
-                  <UserPlus size={14} aria-hidden /> Atribuir a mim
+                  <UserPlus size={14} aria-hidden /> Assumir solicitação
                 </button>
               )}
             </li>
@@ -95,7 +95,7 @@ export function Requests({ selectedId }: { selectedId?: string }) {
         </ul>
       </aside>
       <section className="split-detail">
-        {selectedId ? <Request id={selectedId} onChanged={list.reload} /> : <p className="empty center-v">Escolha um pedido na lista.</p>}
+        {selectedId ? <Request id={selectedId} onChanged={list.reload} /> : <p className="empty center-v">Escolha uma solicitação na lista.</p>}
       </section>
     </div>
   );
@@ -137,7 +137,7 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
   return (
     <div className="page detail">
       <div className="conv-title-row">
-        <button className="icon-button back" onClick={() => go("solicitacoes")} aria-label="Voltar para os pedidos">
+        <button className="icon-button back" onClick={() => go("solicitacoes")} aria-label="Voltar para as solicitações">
           <ArrowLeft size={18} />
         </button>
         <div className="grow">
@@ -147,9 +147,8 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
           <div className="badges">
             <RiskBadge risk={r.clinicalRisk} />
             <QueueBadge priority={r.operationalPriority} />
-            <RequestStatusBadge status={r.status} />
+            <RequestStatusBadge status={r.status} assignee={r.assigneeName} />
             <span className="badge">{departmentName(r.departmentId)}</span>
-            <span className="badge">{r.assigneeName ? "com " + r.assigneeName : "sem responsável"}</span>
           </div>
         </div>
         <CopyButton text={requestSummaryText(r, departmentName(r.departmentId))} label="Copiar resumo" />
@@ -178,26 +177,26 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
       {open && (
         <div className="actions">
           {can("request:assign") && r.assigneeId !== me.id && (
-            <button className="primary" onClick={() => act(() => api.post(`/service-requests/${id}/assign`, {}), "Pedido atribuído a você")}>
-              <UserPlus size={16} aria-hidden /> Atribuir a mim
+            <button className="primary" onClick={() => act(() => api.post(`/service-requests/${id}/assign`, {}), "Solicitação assumida por você")}>
+              <UserPlus size={16} aria-hidden /> Assumir solicitação
             </button>
           )}
           {can("request:assign") && r.status === "PENDING" && (
             <button
               className={r.assigneeId === me.id ? "primary" : ""}
-              onClick={() => act(() => api.patch(`/service-requests/${id}`, { status: "IN_PROGRESS" }), "Pedido em andamento")}
+              onClick={() => act(() => api.patch(`/service-requests/${id}`, { status: "IN_PROGRESS" }), "Solicitação marcada em andamento")}
             >
-              <Play size={16} aria-hidden /> Iniciar
+              <Play size={16} aria-hidden /> Marcar em andamento
             </button>
           )}
           {can("request:close") && (
             <button className={r.status === "IN_PROGRESS" ? "primary" : ""} onClick={() => setPanel(panel === "close" ? "none" : "close")}>
-              <CheckCircle2 size={16} aria-hidden /> Resolver ou cancelar
+              <CheckCircle2 size={16} aria-hidden /> Concluir ou cancelar
             </button>
           )}
           {can("request:assign") && (
             <button onClick={() => setPanel(panel === "transfer" ? "none" : "transfer")}>
-              <ArrowRightLeft size={16} aria-hidden /> Transferir
+              <ArrowRightLeft size={16} aria-hidden /> Transferir para outro setor
             </button>
           )}
         </div>
@@ -206,7 +205,7 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
         <TransferPanel
           departments={departments.filter((d) => d.active && d.id !== r.departmentId)}
           onCancel={() => setPanel("none")}
-          onSubmit={(departmentId, reason) => act(() => api.post(`/service-requests/${id}/transfer`, { departmentId, reason }), "Pedido transferido")}
+          onSubmit={(departmentId, reason) => act(() => api.post(`/service-requests/${id}/transfer`, { departmentId, reason }), "Solicitação transferida")}
         />
       )}
       {panel === "close" && (
@@ -214,7 +213,7 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
           inProgress={r.status === "IN_PROGRESS"}
           onCancel={() => setPanel("none")}
           onSubmit={(status, outcome, outcomeNote) =>
-            act(() => api.patch(`/service-requests/${id}`, { status, outcome, outcomeNote }), status === "RESOLVED" ? "Pedido resolvido" : "Pedido cancelado")
+            act(() => api.patch(`/service-requests/${id}`, { status, outcome, outcomeNote }), status === "RESOLVED" ? "Solicitação concluída" : "Solicitação cancelada")
           }
         />
       )}
@@ -244,7 +243,7 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
           {r.summary && (
             <>
               <dt>Resumo</dt>
-              <dd>{r.summary}</dd>
+              <dd>{readableSummary(r.summary)}</dd>
             </>
           )}
           {r.outcome && (
@@ -287,11 +286,11 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
       </section>
 
       <section>
-        <h3 className="eyebrow">Histórico</h3>
+        <h3 className="eyebrow">O que aconteceu</h3>
         <ol className="timeline">
           {data.events.map((e, i) => (
             <li key={i}>
-              <span className="muted small">{timeLabel(e.at)}</span> <strong>{e.actorName ?? "Sistema"}</strong> {eventText(e, departmentName)}
+              <span className="muted small">{timeLabel(e.at)}</span> <strong>{e.actorName ?? "Assistente ou sistema"}</strong> {eventText(e, departmentName)}
             </li>
           ))}
           {data.events.length === 0 && <li className="muted small">Sem mudanças ainda.</li>}
@@ -307,7 +306,7 @@ function eventText(
 ): string {
   switch (e.type) {
     case "ASSIGNED":
-      return "atribuiu";
+      return "assumiu ou atribuiu a solicitação";
     case "UNASSIGNED":
       return "devolveu ao setor (conta desativada)";
     case "TRANSFERRED":
@@ -342,17 +341,17 @@ function ClosePanel({
       }}
     >
       <div className="inline-panel-head">
-        <strong>Encerrar o pedido</strong>
+        <strong>Concluir ou cancelar a solicitação</strong>
         <button type="button" className="icon-button" onClick={onCancel} aria-label="Cancelar">
           <X size={16} />
         </button>
       </div>
       <div className="chips">
-        <button type="button" className={"chip" + (status === "RESOLVED" ? " chip-selected" : "")} disabled={!inProgress} onClick={() => setStatus("RESOLVED")} title={inProgress ? "" : "Inicie o pedido antes"}>
-          Resolvido
+        <button type="button" className={"chip" + (status === "RESOLVED" ? " chip-selected" : "")} disabled={!inProgress} onClick={() => setStatus("RESOLVED")} title={inProgress ? "" : "Marque a solicitação em andamento antes"}>
+          Concluída
         </button>
         <button type="button" className={"chip" + (status === "CANCELLED" ? " chip-selected" : "")} onClick={() => setStatus("CANCELLED")}>
-          Cancelado
+          Cancelada
         </button>
       </div>
       <span className="muted small">Resultado</span>

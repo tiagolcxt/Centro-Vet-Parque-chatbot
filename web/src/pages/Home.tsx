@@ -2,7 +2,7 @@ import { AlertTriangle, ChevronRight, Clock } from "lucide-react";
 import { api } from "../api";
 import { useApp, useLoad } from "../app-context";
 import { QueueBadge, RiskBadge } from "../components/Badges";
-import { handoffReasonLabel, minutesLabel, priorityShort, requestTypeLabel, timeLabel } from "../labels";
+import { handoffReasonLabel, minutesLabel, priorityShort, requestTypeLabel, timeLabel, activationModeHint, activationModeLabel } from "../labels";
 import type { InboxItem, RequestItem } from "../types";
 import type { Overview } from "../config/draft";
 import { ValidityWarnings } from "./Config";
@@ -32,12 +32,6 @@ interface Usage {
   audioMinutes: number;
 }
 
-/** O que o assistente faz em cada nível (ADR-0025), em uma frase para a equipe. */
-const LEVEL_HINT: Record<number, string> = {
-  1: "organiza e encaminha tudo; quem responde é a equipe.",
-  2: "responde só dúvidas sobre a clínica; pedidos e assuntos de saúde vêm para a equipe.",
-  3: "atendimento completo, com coleta de dados e pedidos de agendamento.",
-};
 
 /** "2 min", "40 s", "1 h 5 min". */
 export function durationLabel(seconds: number | null): string {
@@ -91,7 +85,7 @@ export function Home() {
           {urgent.map((c) => (
             <a key={c.id} href={"#/atendimento/" + c.id} className={"urgent-row tone-" + priorityShort(c.priority).toLowerCase()}>
               <RiskBadge risk={c.clinicalRisk} />
-              <strong>{c.tutorName ?? "Contato sem nome"}</strong>
+              <strong>{c.tutorName ?? "Tutor sem nome cadastrado"}</strong>
               <span className="muted grow ellipsis">
                 {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : ""}
               </span>
@@ -107,10 +101,11 @@ export function Home() {
       <div className="card-grid">
         <section className="card stat-card">
           <header>
-            <h2>Comigo</h2>
+            <h2>Minhas pendências</h2>
             <span className="stat">{mineCount}</span>
           </header>
-          {mineCount === 0 && <p className="muted small">Nada com você.</p>}
+          <p className="muted small">Conversas e solicitações sob sua responsabilidade.</p>
+          {mineCount === 0 && <p className="muted small">Nada sob sua responsabilidade agora.</p>}
           <ul className="mini-list">
             {mineConversations.slice(0, 5).map((c) => (
               <ConversationLine key={c.id} c={c} />
@@ -122,10 +117,11 @@ export function Home() {
         </section>
         <section className="card stat-card">
           <header>
-            <h2>Aguardando a equipe</h2>
+            <h2>Aguardando atendimento</h2>
             <span className="stat">{waiting.length}</span>
           </header>
-          {waiting.length === 0 && <p className="muted small">Ninguém esperando. Bom trabalho!</p>}
+          <p className="muted small">Conversas que ninguém da equipe assumiu ainda.</p>
+          {waiting.length === 0 && <p className="muted small">Nenhuma conversa aguardando atendimento.</p>}
           <ul className="mini-list">
             {waiting.slice(0, 5).map((c) => (
               <ConversationLine key={c.id} c={c} />
@@ -134,10 +130,10 @@ export function Home() {
         </section>
         <section className="card stat-card">
           <header>
-            <h2>Pedidos sem dono</h2>
+            <h2>Solicitações sem responsável</h2>
             <span className="stat">{unassigned.data?.length ?? 0}</span>
           </header>
-          {(unassigned.data?.length ?? 0) === 0 && <p className="muted small">Todos têm responsável.</p>}
+          {(unassigned.data?.length ?? 0) === 0 && <p className="muted small">Todas as solicitações têm responsável.</p>}
           <ul className="mini-list">
             {(unassigned.data ?? []).slice(0, 5).map((r) => (
               <RequestLine key={r.id} r={r} departmentName={departmentName} />
@@ -178,19 +174,19 @@ export function Home() {
               </dd>
             </div>
             <div>
-              <dt>Só pelo assistente</dt>
+              <dt>Respondidas só pelo assistente</dt>
               <dd>{metrics.data.answeredByAssistant}</dd>
             </div>
             <div>
-              <dt>Tempo até a 1ª resposta</dt>
+              <dt title="Do assistente ou da equipe">Tempo até a primeira resposta</dt>
               <dd>{durationLabel(metrics.data.medianFirstReplySeconds)}</dd>
             </div>
             <div>
-              <dt>Pedidos abertos na semana</dt>
+              <dt>Solicitações abertas na semana</dt>
               <dd>{metrics.data.requestsCreated}</dd>
             </div>
             <div>
-              <dt>Pedidos resolvidos</dt>
+              <dt>Solicitações concluídas</dt>
               <dd>{metrics.data.requestsResolved}</dd>
             </div>
           </dl>
@@ -198,30 +194,30 @@ export function Home() {
       )}
 
       {operations.data && (
-        <section className="card metrics" aria-label="Operação da equipe">
+        <section className="card metrics" aria-label="Atendimento da equipe">
           <header>
-            <h2>Operação da equipe</h2>
+            <h2>Atendimento da equipe</h2>
             <p className="muted small">
-              Assistente no nível {operations.data.activationLevel} ({operations.data.activationLabel}):{" "}
-              {LEVEL_HINT[operations.data.activationLevel] ?? ""}
+              Modo do assistente: <strong>{activationModeLabel[operations.data.activationLevel] ?? operations.data.activationLabel}</strong>.{" "}
+              {activationModeHint[operations.data.activationLevel] ?? ""}
             </p>
           </header>
           <dl className="metric-grid">
             <div>
-              <dt>Aguardando a equipe agora</dt>
+              <dt>Aguardando atendimento agora</dt>
               <dd>{operations.data.waitingNow}</dd>
             </div>
             <div>
-              <dt>Tempo até alguém pegar o pedido</dt>
+              <dt>Tempo até a solicitação ter responsável</dt>
               <dd>{durationLabel(operations.data.medianAssignSeconds)}</dd>
             </div>
             <div>
-              <dt>Tempo até resolver</dt>
+              <dt>Tempo até concluir</dt>
               <dd>{durationLabel(operations.data.medianResolveSeconds)}</dd>
             </div>
             {operations.data.openByDepartment.map((d) => (
               <div key={d.departmentId}>
-                <dt>Pedidos abertos: {d.name}</dt>
+                <dt>Abertas em {d.name}</dt>
                 <dd>{d.open}</dd>
               </div>
             ))}
@@ -234,12 +230,12 @@ export function Home() {
               </div>
             )}
           </dl>
-          <p className="muted small">Tempos: mediana dos pedidos abertos nos últimos 7 dias.</p>
+          <p className="muted small">Tempos: valor do meio das solicitações abertas nos últimos 7 dias.</p>
         </section>
       )}
       {urgent.length === 0 && conversations.some((c) => c.priority === "P1_POSSIBLE_EMERGENCY") && (
         <p className="muted small">
-          <AlertTriangle size={14} aria-hidden /> Há conversa P1 já assumida: veja em "Comigo" ou em Atendimento.
+          <AlertTriangle size={14} aria-hidden /> Há possível emergência já em atendimento: veja em "Minhas pendências" ou em Conversas.
         </p>
       )}
     </div>
@@ -253,9 +249,9 @@ function ConversationLine({ c }: { c: InboxItem }) {
         <RiskBadge risk={c.clinicalRisk} />
         <QueueBadge priority={c.operationalPriority} />
         <span className="grow">
-          <strong>{c.tutorName ?? "Contato sem nome"}</strong>
+          <strong>{c.tutorName ?? "Tutor sem nome cadastrado"}</strong>
           <span className="muted small block">
-            {c.status === "WAITING_HUMAN" ? `Aguardando a equipe · ${minutesLabel(c.waitingMinutes ?? 0)}` : "Assumida"}
+            {c.status === "WAITING_HUMAN" ? `Aguardando atendimento · ${minutesLabel(c.waitingMinutes ?? 0)}` : "Em atendimento"}
           </span>
         </span>
       </a>

@@ -33,12 +33,12 @@ export function Customers({ selectedId }: { selectedId?: string }) {
             setSearch(q.trim());
           }}
         >
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, telefone ou nome do pet" aria-label="Buscar cliente" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, telefone ou nome do pet" aria-label="Buscar tutor" />
           <button>Buscar</button>
         </form>
         {list.error && <p className="error">{list.error}</p>}
         {list.data?.length === 0 && (
-          <p className="empty">{search.length >= 2 ? "Ninguém encontrado." : "Nenhum cliente ainda."}</p>
+          <p className="empty">{search.length >= 2 ? "Ninguém encontrado." : "Nenhum tutor ainda."}</p>
         )}
         {search.length < 2 && (list.data?.length ?? 0) > 0 && <p className="muted small pad-x">Falaram por último</p>}
         <ul className="list">
@@ -55,7 +55,7 @@ export function Customers({ selectedId }: { selectedId?: string }) {
           ))}
         </ul>
       </aside>
-      <section className="split-detail">{selectedId ? <Customer id={selectedId} /> : <p className="empty center-v">Escolha um cliente ou busque por nome, telefone ou pet.</p>}</section>
+      <section className="split-detail">{selectedId ? <Customer id={selectedId} /> : <p className="empty center-v">Escolha um tutor ou busque por nome, telefone ou pet.</p>}</section>
     </div>
   );
 }
@@ -71,7 +71,7 @@ function Customer({ id }: { id: string }) {
   return (
     <div className="page detail">
       <button className="link back" onClick={() => go("clientes")}>
-        ← Clientes
+        ← Tutores
       </button>
       <h2>{data.name ?? "Sem nome"}</h2>
       <p className="muted small">

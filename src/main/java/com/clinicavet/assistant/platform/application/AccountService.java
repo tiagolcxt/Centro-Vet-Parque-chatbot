@@ -181,9 +181,9 @@ public class AccountService implements Accounts {
     @Override
     public void changeRole(UUID userId, UUID roleId) {
         tx.executeWithoutResult(status -> {
-            requireRole(roleId);
+            RoleEntity role = requireRole(roleId);
             own(userId).changeRole(roleId);
-            audit.record("user.role_changed", "user", userId, "novo perfil " + roleId);
+            audit.record("user.role_changed", "user", userId, "novo perfil: " + role.name());
         });
     }
 

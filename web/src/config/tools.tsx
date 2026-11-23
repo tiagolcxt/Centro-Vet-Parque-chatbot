@@ -51,7 +51,7 @@ export function Simulator() {
       const meta = [
         "risco: " + riskLabel[riskFromLevel(result.priority)].toLowerCase(),
         result.handoff ? "encaminharia à equipe" : null,
-        result.staffRequest ? "registraria um pedido" : null,
+        result.staffRequest ? "registraria uma solicitação" : null,
         result.fallback ? "resposta segura (a IA errou ou faltou informação)" : null,
       ]
         .filter(Boolean)
@@ -525,7 +525,7 @@ export function QuickReplies() {
       } else {
         await api.post("/quick-replies", { title, body });
       }
-      toast(editing ? "Resposta pronta alterada." : "Resposta pronta criada.");
+      toast(editing ? "Resposta rápida alterada." : "Resposta rápida criada.");
       setTitle("");
       setBody("");
       setEditing(null);
@@ -539,7 +539,7 @@ export function QuickReplies() {
   return (
     <section className="card config-section">
       <header>
-        <h2>Respostas prontas</h2>
+        <h2>Respostas rápidas</h2>
         <p className="muted small">
           Textos que a equipe insere com um clique ao responder na caixa de entrada. Valem na hora, sem publicar.
         </p>
@@ -588,7 +588,7 @@ export function QuickReplies() {
       {error && <p className="error">{error}</p>}
       <div className="inline-row">
         <button className="primary" disabled={!title.trim() || !body.trim()} onClick={() => void submit()}>
-          {editing ? "Salvar alteração" : "Criar resposta pronta"}
+          {editing ? "Salvar alteração" : "Criar resposta rápida"}
         </button>
         {editing && (
           <button
