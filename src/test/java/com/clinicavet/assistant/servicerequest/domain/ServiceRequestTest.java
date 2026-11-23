@@ -107,8 +107,20 @@ class ServiceRequestTest {
         }
 
         @Test
-        void collecting_cannotStartProgress() {
+        void collecting_withoutAssignee_cannotStartProgress() {
             assertThatThrownBy(() -> collecting().startProgress(T0)).isInstanceOf(InvalidStateTransitionException.class);
+        }
+
+        @Test
+        void a2_staffTakesOverACollectingRequest_andCanResolveIt_withoutTheMissingFields() {
+            ServiceRequest request = collecting();
+            request.assign(java.util.UUID.randomUUID(), T0);
+
+            request.startProgress(T0.plusSeconds(10));
+            assertThat(request.status()).isEqualTo(RequestStatus.IN_PROGRESS);
+
+            request.resolve(RequestOutcome.SCHEDULED_BY_STAFF, null, T0.plusSeconds(20));
+            assertThat(request.status()).isEqualTo(RequestStatus.RESOLVED);
         }
 
         @Test

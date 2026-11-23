@@ -86,8 +86,15 @@ class ContextAssembler {
         CustomerRecords records = conversation.tutorId()
                 .map(id -> CustomerRecords.load(id, tutors, pets, provenance))
                 .orElseGet(CustomerRecords::empty);
+        List<ServiceRequest> ownRequests = serviceRequests.findByConversation(conversation.id());
+        // A1: se o tutor respondeu à pergunta de confirmação sem corrigir, o modelo já vê o pet como CONFIRMADO e
+        // não repete a pergunta. Só em memória: quem grava é o CustomerDataCollector, na transação 2.
+        TacitConfirmation.apply(records, ownRequests.stream()
+                        .filter(r -> r.type() == RequestType.APPOINTMENT && r.status() == RequestStatus.COLLECTING)
+                        .findFirst(),
+                lastAssistant(previous), current.content(), conversation.id(), now, validity);
         AssistantRequest.CustomerContext customer = customer(records, conversation.id(), now);
-        List<AssistantRequest.RequestView> requests = serviceRequests.findByConversation(conversation.id()).stream()
+        List<AssistantRequest.RequestView> requests = ownRequests.stream()
                 .map(r -> view(r, records, conversation.id(), now))
                 .toList();
         List<AssistantRequest.PreviousRequest> previousRequests = serviceRequests
@@ -99,6 +106,16 @@ class ContextAssembler {
         AssistantRequest.OperationalContext operational = new AssistantRequest.OperationalContext(
                 conversation.status(), localNow, OpeningHours.at(knowledge, localNow), requests, previousRequests);
         return new AssistantRequest(customer, operational, history, current.content());
+    }
+
+    private static String lastAssistant(List<Message> previous) {
+        String last = null;
+        for (Message message : previous) {
+            if (message.author() == com.clinicavet.assistant.conversation.domain.MessageAuthor.ASSISTANT) {
+                last = message.content();
+            }
+        }
+        return last;
     }
 
     private AssistantRequest.CustomerContext customer(CustomerRecords records, ConversationId conversation,

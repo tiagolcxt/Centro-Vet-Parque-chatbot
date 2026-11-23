@@ -23,6 +23,8 @@ import java.util.UUID;
  *
  * <pre>
  * COLLECTING ──submit──► PENDING ──startProgress──► IN_PROGRESS ──resolve──► RESOLVED
+ *     │                                               ▲
+ *     └──────────startProgress (a equipe assume)──────┘
  *     └────────────────────┴──────────────cancel────────┴──────────────────► CANCELLED
  * </pre>
  *
@@ -197,8 +199,14 @@ public final class ServiceRequest {
         transition(RequestStatus.PENDING, at);
     }
 
+    /**
+     * A equipe começa a tratar. Também vale em {@code COLLECTING} (achado A2): a equipe assume a coleta e completa
+     * com o tutor o que faltar; o assistente para de pedir dados, porque só coleta em {@code COLLECTING}.
+     */
     public void startProgress(Instant at) {
-        requireStatus(RequestStatus.PENDING, "startProgress");
+        if (status != RequestStatus.PENDING && status != RequestStatus.COLLECTING) {
+            throw new InvalidStateTransitionException(AGGREGATE, status, "startProgress");
+        }
         if (assigneeId == null) {
             throw new InvalidStateTransitionException(AGGREGATE, status, "startProgress (sem responsável)");
         }

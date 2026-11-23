@@ -205,6 +205,18 @@ Uma confirmação marcada pelo modelo só vale se:
 
 O pet da confirmação é o nomeado; sem nome, o do pedido em coleta; sem pedido, o único pet citado no turno.
 
+**Confirmação tácita do pet do agendamento** (2026-11-23, achado A1 da simulação de 1 mês; `TacitConfirmation`).
+O assistente pergunta a confirmação **uma vez**. Na resposta seguinte, nome e espécie do pet do pedido em coleta
+passam a CONFIRMADOS mesmo sem "sim", quando:
+1. a mensagem anterior do assistente é uma pergunta e repetiu o nome e a espécie gravados;
+2. o tutor não discorda (regra acima) nem corrige ("na verdade", "me enganei", "corrigindo", "não é");
+3. o tutor não cita a outra espécie (cachorro numa pergunta sobre gata, ou o contrário).
+
+A regra vale já no contexto do turno (o modelo vê CONFIRMADA e não repete a pergunta) e é gravada pelo
+`CustomerDataCollector`. Motivo: na simulação, quem respondia com o período ou o próprio nome em vez de "sim" ficava
+preso na mesma pergunta, e o pedido nunca chegava à equipe. A equipe confirma todo agendamento com o tutor, então um
+engano ainda passa por uma pessoa.
+
 ### 10.5 Pedido de agendamento (P-06, P-07, P-13 provisórios; ADR-0011)
 
 - **P-06:** no máximo **uma** `ServiceRequest(APPOINTMENT)` em `COLLECTING` por conversa. Pedidos de informação e de atendimento humano seguem em paralelo.
@@ -217,6 +229,11 @@ O pet da confirmação é o nomeado; sem nome, o do pedido em coleta; sem pedido
 - O resumo para a equipe é montado pelo backend ("Pedido de agendamento — pet: Mel (gato); motivo: vacina; preferência: de manhã").
 - No turno em que o pedido é registrado, o backend acrescenta `assistant.customer-data.appointment-registered-reply` (provisório, P-10). Ele diz que o pedido ficou registrado e que dia e horário só valem depois de confirmados pela equipe. O texto do modelo nunca afirma registro nem confirmação (prompt + V5).
 - Pedido em coleta numa conversa que expira continua `COLLECTING` e aparece para a equipe (`GET /api/service-requests?status=COLLECTING`).
+- **A equipe assume um pedido em coleta** (2026-11-23, achado A2): "Marcar em andamento" vale também em `COLLECTING`
+  (`COLLECTING → IN_PROGRESS`, com responsável), sem exigir os campos de P-13. Depois disso o assistente não coleta
+  mais nesse pedido. Se a equipe assumiu antes de saber o pet, o assistente também não abre outro pedido de
+  agendamento na conversa: o que o tutor mandar a equipe lê na conversa. Na tela, as abas de solicitações abertas
+  mostram também "Aguardando dados do tutor".
 
 ### 10.6 "Está confirmado?" e desfecho resolvido por fora (P-15 provisório)
 

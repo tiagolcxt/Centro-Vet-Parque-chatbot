@@ -17,7 +17,8 @@ export function Requests({ selectedId }: { selectedId?: string }) {
   const visible = departments.filter((d) => session.sectorScope === "ALL" || me.departmentIds.includes(d.id));
   const [tab, setTab] = useState<string>("mine");
   const [status, setStatus] = useState<"open" | "closed">("open");
-  const statuses = status === "open" ? "PENDING,IN_PROGRESS" : "RESOLVED,CANCELLED";
+  // A2: "Aguardando dados do tutor" também aparece, para a equipe assumir um agendamento que parou no meio.
+  const statuses = status === "open" ? "COLLECTING,PENDING,IN_PROGRESS" : "RESOLVED,CANCELLED";
   const query =
     tab === "mine"
       ? `?mine=true&status=${statuses}`
@@ -174,6 +175,11 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
         )}
       </div>
 
+      {r.status === "COLLECTING" && (
+        <p className="muted small">
+          O assistente ainda está pedindo dados ao tutor. Se você marcar em andamento, a equipe assume e o assistente para de pedir.
+        </p>
+      )}
       {open && (
         <div className="actions">
           {can("request:assign") && r.assigneeId !== me.id && (
@@ -181,7 +187,7 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
               <UserPlus size={16} aria-hidden /> Assumir solicitação
             </button>
           )}
-          {can("request:assign") && r.status === "PENDING" && (
+          {can("request:assign") && (r.status === "PENDING" || r.status === "COLLECTING") && (
             <button
               className={r.assigneeId === me.id ? "primary" : ""}
               onClick={() => act(() => api.patch(`/service-requests/${id}`, { status: "IN_PROGRESS" }), "Solicitação marcada em andamento")}

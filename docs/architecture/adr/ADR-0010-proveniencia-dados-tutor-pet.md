@@ -61,7 +61,8 @@ O briefing exige não fazer o tutor repetir informações e, ao mesmo tempo, nã
 - **P-08 provisório:**
   - confirmação = a mensagem anterior do assistente repetiu o valor gravado e o tutor concordou (o modelo marca e o backend confere; discordância anula);
   - validade de CADASTRADA = 365 dias (`assistant.customer-data.registered-validity`);
-  - registrar um agendamento exige nome e espécie do pet confirmados na conversa atual.
+  - registrar um agendamento exige nome e espécie do pet confirmados na conversa atual;
+  - (2026-11-23, achado A1) para o pet do agendamento em coleta, responder à pergunta de confirmação sem corrigir também confirma: o assistente pergunta no máximo uma vez ([business-rules.md, 10.4](../business-rules.md#104-confirmação-p-08-provisório)).
 - O assistente não coleta telefone (o contato vem do canal).
 - Detalhes e tabelas de decisão: [business-rules.md, seção 10](../business-rules.md#10-coleta-de-dados-e-pedido-de-agendamento-etapa-5).
 - Testes: `ProvenanceAndPetMatcherTest`, `CustomerDataNormalizerTest`, `CustomerDataIT` e `CustomerDataAiIT`.

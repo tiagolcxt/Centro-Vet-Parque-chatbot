@@ -122,16 +122,17 @@ class CustomerDataIT {
         JsonNode last = giveDataAndConfirm(id);
 
         List<AssistantRequest> sent = model.requests();
-        // Turno 3: o contexto só pede a confirmação; pet, motivo e nome já estão lá como MENCIONADOS.
+        // Turno 3: o tutor respondeu à pergunta de confirmação sem corrigir. O modelo já vê o pet CONFIRMADO e nada
+        // faltando, e não repete a pergunta (A1). Nome e motivo continuam MENCIONADOS.
         AssistantRequest third = sent.get(2);
         assertThat(onlyRequest(third).status()).isEqualTo(RequestStatus.COLLECTING);
-        assertThat(onlyRequest(third).missing()).singleElement().asString().startsWith("confirmação do nome e da espécie");
+        assertThat(onlyRequest(third).missing()).isEmpty();
         assertThat(third.customer().tutorName().value()).isEqualTo("Ana");
         assertThat(third.customer().tutorName().status()).isEqualTo(ProvenanceStatus.MENTIONED);
         assertThat(third.customer().pets()).singleElement().satisfies(p -> {
             assertThat(p.name().value()).isEqualTo("Mel");
             assertThat(p.species().value()).isEqualTo("gato");
-            assertThat(p.species().status()).isEqualTo(ProvenanceStatus.MENTIONED);
+            assertThat(p.species().status()).isEqualTo(ProvenanceStatus.CONFIRMED);
         });
 
         ServiceRequest request = appointments(id).getFirst();
@@ -154,6 +155,69 @@ class CustomerDataIT {
         JsonNode staff = com.clinicavet.assistant.support.TestStaff.admin(port, context)
                 .get("/app/api/service-requests?status=PENDING").body();
         assertThat(staff.toString()).contains("\"reason\":\"vacina\"", "\"preferredPeriod\":\"de manhã\"");
+    }
+
+    @Test
+    void a1_answerWithoutCorrection_confirmsThePet_withoutAskingAgain() {
+        String id = api.openConversation(contact());
+        // Turno 1: o tutor dá tudo; o assistente pergunta a confirmação uma vez.
+        model.thenJson(TurnJson.of(CONFIRM_QUESTION, "APPOINTMENT_REQUEST").priority("P4_SERVICE_REQUEST")
+                        .tutorName("Ana").pet("Mel", "CAT").appointment("Mel", "vacina", ""))
+                // Turno 2: o tutor manda o período em vez de "sim"; o modelo não marca confirmations.
+                .thenJson(TurnJson.of("Certo, terça de manhã.", "APPOINTMENT_REQUEST")
+                        .priority("P4_SERVICE_REQUEST").appointment("Mel", "vacina", "terça de manhã"));
+        api.sendMessage(id, "Quero marcar vacina para a Mel, minha gata. Sou a Ana.");
+        assertThat(appointments(id).getFirst().status()).isEqualTo(RequestStatus.COLLECTING);
+
+        JsonNode reply = api.sendMessage(id, "Pode ser na terça de manhã").body();
+
+        assertThat(onlyRequest(model.lastRequest()).missing()).isEmpty();
+        ServiceRequest request = appointments(id).getFirst();
+        assertThat(request.status()).isEqualTo(RequestStatus.PENDING);
+        assertThat(request.preferredPeriod()).contains("terça de manhã");
+        assertThat(reply.path("reply").asString()).endsWith(customerData.appointmentRegisteredReply().strip());
+    }
+
+    @Test
+    void a1_answerThatMentionsAnotherSpecies_doesNotConfirm() {
+        String id = api.openConversation(contact());
+        model.thenJson(TurnJson.of(CONFIRM_QUESTION, "APPOINTMENT_REQUEST").priority("P4_SERVICE_REQUEST")
+                        .tutorName("Ana").pet("Mel", "CAT").appointment("Mel", "vacina", ""))
+                .thenJson(TurnJson.of("Entendi.", "APPOINTMENT_REQUEST").priority("P4_SERVICE_REQUEST"));
+        api.sendMessage(id, "Quero marcar vacina para a Mel, minha gata. Sou a Ana.");
+        api.sendMessage(id, "A Mel é cachorra");
+
+        assertThat(onlyRequest(model.lastRequest()).missing()).singleElement().asString()
+                .startsWith("confirmação do nome e da espécie");
+        assertThat(appointments(id).getFirst().status()).isEqualTo(RequestStatus.COLLECTING);
+    }
+
+    @Test
+    void a2_staffTakesOverAnIncompleteAppointment_andTheAssistantStopsCollecting() {
+        String id = api.openConversation(contact());
+        model.thenJson(TurnJson.of("Para qual pet é o banho?", "APPOINTMENT_REQUEST").priority("P4_SERVICE_REQUEST")
+                .tutorName("Ana").appointment("", "banho", ""));
+        api.sendMessage(id, "Quero marcar um banho. Sou a Ana.");
+        ServiceRequest collecting = appointments(id).getFirst();
+        assertThat(collecting.status()).isEqualTo(RequestStatus.COLLECTING);
+        String path = "/app/api/service-requests/" + collecting.id().value();
+        var staff = com.clinicavet.assistant.support.TestStaff.admin(port, context);
+
+        var inProgress = staff.patch(path, java.util.Map.of("status", "IN_PROGRESS"));
+        assertThat(inProgress.status()).isEqualTo(200);
+        assertThat(inProgress.body().path("assigneeId").asString()).isNotEmpty();
+
+        // O tutor continua; o assistente não pede mais dados nem abre outra solicitação.
+        model.thenJson(TurnJson.of("A equipe já está com o seu pedido.", "APPOINTMENT_REQUEST")
+                .priority("P4_SERVICE_REQUEST").pet("Thor", "DOG").appointment("Thor", "banho", ""));
+        api.sendMessage(id, "É para o Thor, meu cachorro");
+        assertThat(onlyRequest(model.lastRequest()).status()).isEqualTo(RequestStatus.IN_PROGRESS);
+        assertThat(onlyRequest(model.lastRequest()).missing()).isEmpty();
+        assertThat(appointments(id)).singleElement()
+                .satisfies(r -> assertThat(r.status()).isEqualTo(RequestStatus.IN_PROGRESS));
+
+        assertThat(staff.patch(path, java.util.Map.of("status", "RESOLVED", "outcome", "SCHEDULED_BY_STAFF"))
+                .status()).isEqualTo(200);
     }
 
     @Test

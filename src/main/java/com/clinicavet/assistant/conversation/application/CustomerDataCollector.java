@@ -43,7 +43,8 @@ import java.util.UUID;
  *       não vinculam nada (o assistente pergunta).</li>
  *   <li><b>Proveniência</b> por campo: cada dado aceito fica MENCIONADO nesta conversa.</li>
  *   <li><b>Confirmações</b> (P-08 provisório): só valem se a mensagem anterior do assistente repetiu o valor
- *       gravado e o tutor não discordou. A confirmação marcada pelo modelo sozinha não basta.</li>
+ *       gravado e o tutor não discordou. A confirmação marcada pelo modelo sozinha não basta. Para o pet do
+ *       agendamento, responder sem corrigir também confirma ({@link TacitConfirmation}, achado A1).</li>
  *   <li><b>Agendamento</b> (P-06/P-07/P-13 provisórios): no máximo uma solicitação de agendamento em coleta por
  *       conversa, um pet por solicitação; com tudo presente e confirmado, passa a {@code PENDING}.</li>
  * </ol>
@@ -122,6 +123,12 @@ class CustomerDataCollector {
             for (CustomerUpdate.Confirmation confirmation : update.confirmations()) {
                 confirm(confirmation, previousAssistant, records, collecting, touched, conversationId, now);
             }
+        }
+        // A1: resposta sem correção à pergunta de confirmação também confirma (no máximo uma pergunta).
+        for (Provenance tacit : TacitConfirmation.apply(records, collecting, previousAssistant, current.content(),
+                conversationId, now, settings.registeredValidity())) {
+            records.put(provenance.save(tacit));
+            log.info("Confirmação tácita [campo={}]", tacit.field());
         }
         if (handedOff) {
             return Outcome.NONE;
@@ -412,6 +419,14 @@ class CustomerDataCollector {
                             && r.petId().map(id -> id.equals(pet.get().id())).orElse(false));
             if (alreadyRegistered) {
                 return Outcome.NONE;   // mesmo pet já com solicitação registrada nesta conversa
+            }
+            // A2: a equipe assumiu a coleta antes de saber o pet; o que o tutor mandar agora é para essa solicitação,
+            // e a equipe lê na conversa. Não abre outra.
+            boolean takenOverWithoutPet = requests.stream()
+                    .anyMatch(r -> r.type() == RequestType.APPOINTMENT && !r.status().isFinal() && r.petId().isEmpty());
+            if (takenOverWithoutPet) {
+                log.info("Pedido de agendamento não aberto [motivo=equipe_assumiu_a_coleta]");
+                return Outcome.NONE;
             }
             request = ServiceRequest.open(conversation.id(), RequestType.APPOINTMENT, now);
             // RF-S37: o setor sai do serviço pedido (motivo, texto do tutor ou o que o assistente consultou).
