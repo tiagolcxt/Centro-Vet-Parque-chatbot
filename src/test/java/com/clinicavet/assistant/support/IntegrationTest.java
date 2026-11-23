@@ -27,6 +27,7 @@ import java.lang.annotation.Target;
         "assistant.whatsapp.verify-token=" + IntegrationTest.WHATSAPP_VERIFY_TOKEN,
         "assistant.whatsapp.token-key=ZmljdGljaWEtY2hhdmUtZGUtdGVzdGUtMzItYnl0ZXM=",
         "assistant.whatsapp.scheduling=false",
+        "assistant.alerts.scheduling=false",
         "assistant.whatsapp.inbound-async=false"
 })
 @Import({TestcontainersConfiguration.class, TestDoublesConfiguration.class})

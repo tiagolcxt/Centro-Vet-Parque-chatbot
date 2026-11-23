@@ -68,6 +68,9 @@ export function Home() {
     (c) => (c.priority === "P1_POSSIBLE_EMERGENCY" || c.priority === "P2_URGENT") && c.status === "WAITING_HUMAN",
   );
   const waiting = conversations.filter((c) => c.status === "WAITING_HUMAN");
+  // "Atendimento humano" de quem já está esperando no chat é o mesmo trabalho: aparece só no quadro de conversas.
+  const waitingIds = new Set(waiting.map((c) => c.id));
+  const unassignedWork = (unassigned.data ?? []).filter((r) => !(r.type === "HUMAN_CONTACT" && waitingIds.has(r.conversationId)));
   const mineConversations = conversations.filter((c) => c.assigneeId === me.id);
   const mineCount = mineConversations.length + (mine.data?.length ?? 0);
   const firstName = me.displayName.split(" ")[0];
@@ -85,9 +88,12 @@ export function Home() {
           {urgent.map((c) => (
             <a key={c.id} href={"#/atendimento/" + c.id} className={"urgent-row tone-" + priorityShort(c.priority).toLowerCase()}>
               <RiskBadge risk={c.clinicalRisk} />
-              <strong>{c.tutorName ?? "Tutor sem nome cadastrado"}</strong>
+              <strong>{c.tutorName ?? "Tutor sem nome"}</strong>
               <span className="muted grow ellipsis">
-                {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : ""}
+                {/* O selo já diz a urgência: o motivo só aparece quando acrescenta algo. */}
+                {c.handoffReason && c.handoffReason !== "CLINICAL_PRIORITY" && c.handoffReason !== "POSSIBLE_EMERGENCY"
+                  ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason
+                  : ""}
               </span>
               <span className="urgent-wait">
                 <Clock size={14} aria-hidden /> esperando há {minutesLabel(c.waitingMinutes ?? 0)}
@@ -117,11 +123,11 @@ export function Home() {
         </section>
         <section className="card stat-card">
           <header>
-            <h2>Aguardando atendimento</h2>
+            <h2>Tutores esperando resposta</h2>
             <span className="stat">{waiting.length}</span>
           </header>
-          <p className="muted small">Conversas que ninguém da equipe assumiu ainda.</p>
-          {waiting.length === 0 && <p className="muted small">Nenhuma conversa aguardando atendimento.</p>}
+          <p className="muted small">O tutor está no chat esperando alguém da equipe escrever. Assuma a conversa para responder.</p>
+          {waiting.length === 0 && <p className="muted small">Nenhum tutor esperando a equipe.</p>}
           <ul className="mini-list">
             {waiting.slice(0, 5).map((c) => (
               <ConversationLine key={c.id} c={c} />
@@ -131,11 +137,14 @@ export function Home() {
         <section className="card stat-card">
           <header>
             <h2>Solicitações sem responsável</h2>
-            <span className="stat">{unassigned.data?.length ?? 0}</span>
+            <span className="stat">{unassignedWork.length}</span>
           </header>
-          {(unassigned.data?.length ?? 0) === 0 && <p className="muted small">Todas as solicitações têm responsável.</p>}
+          <p className="muted small">
+            Tarefas para a equipe (agendar, passar uma informação) que ninguém pegou. O tutor não está esperando no chat.
+          </p>
+          {unassignedWork.length === 0 && <p className="muted small">Todas as solicitações têm responsável.</p>}
           <ul className="mini-list">
-            {(unassigned.data ?? []).slice(0, 5).map((r) => (
+            {unassignedWork.slice(0, 5).map((r) => (
               <RequestLine key={r.id} r={r} departmentName={departmentName} />
             ))}
           </ul>
@@ -204,7 +213,7 @@ export function Home() {
           </header>
           <dl className="metric-grid">
             <div>
-              <dt>Aguardando atendimento agora</dt>
+              <dt>Tutores esperando resposta agora</dt>
               <dd>{operations.data.waitingNow}</dd>
             </div>
             <div>
@@ -242,16 +251,26 @@ export function Home() {
   );
 }
 
+/** Mesmo formato do cartão da tela Conversas: nome e espera; um selo e o motivo. */
 function ConversationLine({ c }: { c: InboxItem }) {
+  const strong = c.clinicalRisk === "POSSIBLE_EMERGENCY" || c.clinicalRisk === "URGENT";
   return (
     <li>
-      <a href={"#/atendimento/" + c.id} className="mini-row">
-        <RiskBadge risk={c.clinicalRisk} />
-        <QueueBadge priority={c.operationalPriority} />
-        <span className="grow">
-          <strong>{c.tutorName ?? "Tutor sem nome cadastrado"}</strong>
-          <span className="muted small block">
-            {c.status === "WAITING_HUMAN" ? `Aguardando atendimento · ${minutesLabel(c.waitingMinutes ?? 0)}` : "Em atendimento"}
+      <a href={"#/atendimento/" + c.id} className="mini-row mini-card">
+        <span className="mini-top">
+          <strong className="ellipsis">{c.tutorName ?? "Tutor sem nome"}</strong>
+          <span className={"wait" + (c.overdue ? " overdue" : "")}>
+            {c.overdue ? <AlertTriangle size={12} aria-hidden /> : <Clock size={12} aria-hidden />}
+            {c.status === "WAITING_HUMAN" ? shortWait(c.waitingMinutes ?? 0) : "em atendimento"}
+            {c.overdue && <span className="sr-only"> · passou do prazo</span>}
+          </span>
+        </span>
+        <span className="mini-bottom">
+          {strong ? <RiskBadge risk={c.clinicalRisk} /> : <QueueBadge priority={c.operationalPriority} />}
+          <span className="muted small ellipsis">
+            {c.handoffReason && !(strong && (c.handoffReason === "CLINICAL_PRIORITY" || c.handoffReason === "POSSIBLE_EMERGENCY"))
+              ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason
+              : ""}
           </span>
         </span>
       </a>
@@ -259,19 +278,29 @@ function ConversationLine({ c }: { c: InboxItem }) {
   );
 }
 
+function shortWait(minutes: number): string {
+  return minutes >= 1440 ? `${Math.floor(minutes / 1440)} d` : minutesLabel(minutes);
+}
+
 function RequestLine({ r, departmentName }: { r: RequestItem; departmentName: (id: string) => string }) {
+  const who = r.petName ?? r.tutorName;
+  const strong = r.clinicalRisk === "POSSIBLE_EMERGENCY" || r.clinicalRisk === "URGENT";
   return (
     <li>
-      <a href={"#/solicitacoes/" + r.id} className="mini-row">
-        <RiskBadge risk={r.clinicalRisk} />
-        <QueueBadge priority={r.operationalPriority} />
-        <span className="grow">
-          <strong>
-            {requestTypeLabel[r.type]} · {r.petName ?? r.tutorName ?? "—"}
+      <a href={"#/solicitacoes/" + r.id} className="mini-row mini-card">
+        <span className="mini-top">
+          <strong className="ellipsis">
+            {requestTypeLabel[r.type]}
+            {who ? ` · ${who}` : ""}
           </strong>
-          <span className="muted small block">
-            {departmentName(r.departmentId)} · desde {timeLabel(r.createdAt)}
+          <span className="wait" title="Desde quando existe">
+            <Clock size={12} aria-hidden />
+            {timeLabel(r.createdAt)}
           </span>
+        </span>
+        <span className="mini-bottom">
+          {strong && <RiskBadge risk={r.clinicalRisk} />}
+          <span className="muted small ellipsis">{departmentName(r.departmentId)}</span>
         </span>
       </a>
     </li>

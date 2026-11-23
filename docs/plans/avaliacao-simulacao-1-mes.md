@@ -113,7 +113,7 @@ não valem nesta simulação.
 
 1. **A1 + A2 (agendamento):** sem isso, o modo 3 não entrega o valor principal. **Feito em 23/11/2026** (seção 7).
 2. **A3 + A4 (urgência e setor):** calibrar com a veterinária da clínica e incluir esses casos na bateria de IA (E8). A regra "urgência sempre na Recepção" deve ser revista junto com o E3.
-3. **A10 (esquecimento):** reforça a prioridade P0 do E3.
+3. **A10 (esquecimento):** reforça a prioridade P0 do E3. **Parte interna feita em 23/11** (ADR-0028): alerta na tela com "Recebi" e escalonamento.
 4. **A5, A6:** ajustes no validador e no registro de solicitações.
 5. **A7, A11:** dependem dos textos aprovados pela clínica (P-01, P-10).
 6. **A8, A9:** ajustes menores.
@@ -170,6 +170,17 @@ O que mudou: ao concluir a última solicitação aberta, a tela oferece "Encerra
 - **Cabeçalho:** nome, pet e selos numa linha. "Encerrar conversa" aparece para quem está atendendo; o resto foi para "Mais ações" (transferir, devolver ao assistente, mudar prioridade).
 - **Assumir:** um botão só, junto da caixa de resposta.
 - **Mensagens:** mais largas.
+
+**Tela Início.** "Aguardando atendimento" e "Solicitações sem responsável" pareciam a mesma fila, e o mesmo tutor
+aparecia nos dois quadros: o pedido "quero falar com uma pessoa" cria a conversa aguardando e uma solicitação
+"Atendimento humano".
+- **"Tutores esperando resposta":** o tutor está no chat esperando alguém da equipe.
+- **"Solicitações sem responsável":** tarefas que ninguém pegou. O "Atendimento humano" de quem já está no primeiro quadro não se repete aqui.
+- Os cartões passaram ao formato de duas linhas da tela Conversas.
+
+**Alerta de trabalho esquecido (A10).** Faixa em qualquer tela, com bipe, "Recebi" e escalonamento
+([ADR-0028](../architecture/adr/ADR-0028-alerta-de-trabalho-esquecido.md)). No banco da simulação, ao ligar, apareceram
+18 alertas: 7 tutores esperando e 11 solicitações sem responsável.
 
 **3. Pessoas e conversas repetidas.** Cada execução do roteiro criava uma equipe nova, e a reexecução duplicou conversas.
 - No banco de teste ficaram a simulação principal (40 conversas), 2 conversas de testes manuais e uma equipe só.

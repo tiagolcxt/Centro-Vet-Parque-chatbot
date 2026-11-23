@@ -28,4 +28,11 @@ class ConversationFactsAdapter implements ConversationFacts {
         }
         return result;
     }
+
+    @Override
+    public Set<ConversationId> waitingForStaff(Set<ConversationId> ids) {
+        return conversations.findByIds(ids).stream()
+                .filter(c -> c.status() == com.clinicavet.assistant.conversation.domain.ConversationStatus.WAITING_HUMAN)
+                .map(Conversation::id).collect(java.util.stream.Collectors.toSet());
+    }
 }

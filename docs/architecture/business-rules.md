@@ -97,6 +97,20 @@ Os textos padrão ficam em `assistant.handoff.replies` (provisórios, P-10, P-19
 - A fila (`GET /api/conversations?status=WAITING_HUMAN`) mostra `waitingMinutes` e `overdue`.
 - Na próxima mensagem do tutor depois do prazo, a resposta inclui o contato direto aprovado (`approved-texts.direct-contact`, P-02) ou o próximo passo (ligar para a recepção, DA-40). Não há job nem notificação ativa.
 
+### 6.1 Alerta de trabalho esquecido (E3, provisório até D4; ADR-0028)
+
+| Pendência | Prazo | Quem vê antes de escalar |
+|---|---|---|
+| Conversa aguardando a equipe (o tutor espera resposta) | O do nível da conversa (tabela acima) | Quem vê conversas do setor da conversa |
+| Solicitação pendente sem responsável ("Atendimento humano" só quando a conversa já não está aguardando) | 24 h (`assistant.alerts.request-unassigned-after`) | Quem vê solicitações do setor dela |
+
+- Passado o prazo, aparece a faixa de alerta em qualquer tela, com bipe.
+- **"Recebi"** registra que alguém viu e vale por mais um prazo. Não resolve a pendência.
+- **Sem "Recebi" por mais um prazo** (no mínimo 15 min), o alerta escala: toda a equipe vê, com destaque.
+- O alerta fecha quando a pendência acaba: a conversa foi assumida, encerrada ou devolvida ao assistente, ou a solicitação ganhou responsável, foi concluída ou foi cancelada.
+- Ao tutor, nada muda.
+- Tudo vai para o registro de atividades.
+
 ## 7. Operações da equipe
 
 | Rota | Efeito | Não altera |

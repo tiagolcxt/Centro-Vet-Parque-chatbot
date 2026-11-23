@@ -16,4 +16,7 @@ public interface ConversationFacts {
     }
 
     Map<ConversationId, Priority> priorities(Set<ConversationId> conversations);
+
+    /** Quais destas conversas estão aguardando alguém da equipe agora (alerta de trabalho esquecido, ADR-0028). */
+    Set<ConversationId> waitingForStaff(Set<ConversationId> conversations);
 }

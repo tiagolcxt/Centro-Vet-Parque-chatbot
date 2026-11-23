@@ -549,6 +549,13 @@ Etapas curtas, cada uma com testes e aprovação antes da seguinte:
   - as abas da Configuração quebram linha no computador;
   - Clientes lista quem falou por último antes da busca.
 - **E3.1** ✅ conversa P1/P2 aguardando a equipe não expira por inatividade.
+- **E3 (parte interna)** ✅ alerta de trabalho esquecido, provisório até D4 ([ADR-0028](../architecture/adr/ADR-0028-alerta-de-trabalho-esquecido.md)):
+  - conversa aguardando além do prazo do nível e solicitação sem responsável há mais de 24 h;
+  - faixa com bipe em qualquer tela, com "Recebi" e "Abrir";
+  - sem "Recebi" por mais um prazo, escala para toda a equipe (substitui a escala de plantão até D4);
+  - tudo no registro de atividades; ao tutor, nada muda;
+  - testes em `WorkAlertIT` e `WorkAlertTest`;
+  - **faltam:** escala (E3.3), "sem cobertura" (E3.5), e-mail e WhatsApp (E3.6, E3.7) e indicador (E3.8).
 - **E1** ✅ tela Equipe (Pessoas, Perfis e permissões, Setores):
   - convite com link copiável, editar, desativar e **reativar** (E1.2);
   - a clínica nunca fica sem quem administre a equipe (desativar ou trocar o perfil do último administrador é recusado);

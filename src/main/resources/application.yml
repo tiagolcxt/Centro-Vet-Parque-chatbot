@@ -141,6 +141,12 @@ assistant:
     max-attempts: 5
     backoff: 10s,30s,2m,10m,30m
     max-text-length: 2000                        # igual a conversation.max-customer-message-length
+  alerts:
+    # E3 (revisão pré-piloto), achado A10: alerta de trabalho esquecido. PROVISÓRIO até D4 (prazos e escala da
+    # clínica): conversa aguardando usa os prazos por nível de handoff.deadlines; escalado = toda a equipe vê.
+    scheduling: true                             # varredura a cada sweep-interval (os testes desligam)
+    sweep-interval: 1m
+    request-unassigned-after: 24h                # solicitação sem responsável (exceto atendimento humano)
   staff:
     # PROVISÓRIO (P-10): enviado ao tutor quando um funcionário assume a conversa (DA-47). Nunca diz "avisei".
     assumed-reply: "{name} ({department}) vai continuar o seu atendimento por aqui."

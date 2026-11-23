@@ -9,7 +9,7 @@ import java.util.UUID;
 public interface LiveUpdates {
 
     enum Topic {
-        CONVERSATION, REQUEST
+        CONVERSATION, REQUEST, ALERT
     }
 
     /** Avisa as sessões da clínica atual que algo mudou (depois do commit da transação atual, se houver). */

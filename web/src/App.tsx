@@ -25,6 +25,7 @@ import type { CustomerItem, Department, InboxItem, Me, Session } from "./types";
 import { Login } from "./pages/Login";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Home } from "./pages/Home";
+import { AlertBanner } from "./components/AlertBanner";
 import { Inbox } from "./pages/Inbox";
 import { Requests } from "./pages/Requests";
 import { Customers } from "./pages/Customers";
@@ -200,6 +201,7 @@ function Shell({ route }: { route: string[] }) {
 
       <div className="main">
         <Topbar searchRef={searchRef} />
+        <AlertBanner />
         <main className="content">
           {page === "atendimento" && state.can("conversation:view") ? (
             <Inbox selectedId={route[1]} />

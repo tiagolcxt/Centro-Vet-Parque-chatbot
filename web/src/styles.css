@@ -691,6 +691,25 @@ label {
   border-radius: 8px;
   color: var(--fg);
 }
+.mini-card {
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mini-top,
+.mini-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+.mini-top {
+  justify-content: space-between;
+}
+.mini-bottom .badge {
+  flex-shrink: 0;
+}
 .mini-row:hover {
   background: var(--muted);
   text-decoration: none;
@@ -1728,4 +1747,46 @@ label.check-row {
   color: var(--fg);
   gap: 8px;
   font-size: 0.88rem;
+}
+
+/* Faixa de alerta de pendências esquecidas (E3) */
+.alert-banner {
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.alert-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  flex-wrap: wrap;
+}
+.alert-warning .alert-bar {
+  background: var(--p2-soft);
+  color: var(--p2-fg);
+}
+.alert-critical .alert-bar {
+  background: var(--p1-soft);
+  color: var(--p1-fg);
+}
+.alert-critical .alert-bar > svg,
+.alert-warning .alert-bar > svg {
+  color: var(--p1-fg);
+}
+.alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 20px 10px;
+  max-height: 40vh;
+  overflow: auto;
+}
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.alert-row.escalated strong {
+  color: var(--p1-fg);
 }

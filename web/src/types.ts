@@ -174,3 +174,19 @@ export interface CustomerDetail {
   conversations: { id: string; status: ConversationStatus; priority: Priority; startedAt: string }[];
   requests: { id: string; type: RequestType; status: RequestStatus; departmentId: string; createdAt: string }[];
 }
+
+/** Alerta de trabalho esquecido (E3): conversa aguardando além do prazo ou solicitação sem responsável. */
+export interface AlertItem {
+  id: string;
+  kind: "CONVERSATION_WAITING" | "REQUEST_UNASSIGNED";
+  subjectId: string;
+  title: string;
+  what: string | null;
+  since: string;
+  waitingMinutes: number;
+  raisedAt: string;
+  /** Ninguém deu "Recebi" no prazo: aparece para toda a equipe. */
+  escalated: boolean;
+  acknowledgedByName: string | null;
+  acknowledgedAt: string | null;
+}

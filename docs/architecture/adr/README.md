@@ -38,5 +38,6 @@ Formato: contexto, decisão, alternativas consideradas, consequências. Os IDs d
 | [0025](ADR-0025-ativacao-do-piloto-em-niveis.md) | Ativação do assistente em três níveis por clínica | Aceito | DA-48 | — |
 | [0026](ADR-0026-configuracao-versionada-no-banco.md) | Configuração da clínica no banco, com rascunho, publicação e versões | Aceito | DA-42, DA-45 | — |
 | [0027](ADR-0027-risco-tipo-e-prioridade-da-fila.md) | Risco clínico, tipo da demanda e prioridade da fila separados | Aceito | D9 (revisão pré-piloto) | — |
+| [0028](ADR-0028-alerta-de-trabalho-esquecido.md) | Alerta de trabalho esquecido (conversa aguardando e solicitação sem responsável) | Aceito, provisório até D4 | E3, A10 | — |
 
 Não há ADR reservado no momento. A etapa em que cada ADR é exigido está no [roadmap](../../plans/implementation-roadmap.md#adrs-por-etapa).
