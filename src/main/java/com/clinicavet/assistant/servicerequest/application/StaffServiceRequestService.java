@@ -48,9 +48,11 @@ public class StaffServiceRequestService {
     private final StaffDirectory staff;
     private final LiveUpdates live;
     private final Clock clock;
+    private final com.clinicavet.assistant.platform.AuditLog audit;
 
     StaffServiceRequestService(ServiceRequestRepository requests, Departments departments, StaffDirectory staff,
-                               LiveUpdates live, Clock clock) {
+                               LiveUpdates live, Clock clock, com.clinicavet.assistant.platform.AuditLog audit) {
+        this.audit = audit;
         this.requests = requests;
         this.departments = departments;
         this.staff = staff;
@@ -110,11 +112,18 @@ public class StaffServiceRequestService {
         request.assign(target, now);
         ServiceRequest saved = requests.save(request);
         requests.saveEvent(RequestEvent.of(id, RequestEvent.Type.ASSIGNED, user.userId(), previous, target, null, now));
+        audit.record("request.assigned", "request", id.value(),
+                target.equals(user.userId()) ? "pegou para si" : "atribuiu a " + staff.find(target)
+                        .map(StaffDirectory.Member::displayName).orElse("outra pessoa"));
         live.changed(LiveUpdates.Topic.REQUEST, id.value());
         return saved;
     }
 
     /** Transfere de setor com motivo obrigatório (RN-S06). Limpa o responsável. */
+    private String departmentName(UUID id) {
+        return departments.find(id).map(Departments.Department::name).orElse("setor removido");
+    }
+
     @Transactional
     public ServiceRequest transfer(StaffUser user, ServiceRequestId id, UUID department, String reason) {
         ServiceRequest request = visible(user, id);
@@ -130,6 +139,8 @@ public class StaffServiceRequestService {
         ServiceRequest saved = requests.save(request);
         requests.saveEvent(RequestEvent.of(id, RequestEvent.Type.TRANSFERRED, user.userId(), from, department,
                 truncate(reason.strip()), now));
+        audit.record("request.transferred", "request", id.value(), "de " + departmentName(from) + " para "
+                + departmentName(department));
         live.changed(LiveUpdates.Topic.REQUEST, id.value());
         return saved;
     }
@@ -161,6 +172,8 @@ public class StaffServiceRequestService {
         }
         ServiceRequest saved = requests.save(request);
         requests.saveEvent(RequestEvent.of(id, RequestEvent.Type.STATUS_CHANGED, user.userId(), from, target, null, now));
+        audit.record("request.status_changed", "request", id.value(), from + " -> " + target
+                + (outcome == null ? "" : " (" + outcome + ")"));
         live.changed(LiveUpdates.Topic.REQUEST, id.value());
         return saved;
     }

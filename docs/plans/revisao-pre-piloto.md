@@ -553,6 +553,11 @@ Etapas curtas, cada uma com testes e aprovação antes da seguinte:
   - convite com link copiável, editar, desativar e **reativar** (E1.2);
   - a clínica nunca fica sem quem administre a equipe (desativar ou trocar o perfil do último administrador é recusado);
   - testes em `TeamManagementIT`.
+- **E2** ✅ auditoria:
+  - leitura só de consulta (`GET /app/api/audit`, `audit:view`), com período, tipo de ação, pessoa e alvo;
+  - tela Auditoria;
+  - solicitações (pegar, transferir, resolver/cancelar) passam a entrar na auditoria;
+  - testes em `AuditIT`.
 
 **Fora do escopo agora:** agenda real, prontuário, estoque, PDV, e-commerce, painel financeiro, microsserviços, RAG,
 mensageria distribuída, múltiplas instâncias do servidor.

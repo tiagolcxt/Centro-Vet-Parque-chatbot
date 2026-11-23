@@ -75,7 +75,8 @@ class DepartmentService implements Departments {
         }
         if (department.active() != active) {
             department.setActive(active);
-            audit.record(active ? "department.activated" : "department.deactivated", "department", id, null);
+            audit.record(active ? "department.activated" : "department.deactivated", "department", id,
+                    "Setor: " + department.view().name());
         }
         return department.view();
     }

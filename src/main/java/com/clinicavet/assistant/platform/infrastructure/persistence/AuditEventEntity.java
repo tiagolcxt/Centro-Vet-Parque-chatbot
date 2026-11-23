@@ -54,6 +54,10 @@ public class AuditEventEntity {
         this.summary = summary;
     }
 
+    public UUID id() {
+        return id;
+    }
+
     public Instant occurredAt() {
         return occurredAt;
     }

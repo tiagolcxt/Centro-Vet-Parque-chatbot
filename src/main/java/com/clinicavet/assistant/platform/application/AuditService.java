@@ -12,7 +12,7 @@ import java.time.Clock;
 import java.util.UUID;
 
 @Service
-class AuditService implements AuditLog {
+class AuditService implements AuditLog, com.clinicavet.assistant.platform.AuditTrail {
 
     static final int MAX_SUMMARY = 500;
 
@@ -22,6 +22,24 @@ class AuditService implements AuditLog {
     AuditService(AuditEventJpaRepository events, Clock clock) {
         this.events = events;
         this.clock = clock;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page search(Filter filter, int page, int size) {
+        java.time.Instant from = filter.from() == null ? java.time.Instant.EPOCH : filter.from();
+        java.time.Instant to = filter.to() == null ? java.time.Instant.parse("9999-12-31T00:00:00Z") : filter.to();
+        String action = filter.actionPrefix() == null || filter.actionPrefix().isBlank() ? null
+                : filter.actionPrefix().strip().replace("%", "").replace("_", "\\_") + "%";
+        org.springframework.data.domain.Page<AuditEventEntity> found = events.search(from, to, filter.actorUserId(),
+                action, blankToNull(filter.targetType()), blankToNull(filter.targetId()), filter.withoutLogins(),
+                org.springframework.data.domain.PageRequest.of(page, size));
+        return new Page(found.getContent().stream().map(e -> new Entry(e.id(), e.occurredAt(), e.actorUserId(),
+                e.action(), e.targetType(), e.targetId(), e.summary())).toList(), page, size, found.getTotalElements());
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     @Override

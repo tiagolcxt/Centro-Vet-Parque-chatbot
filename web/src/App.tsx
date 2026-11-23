@@ -13,6 +13,7 @@ import {
   PawPrint,
   Search,
   Settings,
+  ShieldCheck,
   Stethoscope,
   Sun,
   UserCog,
@@ -29,6 +30,7 @@ import { Requests } from "./pages/Requests";
 import { Customers } from "./pages/Customers";
 import { Config } from "./pages/Config";
 import { Team } from "./pages/Team";
+import { Audit } from "./pages/Audit";
 import { Dialog, SHORTCUTS, ToastProvider, useHotkeys, useTheme, useToast } from "./ui";
 
 interface Loaded {
@@ -44,6 +46,7 @@ const NAV = [
   { path: "clientes", label: "Clientes e pets", icon: Users, permission: "customer:view" },
   { path: "configuracao", label: "Configuração", icon: Settings, permission: "config:edit" },
   { path: "equipe", label: "Equipe", icon: UserCog, permission: "team:manage" },
+  { path: "auditoria", label: "Auditoria", icon: ShieldCheck, permission: "audit:view" },
 ] as const;
 
 export function App() {
@@ -208,6 +211,8 @@ function Shell({ route }: { route: string[] }) {
             <Config tab={route[1]} />
           ) : page === "equipe" && state.can("team:manage") ? (
             <Team tab={route[1]} />
+          ) : page === "auditoria" && state.can("audit:view") ? (
+            <Audit />
           ) : (
             <Home />
           )}

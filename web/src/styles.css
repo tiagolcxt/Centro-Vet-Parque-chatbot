@@ -1616,3 +1616,22 @@ fieldset.field label.inline-row {
 .config-section > header.inline-row {
   align-items: flex-start;
 }
+
+/* Auditoria (E2): hora em coluna fixa; no celular, a hora vai para cima. */
+.audit-list li {
+  align-items: flex-start;
+}
+.audit-time {
+  flex: none;
+  width: 150px;
+  padding-top: 2px;
+}
+@media (max-width: 767px) {
+  .audit-list li {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .audit-time {
+    width: auto;
+  }
+}
