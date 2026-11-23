@@ -1571,3 +1571,48 @@ label {
     align-items: stretch;
   }
 }
+
+/* Equipe (E1): blocos empilhados e grupos de caixas de seleção. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+fieldset.field {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin: 12px 0;
+}
+fieldset.field legend {
+  font-size: 0.85rem;
+  padding: 0 4px;
+}
+fieldset.field .inline-row {
+  gap: 8px;
+  padding: 2px 0;
+}
+
+/* Corpo dos diálogos com formulário (Equipe): margem interna e rolagem em telas baixas. */
+.dialog-body {
+  padding: 16px 20px 20px;
+  max-height: min(75vh, 720px);
+  overflow-y: auto;
+}
+/* Caixas de seleção e botões de opção não esticam como os campos de texto. */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  flex: none;
+}
+/* Linhas de caixa de seleção dentro de um grupo de campos: caixa e texto lado a lado. */
+fieldset.field label.inline-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  font-weight: normal;
+  margin: 0;
+}
+.config-section > header.inline-row {
+  align-items: flex-start;
+}

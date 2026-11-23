@@ -68,7 +68,7 @@
 | S3-7 ✅ | Simulador sobre o rascunho, com horário simulado | M | S3-2 | RF-S17 |
 | S3-8 ✅ | Assistente de configuração inicial em 7 passos | M | S3-5 | RF-S10 |
 | S3-9 ✅ | Avisos de validade e de rascunho não publicado na tela Início | P | S3-1 | RF-S18, RF-S72 |
-| S3-10 | Tela Equipe e tela de setores | M | S1-9 | RF-S03, RF-S12 |
+| S3-10 ✅ | Tela Equipe e tela de setores | M | S1-9 | RF-S03, RF-S12 |
 | S3-11 | Tela de auditoria | P | S1-11 | RF-S08 |
 | S3-12 ⚑ | Teste de usabilidade com alguém da clínica (configuração fictícia) | P | S3-8 | Plano de validação |
 | S3-13 ✅ | Modelos por tipo de negócio (clínica pequena, clínica com pet shop, só pet shop ou banho e tosa, hospital 24 h): setores, perfis, regras, perguntas sugeridas e tom | M | S3-1, S3-4 | DA-53 |

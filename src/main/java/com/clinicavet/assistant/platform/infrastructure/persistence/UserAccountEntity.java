@@ -120,6 +120,13 @@ public class UserAccountEntity {
         inviteExpiresAt = null;
     }
 
+    public void enable() {
+        status = passwordHash == null ? Accounts.Status.INVITED : Accounts.Status.ACTIVE;
+        disabledAt = null;
+        failedLogins = 0;
+        lockedUntil = null;
+    }
+
     public void changeRole(UUID newRoleId) {
         this.roleId = newRoleId;
     }

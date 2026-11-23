@@ -76,6 +76,12 @@ class EmployeeController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/employees/{id}/enable")
+    @PreAuthorize("hasAuthority('team:manage')")
+    TeamService.EmployeeView enable(@PathVariable UUID id) {
+        return team.enable(id);
+    }
+
     /** Novo link de senha (convite perdido ou senha esquecida). */
     @PostMapping("/employees/{id}/invite")
     @PreAuthorize("hasAuthority('team:manage')")

@@ -32,6 +32,12 @@ public interface Accounts {
 
     void disable(UUID userId);
 
+    /**
+     * Reativa uma conta desativada (revisão pré-piloto, E1.2): volta a entrar com a senha que já tinha; se nunca
+     * definiu senha, volta a "convidada" e precisa de um novo convite. O histórico de autoria não muda.
+     */
+    void enable(UUID userId);
+
     Optional<View> find(UUID userId);
 
     List<View> list();

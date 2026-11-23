@@ -87,6 +87,10 @@ public class TeamService {
         employee.change(validName(data.displayName()), blankToNull(data.jobTitle()),
                 blankToNull(data.professionalRegistration()), validDepartments(data.departmentIds()));
         if (data.roleId() != null && !data.roleId().equals(account.roleId())) {
+            if (!managesTeam(data.roleId()) && isLastManager(id)) {
+                throw new ConflictException("Esta é a última pessoa que administra a equipe. Dê esse acesso a outra "
+                        + "pessoa antes de trocar o perfil dela.");
+            }
             accounts.changeRole(id, data.roleId());
         }
         audit.record("employee.updated", "user", id, null);
@@ -99,7 +103,31 @@ public class TeamService {
         if (by.userId().equals(id)) {
             throw new ConflictException("Ninguém desativa a própria conta: peça a outro administrador.");
         }
+        if (isLastManager(id)) {
+            throw new ConflictException("Esta é a última pessoa que administra a equipe. Dê esse acesso a outra "
+                    + "pessoa antes de desativar.");
+        }
         accounts.disable(id);
+    }
+
+    /** Reativa (E1.2). Quem nunca definiu senha precisa de um novo convite depois. */
+    @Transactional
+    public EmployeeView enable(UUID id) {
+        EmployeeEntity employee = own(id);
+        accounts.enable(id);
+        return view(employee, accounts.find(id).orElseThrow());
+    }
+
+    private boolean managesTeam(UUID roleId) {
+        return roles.find(roleId).map(r -> r.permissions().contains(com.clinicavet.assistant.platform.Permission.TEAM_MANAGE))
+                .orElse(false);
+    }
+
+    /** A clínica nunca fica sem uma conta ativa que administra a equipe. */
+    private boolean isLastManager(UUID id) {
+        List<Accounts.View> managers = accounts.list().stream()
+                .filter(a -> a.status() == Accounts.Status.ACTIVE && managesTeam(a.roleId())).toList();
+        return managers.size() == 1 && managers.getFirst().id().equals(id);
     }
 
     @Transactional

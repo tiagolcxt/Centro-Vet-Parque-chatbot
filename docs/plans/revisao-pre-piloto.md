@@ -549,6 +549,10 @@ Etapas curtas, cada uma com testes e aprovação antes da seguinte:
   - as abas da Configuração quebram linha no computador;
   - Clientes lista quem falou por último antes da busca.
 - **E3.1** ✅ conversa P1/P2 aguardando a equipe não expira por inatividade.
+- **E1** ✅ tela Equipe (Pessoas, Perfis e permissões, Setores):
+  - convite com link copiável, editar, desativar e **reativar** (E1.2);
+  - a clínica nunca fica sem quem administre a equipe (desativar ou trocar o perfil do último administrador é recusado);
+  - testes em `TeamManagementIT`.
 
 **Fora do escopo agora:** agenda real, prontuário, estoque, PDV, e-commerce, painel financeiro, microsserviços, RAG,
 mensageria distribuída, múltiplas instâncias do servidor.

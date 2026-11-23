@@ -15,6 +15,7 @@ import {
   Settings,
   Stethoscope,
   Sun,
+  UserCog,
   Users,
 } from "lucide-react";
 import { api, ApiError, resetCsrf } from "./api";
@@ -27,6 +28,7 @@ import { Inbox } from "./pages/Inbox";
 import { Requests } from "./pages/Requests";
 import { Customers } from "./pages/Customers";
 import { Config } from "./pages/Config";
+import { Team } from "./pages/Team";
 import { Dialog, SHORTCUTS, ToastProvider, useHotkeys, useTheme, useToast } from "./ui";
 
 interface Loaded {
@@ -41,6 +43,7 @@ const NAV = [
   { path: "solicitacoes", label: "Solicitações", icon: ClipboardList, permission: "request:view" },
   { path: "clientes", label: "Clientes e pets", icon: Users, permission: "customer:view" },
   { path: "configuracao", label: "Configuração", icon: Settings, permission: "config:edit" },
+  { path: "equipe", label: "Equipe", icon: UserCog, permission: "team:manage" },
 ] as const;
 
 export function App() {
@@ -203,6 +206,8 @@ function Shell({ route }: { route: string[] }) {
             <Customers selectedId={route[1]} />
           ) : page === "configuracao" && state.can("config:edit") ? (
             <Config tab={route[1]} />
+          ) : page === "equipe" && state.can("team:manage") ? (
+            <Team tab={route[1]} />
           ) : (
             <Home />
           )}

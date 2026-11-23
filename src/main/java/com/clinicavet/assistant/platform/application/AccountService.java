@@ -202,6 +202,18 @@ public class AccountService implements Accounts {
     }
 
     @Override
+    public void enable(UUID userId) {
+        tx.executeWithoutResult(status -> {
+            UserAccountEntity account = own(userId);
+            if (account.status() != Status.DISABLED) {
+                return;
+            }
+            account.enable();
+            audit.record("user.enabled", "user", userId, null);
+        });
+    }
+
+    @Override
     public Optional<View> find(UUID userId) {
         UUID clinic = CurrentClinic.require().value();
         return accounts.findByIdAndClinicId(userId, clinic).map(UserAccountEntity::view);
