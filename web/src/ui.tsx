@@ -120,6 +120,63 @@ export function Dialog({ title, open, onClose, children }: { title: string; open
   );
 }
 
+// ---------------------------------------------------------------- menu de ações
+
+export interface MenuItem {
+  label: string;
+  icon?: ReactNode;
+  onSelect: () => void;
+  disabled?: boolean;
+  hint?: string;
+  danger?: boolean;
+}
+
+/** Botão que abre uma lista de ações secundárias. Fecha ao escolher, ao clicar fora ou com Esc. */
+export function ActionMenu({ label, icon, items }: { label: string; icon?: ReactNode; items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  if (items.length === 0) return null;
+  return (
+    <div className="menu" ref={ref}>
+      <button aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {icon}
+        {label}
+      </button>
+      {open && (
+        <div className="menu-list" role="menu">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              role="menuitem"
+              className={item.danger ? "menu-danger" : undefined}
+              disabled={item.disabled}
+              title={item.hint}
+              onClick={() => {
+                setOpen(false);
+                item.onSelect();
+              }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- atalhos de teclado
 
 /** Está digitando? Atalhos de uma tecla não valem dentro de campos. */

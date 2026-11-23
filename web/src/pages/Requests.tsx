@@ -4,7 +4,7 @@ import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { QueueBadge, RequestStatusBadge, RiskBadge } from "../components/Badges";
 import { outcomeLabel, requestStatusLabel, requestTypeLabel, timeLabel, demandTypeLabel, readableSummary } from "../labels";
-import type { Outcome, RequestDetail, RequestItem, DemandType } from "../types";
+import type { ConversationDetail, Outcome, RequestDetail, RequestItem, DemandType } from "../types";
 import { useToast } from "../ui";
 import { TransferPanel } from "./Inbox";
 import { CopyButton } from "../config/tools";
@@ -108,6 +108,13 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
   const { data, error, reload } = useLoad(() => api.get<RequestDetail>("/service-requests/" + id), [id, liveTick]);
   const [panel, setPanel] = useState<"none" | "transfer" | "close">("none");
   const [note, setNote] = useState("");
+  // A conversa da solicitação: ao concluir a última solicitação aberta, a equipe pode encerrar a conversa junto, para
+  // ela não ficar "aguardando atendimento" para sempre (achado da simulação de 1 mês).
+  const conversationId = data?.request.conversationId;
+  const conversation = useLoad(
+    () => (conversationId && panel === "close" ? api.get<ConversationDetail>("/conversations/" + conversationId).catch(() => null) : Promise.resolve(null)),
+    [conversationId, panel],
+  );
 
   const act = async (fn: () => Promise<unknown>, done: string) => {
     try {
@@ -133,6 +140,12 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
   }
   if (!data) return <p className="empty center-v">Carregando…</p>;
   const r = data.request;
+  const conv = conversation.data;
+  const offerCloseConversation =
+    !!conv &&
+    can("conversation:assume") &&
+    (conv.status === "WAITING_HUMAN" || conv.status === "ASSIGNED") &&
+    conv.requests.every((x) => x.id === r.id || x.status === "RESOLVED" || x.status === "CANCELLED");
   const open = r.status !== "RESOLVED" && r.status !== "CANCELLED";
 
   return (
@@ -217,9 +230,16 @@ function Request({ id, onChanged }: { id: string; onChanged: () => void }) {
       {panel === "close" && (
         <ClosePanel
           inProgress={r.status === "IN_PROGRESS"}
+          offerCloseConversation={offerCloseConversation}
           onCancel={() => setPanel("none")}
-          onSubmit={(status, outcome, outcomeNote) =>
-            act(() => api.patch(`/service-requests/${id}`, { status, outcome, outcomeNote }), status === "RESOLVED" ? "Solicitação concluída" : "Solicitação cancelada")
+          onSubmit={(status, outcome, outcomeNote, closeConversation) =>
+            act(
+              async () => {
+                await api.patch(`/service-requests/${id}`, { status, outcome, outcomeNote });
+                if (closeConversation) await api.post(`/conversations/${r.conversationId}/close`);
+              },
+              (status === "RESOLVED" ? "Solicitação concluída" : "Solicitação cancelada") + (closeConversation ? " e conversa encerrada" : ""),
+            )
           }
         />
       )}
@@ -328,22 +348,25 @@ function eventText(
 
 function ClosePanel({
   inProgress,
+  offerCloseConversation,
   onSubmit,
   onCancel,
 }: {
   inProgress: boolean;
-  onSubmit: (status: "RESOLVED" | "CANCELLED", outcome: Outcome, note: string) => Promise<void>;
+  offerCloseConversation: boolean;
+  onSubmit: (status: "RESOLVED" | "CANCELLED", outcome: Outcome, note: string, closeConversation: boolean) => Promise<void>;
   onCancel: () => void;
 }) {
   const [status, setStatus] = useState<"RESOLVED" | "CANCELLED">(inProgress ? "RESOLVED" : "CANCELLED");
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [note, setNote] = useState("");
+  const [closeConversation, setCloseConversation] = useState(true);
   return (
     <form
       className="inline-panel"
       onSubmit={(e) => {
         e.preventDefault();
-        if (outcome) void onSubmit(status, outcome, note);
+        if (outcome) void onSubmit(status, outcome, note, offerCloseConversation && closeConversation);
       }}
     >
       <div className="inline-panel-head">
@@ -368,6 +391,12 @@ function ClosePanel({
           </button>
         ))}
       </div>
+      {offerCloseConversation && (
+        <label className="check-row">
+          <input type="checkbox" checked={closeConversation} onChange={(e) => setCloseConversation(e.target.checked)} />
+          Encerrar também a conversa (não há outras solicitações abertas nela)
+        </label>
+      )}
       <div className="inline-row">
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder={outcome === "OTHER" ? "Observação (obrigatória)" : "Observação (opcional)"} required={outcome === "OTHER"} />
         <button className="primary" disabled={!outcome}>

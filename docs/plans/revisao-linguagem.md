@@ -114,7 +114,7 @@ Formato: **atual → proposto** · onde aparece · motivo e benefício.
 
 | Atual | Proposto | Onde | Motivo e benefício |
 |---|---|---|---|
-| Abas: Aguardando · Comigo · Todas | **Aguardando atendimento · Meus atendimentos · Todas** | Abas | A1, A3. No celular cabe em duas linhas; abreviar para "Aguardando · Meus · Todas" só se não couber |
+| Abas: Aguardando · Comigo · Todas | **Aguardando atendimento · Meus atendimentos · Todas** | Abas | A1, A3. No celular cabe em duas linhas; abreviar para "Aguardando · Meus · Todas" só se não couber. **23/11:** abreviado na lista de conversas (o nome longo cortava as abas); o nome completo fica na dica |
 | Com o assistente | **Assistente atendendo** | Estado | Diz quem está atendendo |
 | Aguardando a equipe | **Aguardando atendimento** + dica "Ninguém da equipe assumiu ainda. O assistente responde só dúvidas da clínica." | Estado | A1 |
 | Assumida / "Assumida por Ana" | **Em atendimento por Ana** | Estado, listas | A9 |

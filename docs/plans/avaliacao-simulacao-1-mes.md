@@ -152,6 +152,30 @@ Os 15 cenários dos dias com agendamento (1, 3, 5, 6, 11, 13, 23, 27 e 28) rodar
   primeira mensagem. Entra no A9.
 - **A3, A4 e A10** continuam como estão na seção 6.
 
+## 8. Tela de conversas e dados de teste (23/11/2026)
+
+Depois de ver o resultado no app, o responsável apontou três problemas.
+
+**1. Conversas "aguardando" há 26 dias.** Das 13 conversas em "Aguardando atendimento":
+- **9** tinham a solicitação concluída pela equipe simulada, mas a conversa nunca foi encerrada. Conversa e solicitação são separadas (ADR-0011), e o prazo de inatividade só fecha a conversa quando o tutor volta a escrever.
+- **4** tinham a solicitação sem tratamento (Tiago, de propósito; Sofia; Murilo).
+
+O que mudou: ao concluir a última solicitação aberta, a tela oferece "Encerrar também a conversa", já marcado. O alerta para conversa esquecida continua no E3 (A10).
+
+**2. Tela de conversas cortada e poluída.** O que mudou:
+- **Cartão da lista:** duas linhas, com o nome e o tempo de espera, depois um selo só e o motivo.
+  - Saíram o segundo selo, a linha que repetia a aba e o motivo que repetia o selo.
+  - "Passou do prazo" virou ícone e cor, com o texto para leitor de tela.
+- **Abas:** "Aguardando · Meus · Todas", sem rolagem lateral.
+- **Cabeçalho:** nome, pet e selos numa linha. "Encerrar conversa" aparece para quem está atendendo; o resto foi para "Mais ações" (transferir, devolver ao assistente, mudar prioridade).
+- **Assumir:** um botão só, junto da caixa de resposta.
+- **Mensagens:** mais largas.
+
+**3. Pessoas e conversas repetidas.** Cada execução do roteiro criava uma equipe nova, e a reexecução duplicou conversas.
+- No banco de teste ficaram a simulação principal (40 conversas), 2 conversas de testes manuais e uma equipe só.
+- Foram apagadas: a tentativa com a chave inválida, a reexecução de hoje, as conversas de verificação e as contas repetidas.
+- O roteiro agora reaproveita a equipe existente.
+
 **Conclusão:** para o piloto, o assistente já é **seguro**. Para ser **útil**, faltava resolver o agendamento (A1, A2, feito
 em 23/11) e falta a calibragem de urgência (A3). Até lá, um piloto no **modo 2** ("Tira dúvidas da clínica") aproveitaria o que funcionou
 bem (informação, lacunas honestas, emergências) sem depender do fluxo de agendamento.

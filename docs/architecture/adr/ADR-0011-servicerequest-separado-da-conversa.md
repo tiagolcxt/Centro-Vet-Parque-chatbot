@@ -56,6 +56,7 @@ Com valores **provisórios** de P-06, P-07 e P-13 (só dados fictícios). Regras
 - Uma solicitação de agendamento em coleta por conversa (P-06); um pet por solicitação (P-07).
 - Registro (`PENDING`) só com pet (nome e espécie), motivo e nome do tutor (P-13), e com nome e espécie do pet confirmados na conversa (P-08 provisório).
 - (2026-11-23, achado A2) A equipe pode assumir um pedido ainda em `COLLECTING`: `startProgress` leva a `IN_PROGRESS` sem exigir os campos, e o assistente para de coletar nele.
+- (2026-11-23, simulação de 1 mês) Conversa e solicitação continuam independentes, mas a tela ajuda a não esquecer a conversa: ao concluir ou cancelar a **última** solicitação aberta de uma conversa que espera a equipe ou está em atendimento, aparece "Encerrar também a conversa", já marcado. São duas chamadas (`PATCH /app/api/service-requests/{id}` e `POST /app/api/conversations/{id}/close`), cada uma auditada. Na simulação, 9 de 13 conversas ficaram "aguardando atendimento" por semanas porque só a solicitação foi concluída.
 - O aviso de registro ao tutor é texto do sistema e diz que dia e horário só valem depois de confirmados pela equipe.
 - **P-15 (provisório):** o assistente não lê o desfecho; pedido encerrado aparece ao modelo só como "encerrado pela equipe". Ele não afirma confirmação nem resolução (V5, V6).
 - A resposta da equipe (`GET /api/service-requests`) passou a trazer `tutorId`, `petId`, `reason` e `preferredPeriod`.

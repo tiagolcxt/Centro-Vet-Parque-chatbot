@@ -1,19 +1,55 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRightLeft, Bot, Check, CheckCheck, Clock, Flag, Lock, PanelRight, Paperclip, PawPrint, RotateCw, Send, X, CheckCircle2, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRightLeft, Bot, Check, CheckCheck, Clock, Flag, Lock, MoreHorizontal, PanelRight, Paperclip, PawPrint, RotateCw, Send, X, CheckCircle2, Zap } from "lucide-react";
 import { api } from "../api";
 import { go, useApp, useLoad } from "../app-context";
 import { QueueBadge, RequestStatusBadge, RiskBadge, StatusBadge } from "../components/Badges";
 import { handoffReasonLabel, minutesLabel, queueLabel, requestTypeLabel, riskLabel, speciesLabel, timeLabel, conversationStatusLabel } from "../labels";
 import type { ClinicalRisk, ConversationDetail, InboxItem, MessageItem, QueuePriority } from "../types";
-import { Drawer, useHotkeys, useToast } from "../ui";
+import { ActionMenu, Drawer, useHotkeys, useToast, type MenuItem } from "../ui";
 import type { QuickReply } from "../config/tools";
 
-type Filter = "WAITING" | "MINE" | "ALL";
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "WAITING", label: "Aguardando atendimento" },
-  { id: "MINE", label: "Meus atendimentos" },
-  { id: "ALL", label: "Todas" },
+export type Filter = "WAITING" | "MINE" | "ALL";
+const FILTERS: { id: Filter; label: string; hint: string }[] = [
+  { id: "WAITING", label: "Aguardando", hint: "Aguardando atendimento da equipe" },
+  { id: "MINE", label: "Meus", hint: "Meus atendimentos: conversas em atendimento por você" },
+  { id: "ALL", label: "Todas", hint: "Todas as conversas" },
 ];
+
+/** Motivos que só repetem o selo de risco do cartão. */
+const REASONS_SHOWN_BY_BADGE = new Set(["POSSIBLE_EMERGENCY", "CLINICAL_PRIORITY"]);
+
+/**
+ * Uma linha de contexto por cartão, sem repetir a aba nem o selo: o motivo do encaminhamento e, fora da aba
+ * "Aguardando", quem está com a conversa.
+ */
+export function cardContext(c: InboxItem, filter: Filter): string {
+  const parts: string[] = [];
+  const badgeShown = c.clinicalRisk === "POSSIBLE_EMERGENCY" || c.clinicalRisk === "URGENT";
+  if (c.handoffReason && !(badgeShown && REASONS_SHOWN_BY_BADGE.has(c.handoffReason))) {
+    parts.push(handoffReasonLabel[c.handoffReason] ?? c.handoffReason);
+  }
+  if (filter !== "WAITING") {
+    if (c.status === "ASSIGNED") {
+      if (filter !== "MINE") parts.push(`com ${c.assigneeName?.split(" ")[0] ?? "outra pessoa"}`);
+    } else {
+      parts.push(conversationStatusLabel[c.status].toLowerCase());
+    }
+  }
+  if (parts.length === 0) return "";
+  const text = parts.join(" · ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Espera curta para o cartão: acima de um dia, só os dias. */
+function shortWait(minutes: number): string {
+  return minutes >= 1440 ? `${Math.floor(minutes / 1440)} d` : minutesLabel(minutes);
+}
+
+/** O selo mais importante do cartão: risco (emergência ou urgência); senão a prioridade da fila, se não for normal. */
+function CardBadge({ c }: { c: InboxItem }) {
+  if (c.clinicalRisk === "POSSIBLE_EMERGENCY" || c.clinicalRisk === "URGENT") return <RiskBadge risk={c.clinicalRisk} />;
+  return <QueueBadge priority={c.operationalPriority} />;
+}
 
 const ATTACHMENTS: Record<NonNullable<MessageItem["attachment"]>["kind"], string> = {
   IMAGE: "Imagem",
@@ -98,7 +134,7 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
       <aside className="split-list">
         <div className="tabs" role="tablist">
           {FILTERS.map((f) => (
-            <button key={f.id} role="tab" aria-selected={filter === f.id} onClick={() => setFilter(f.id)}>
+            <button key={f.id} role="tab" aria-selected={filter === f.id} title={f.hint} onClick={() => setFilter(f.id)}>
               {f.label} <span className="count">{lists[f.id].data?.length ?? ""}</span>
             </button>
           ))}
@@ -115,21 +151,20 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
                 aria-current={c.id === selectedId ? "true" : undefined}
               >
                 <div className="conv-item-top">
-                  <RiskBadge risk={c.clinicalRisk} />
-                  <QueueBadge priority={c.operationalPriority} />
-                  <span className={"wait" + (c.overdue ? " overdue" : "")}>
-                    <Clock size={12} aria-hidden />
-                    {c.waitingMinutes !== null ? minutesLabel(c.waitingMinutes) : timeLabel(c.lastActivityAt)}
-                    {c.overdue ? " · passou do prazo" : ""}
+                  <strong className="ellipsis">{c.tutorName ?? "Tutor sem nome"}</strong>
+                  <span
+                    className={"wait" + (c.overdue ? " overdue" : "")}
+                    title={c.overdue ? "Esperando além do prazo de atendimento" : c.waitingMinutes !== null ? "Tempo de espera" : "Última mensagem"}
+                  >
+                    {c.overdue ? <AlertTriangle size={12} aria-hidden /> : <Clock size={12} aria-hidden />}
+                    {c.waitingMinutes !== null ? shortWait(c.waitingMinutes) : timeLabel(c.lastActivityAt)}
+                    {c.overdue && <span className="sr-only"> · passou do prazo</span>}
                   </span>
                 </div>
-                <strong>{c.tutorName ?? "Tutor sem nome cadastrado"}</strong>
-                <span className="muted small">
-                  {c.handoffReason ? handoffReasonLabel[c.handoffReason] ?? c.handoffReason : "Com o assistente"}
-                </span>
-                <span className="muted small">
-                  {c.status === "ASSIGNED" ? `Em atendimento por ${c.assigneeName ?? "outra pessoa"}` : conversationStatusLabel[c.status]}
-                </span>
+                <div className="conv-item-bottom">
+                  <CardBadge c={c} />
+                  <span className="muted small ellipsis">{cardContext(c, filter)}</span>
+                </div>
               </a>
             </li>
           ))}
@@ -228,6 +263,31 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
   }
   if (!data) return <p className="empty center-v">Carregando…</p>;
 
+  const close = () =>
+    window.confirm("Encerrar esta conversa? As solicitações dela continuam abertas.") &&
+    act(() => api.post(`/conversations/${id}/close`), "Conversa encerrada");
+  const transferable = can("conversation:transfer") && data.status !== "OPEN";
+  const moreActions: MenuItem[] = [
+    ...(transferable
+      ? [
+          { label: "Transferir para outro setor", icon: <ArrowRightLeft size={16} aria-hidden />, disabled: !canTransfer, onSelect: () => setPanel("transfer") },
+          {
+            label: "Devolver ao assistente",
+            icon: <Bot size={16} aria-hidden />,
+            disabled: !canTransfer,
+            hint: "O assistente volta a responder o tutor nesta conversa.",
+            onSelect: () => void act(() => api.post(`/conversations/${id}/return-to-assistant`, { reason: null }), "Conversa devolvida ao assistente"),
+          },
+        ]
+      : []),
+    ...(can("conversation:assume")
+      ? [{ label: "Mudar prioridade", icon: <Flag size={16} aria-hidden />, onSelect: () => setPanel("priority") }]
+      : []),
+    ...(can("conversation:assume") && !mine
+      ? [{ label: "Encerrar conversa", icon: <CheckCircle2 size={16} aria-hidden />, danger: true, onSelect: () => void close() }]
+      : []),
+  ];
+
   const side = <SidePanel data={data} noteRef={noteRef} onNote={(text) => act(() => api.post(`/conversations/${id}/notes`, { text }), "Nota salva")} active={active} />;
 
   return (
@@ -238,59 +298,30 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
             <button className="icon-button back" onClick={() => go("atendimento")} aria-label="Voltar para as conversas">
               <ArrowLeft size={18} />
             </button>
-            <div className="grow">
-              <h2>{data.tutor?.name ?? "Tutor sem nome cadastrado"}{data.tutor?.pets[0] ? ` · ${data.tutor.pets[0].name}` : ""}</h2>
+            <div className="grow conv-title">
+              <h2 className="ellipsis">{data.tutor?.name ?? "Tutor sem nome"}{data.tutor?.pets[0] ? ` · ${data.tutor.pets[0].name}` : ""}</h2>
               <div className="badges">
                 <RiskBadge risk={data.clinicalRisk} />
-                <QueueBadge priority={data.operationalPriority} fixed={!!data.operationalOverride} />
+                {data.operationalOverride && <QueueBadge priority={data.operationalPriority} fixed />}
                 <StatusBadge status={data.status} assignee={data.assigneeName} />
-                <span className="badge">{departmentName(data.departmentId)}</span>
+                <span className="muted small">{departmentName(data.departmentId)}</span>
                 {data.channel === "WHATSAPP" && <span className="badge badge-whatsapp">WhatsApp</span>}
               </div>
             </div>
+            {active && (
+              <div className="conv-actions">
+                {mine && can("conversation:assume") && (
+                  <button onClick={close}>
+                    <CheckCircle2 size={16} aria-hidden /> Encerrar conversa
+                  </button>
+                )}
+                <ActionMenu label="Mais ações" icon={<MoreHorizontal size={16} aria-hidden />} items={moreActions} />
+              </div>
+            )}
             <button className="icon-button side-toggle" onClick={() => setSideOpen(true)} aria-label="Tutor, pet e notas">
               <PanelRight size={18} />
             </button>
           </div>
-          {active && (
-            <div className="actions">
-              {canAssume && (
-                <button className="primary" onClick={() => void assume()}>
-                  Assumir atendimento <kbd>A</kbd>
-                </button>
-              )}
-              {can("conversation:transfer") && data.status !== "OPEN" && (
-                <button disabled={!canTransfer} onClick={() => setPanel(panel === "transfer" ? "none" : "transfer")}>
-                  <ArrowRightLeft size={16} aria-hidden /> Transferir para outro setor
-                </button>
-              )}
-              {can("conversation:transfer") && data.status !== "OPEN" && (
-                <button
-                  disabled={!canTransfer}
-                  title="O assistente volta a responder o tutor nesta conversa."
-                  onClick={() => act(() => api.post(`/conversations/${id}/return-to-assistant`, { reason: null }), "Conversa devolvida ao assistente")}
-                >
-                  <Bot size={16} aria-hidden /> Devolver ao assistente
-                </button>
-              )}
-              {can("conversation:assume") && (
-                <button onClick={() => setPanel(panel === "priority" ? "none" : "priority")}>
-                  <Flag size={16} aria-hidden /> Mudar prioridade
-                </button>
-              )}
-              {can("conversation:assume") && (
-                <button
-                  className="quiet"
-                  onClick={() =>
-                    window.confirm("Encerrar esta conversa? As solicitações dela continuam abertas.") &&
-                    act(() => api.post(`/conversations/${id}/close`), "Conversa encerrada")
-                  }
-                >
-                  Encerrar conversa
-                </button>
-              )}
-            </div>
-          )}
           {panel === "transfer" && (
             <TransferPanel
               departments={departments.filter(
@@ -366,7 +397,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
               </span>
               {canAssume && (
                 <button className="primary" onClick={() => void assume()}>
-                  Assumir
+                  Assumir atendimento <kbd>A</kbd>
                 </button>
               )}
             </div>

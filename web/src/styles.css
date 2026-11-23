@@ -230,6 +230,15 @@ label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 .center {
   text-align: center;
@@ -744,6 +753,8 @@ label {
 }
 .conv-item {
   border-bottom: 1px solid var(--border);
+  gap: 4px;
+  padding: 10px 14px;
 }
 .conv-item:hover,
 .req-link:hover {
@@ -753,17 +764,28 @@ label {
 .conv-item.selected {
   background: var(--accent);
 }
-.conv-item-top {
+.conv-item-top,
+.conv-item-bottom {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  min-width: 0;
+}
+.conv-item-top {
+  justify-content: space-between;
+}
+.conv-item-bottom {
+  min-height: 22px;
+}
+.conv-item-bottom .badge {
+  flex-shrink: 0;
 }
 .wait {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 0.78rem;
   color: var(--muted-fg);
 }
@@ -801,17 +823,68 @@ label {
   min-width: 0;
 }
 .conv-header {
-  padding: 14px 20px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--card);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 .conv-title-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+}
+.conv-title-row {
+  flex-wrap: wrap;
+}
+.conv-title {
+  min-width: 200px;
+}
+.conv-title h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.conv-title .badges {
+  align-items: center;
+  margin-top: 4px;
+}
+.conv-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.menu {
+  position: relative;
+}
+.menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.menu-list button {
+  justify-content: flex-start;
+  border: none;
+  box-shadow: none;
+  background: none;
+  text-align: left;
+  white-space: nowrap;
+}
+.menu-list button:hover:not(:disabled) {
+  background: var(--muted);
+}
+.menu-list .menu-danger {
+  color: var(--p1-fg);
 }
 .side-toggle {
   display: none;
@@ -849,7 +922,7 @@ label {
   background: var(--bg);
 }
 .msg {
-  max-width: min(560px, 78%);
+  max-width: min(680px, 85%);
   padding: 10px 14px;
   border-radius: 14px;
   white-space: pre-wrap;
@@ -1644,4 +1717,15 @@ fieldset.field label.inline-row {
 .demand-row select {
   width: auto;
   min-width: 220px;
+}
+
+/* Encerrar a conversa junto com a última solicitação */
+label.check-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-start;
+  color: var(--fg);
+  gap: 8px;
+  font-size: 0.88rem;
 }
