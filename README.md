@@ -1,5 +1,7 @@
 # Assistente Virtual de Atendimento Veterinário — backend
 
+[![CI](https://github.com/tiagolcxt/Centro-Vet-Parque-chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/tiagolcxt/Centro-Vet-Parque-chatbot/actions/workflows/ci.yml)
+
 Primeira camada de atendimento de uma clínica veterinária: conversa com tutores, responde dúvidas institucionais com informação verificada, organiza solicitações e encaminha para a equipe humana. Não diagnostica, não prescreve e não confirma agendamentos.
 
 > **Somente dados fictícios.** O uso com dados reais exige a Etapa 7 (barreira LGPD, [ADR-0014](docs/architecture/adr/ADR-0014-barreira-dados-reais-lgpd.md)).
